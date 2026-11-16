@@ -54,6 +54,11 @@ export class Audio {
       case 'roar': this.noise(1.0, 0.16, 300); this.tone(70, 1.0, 'sawtooth', 0.12, -20); break;
       case 'slam': this.noise(0.45, 0.2, 260); this.tone(55, 0.4, 'sine', 0.18, -20); break;
       case 'rumble': this.noise(0.6, 0.08, 180); break;
+      case 'glide': this.noise(0.4, 0.05, 900); this.tone(300, 0.25, 'sine', 0.04, 120); break;
+      case 'grapple': this.tone(900, 0.12, 'square', 0.05, -500); this.noise(0.1, 0.05, 4000); break;
+      case 'gear': this.tone(120, 0.08, 'square', 0.05, 0); this.noise(0.05, 0.05, 1500); break;
+      case 'laser': this.tone(1200, 0.6, 'sawtooth', 0.04, -600); break;
+      case 'stomp': this.noise(0.5, 0.22, 200); this.tone(45, 0.5, 'sine', 0.2, -10); break;
       case 'splash': this.noise(0.5, 0.14, 1200); this.tone(200, 0.3, 'sine', 0.06, -120); break;
     }
   }

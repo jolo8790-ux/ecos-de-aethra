@@ -29,6 +29,7 @@ export class Input {
     // un clic sin arrastrar = atacar; arrastrar = girar la cámara; clic derecho = esquivar
     let drag = false, lx = 0, ly = 0, moved = 0;
     canvas.addEventListener('mousedown', e => {
+      if (e.button === 1) { e.preventDefault(); this._pressed.add('grapple'); return; }
       if (e.button === 2) { this._pressed.add('dodge'); this.usingGamepad = false; return; }
       drag = true; moved = 0; lx = e.clientX; ly = e.clientY;
     });
@@ -61,7 +62,7 @@ export class Input {
     let joyId = null, cx = 0, cy = 0, camId = null, tx = 0, ty = 0;
     this._joy = { x: 0, y: 0 };
     const btn = (id, action) => document.getElementById(id).addEventListener('touchstart', e => { e.stopPropagation(); this._pressed.add(action); this._held.add(action); }, { passive: true });
-    btn('tJump', 'jump'); btn('tAct', 'interact'); btn('tPause', 'pause'); btn('tAtk', 'attack'); btn('tDodge', 'dodge');
+    btn('tJump', 'jump'); btn('tAct', 'interact'); btn('tPause', 'pause'); btn('tAtk', 'attack'); btn('tDodge', 'dodge'); btn('tHook', 'grapple');
     document.getElementById('tJump').addEventListener('touchend', () => this._held.delete('jump'));
     addEventListener('touchstart', e => {
       for (const t of e.changedTouches) {
@@ -119,7 +120,7 @@ export class Input {
       this.look.x += rx * 14; this.look.y += ry * 10;
       const b = i => pad.buttons[i] && pad.buttons[i].pressed;
       const edge = (i, action) => { const now = b(i); if (now && !this._prevPad[i]) { this._pressed.add(action); this.usingGamepad = true; } this._prevPad[i] = now; };
-      edge(0, 'jump'); edge(2, 'attack'); edge(1, 'dodge'); edge(3, 'interact'); edge(9, 'pause');
+      edge(0, 'jump'); edge(2, 'attack'); edge(1, 'dodge'); edge(3, 'interact'); edge(9, 'pause'); edge(5, 'grapple'); edge(7, 'grapple');
       this._padJump = b(0);
     }
 
@@ -136,6 +137,6 @@ export class Input {
 }
 
 const KEYMAP = {
-  Space: 'jump', KeyE: 'interact', Enter: 'interact', KeyF: 'interact', KeyJ: 'attack', KeyK: 'dodge', KeyL: 'dodge',
+  Space: 'jump', KeyE: 'interact', Enter: 'interact', KeyF: 'interact', KeyJ: 'attack', KeyK: 'dodge', KeyL: 'dodge', KeyG: 'grapple', KeyC: 'grapple',
   Escape: 'pause', KeyP: 'pause',
 };

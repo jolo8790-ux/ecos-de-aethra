@@ -11,7 +11,7 @@ Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes
 | 1. Fundamentos | Motor, cámara, controles, física, guardado | Lista |
 | 2. Prólogo jugable | Puerto Bruma, diálogos, primera misión | Lista |
 | 3. Combate y capítulo 1 | Bastón, esquiva, Bosque Colgante, Raíz Madre | Lista |
-| 4. Capítulos 2 y 3 | Planeador, garfio, 2 jefes | Pendiente |
+| 4. Capítulos 2 y 3 | Planeador, garfio, Ruinas de Vidrio, Ciudad de Engranajes, Escorpión Prisma, Coloso | Lista |
 | 5. Capítulos 4 y 5 | Escudo, pulso de luz, 2 finales | Pendiente |
 | 6. Arte y sonido | Modelos, música, decorados con Budget3D | Pendiente |
 | 7. Pruebas y versión final | Equilibrio, errores, publicación | Pendiente |
@@ -34,6 +34,8 @@ python -m http.server 8000
 | Saltar / doble salto | Espacio | A |
 | Golpear (combo de 3) | Clic izquierdo o J | X |
 | Esquivar / impulso aéreo | Clic derecho o K | B |
+| Planear (con el planeador) | Mantener Espacio al caer | Mantener A |
+| Garfio (al anillo marcado) | G o clic central | RB / RT |
 | Hablar, leer, usar | E | Y |
 | Pausa, ajustes y guardado | Esc o P | Start |
 
@@ -52,7 +54,7 @@ js/save.js              guardado local y código de exportación
 js/characters.js        personajes animados (modelos KayKit), mezcla de animaciones, mirada
 js/rig.js               personaje de respaldo hecho con formas (si los modelos no cargan)
 js/fx.js                partículas: polvo, destellos
-js/combat.js            enemigos, proyectiles, curaciones y jefe Raíz Madre
+js/combat.js            enemigos, proyectiles, curaciones y jefes (Raíz Madre, Escorpión Prisma, Coloso)
 assets/characters/      modelos y animaciones (.glb codificados en .js)
 tools/build_assets.mjs  reconstruye los modelos desde el paquete KayKit original
 js/zones/*.js           datos de cada zona (plataformas, personajes, diálogos)
