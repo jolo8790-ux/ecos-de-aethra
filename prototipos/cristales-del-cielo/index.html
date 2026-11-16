@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Cristales del Cielo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0d1b2a; font-family: 'Fredoka', system-ui, sans-serif; color: #fff; user-select: none; -webkit-user-select: none; touch-action: none; }
+  canvas { display: block; }
+  #hud { position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; padding: 14px 18px; pointer-events: none; font-weight: 600; font-size: 18px; text-shadow: 0 2px 4px rgba(0,0,0,.45); }
+  #hud .box { background: rgba(10,25,45,.45); padding: 6px 14px; border-radius: 14px; backdrop-filter: blur(4px); }
+  #hud .row { display: flex; gap: 10px; }
+  .overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: radial-gradient(ellipse at center, rgba(20,40,80,.75), rgba(5,10,25,.92)); z-index: 10; padding: 24px; }
+  .overlay.hidden { display: none; }
+  .overlay h1 { font-size: clamp(36px, 7vw, 72px); font-weight: 700; background: linear-gradient(180deg, #fff 20%, #7fd8ff); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 8px; letter-spacing: 1px; }
+  .overlay h2 { font-size: clamp(28px, 5vw, 48px); margin-bottom: 10px; }
+  .overlay p { opacity: .85; max-width: 520px; line-height: 1.5; margin-bottom: 6px; }
+  .btn { margin-top: 22px; font-family: inherit; font-size: 22px; font-weight: 600; padding: 12px 38px; border: none; border-radius: 40px; cursor: pointer; color: #08223a; background: linear-gradient(180deg, #8ff0ff, #3fb6ff); box-shadow: 0 6px 0 #1a6fa8, 0 10px 24px rgba(0,0,0,.35); transition: transform .08s; }
+  .btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #1a6fa8; }
+  .keys { margin-top: 18px; display: grid; grid-template-columns: auto auto; gap: 6px 16px; text-align: left; font-size: 15px; opacity: .85; }
+  .keys b { background: rgba(255,255,255,.15); padding: 1px 8px; border-radius: 6px; font-weight: 600; }
+  #banner { position: fixed; top: 22%; left: 0; right: 0; text-align: center; font-size: clamp(26px, 5vw, 46px); font-weight: 700; pointer-events: none; text-shadow: 0 3px 10px rgba(0,0,0,.5); opacity: 0; transition: opacity .4s; }
+  #flash { position: fixed; inset: 0; background: #ff3050; opacity: 0; pointer-events: none; transition: opacity .3s; }
+  #touch { display: none; }
+  .touch #touch { display: block; }
+  #joy { position: fixed; width: 120px; height: 120px; border-radius: 50%; background: rgba(255,255,255,.12); border: 2px solid rgba(255,255,255,.3); display: none; pointer-events: none; z-index: 5; }
+  #joyKnob { position: absolute; left: 35px; top: 35px; width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,.5); }
+  #jumpBtn { position: fixed; right: 28px; bottom: 36px; width: 86px; height: 86px; border-radius: 50%; background: rgba(127,216,255,.35); border: 2px solid rgba(255,255,255,.5); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; z-index: 5; }
+  #pauseBtn { position: fixed; top: 64px; right: 18px; width: 44px; height: 44px; border-radius: 12px; background: rgba(10,25,45,.45); border: none; color: #fff; font-size: 20px; z-index: 5; }
+  #hint { position: fixed; bottom: 14px; left: 0; right: 0; text-align: center; font-size: 14px; opacity: .7; pointer-events: none; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+  .touch #hint { display: none; }
+</style>
+</head>
+<body>
+<div id="hud">
+  <div class="row"><div class="box" id="hudLevel">Nivel 1</div><div class="box" id="hudCrystals">💎 0/0</div></div>
+  <div class="row"><div class="box" id="hudTime">⏱ 0:00</div><div class="box" id="hudLives">❤️❤️❤️</div></div>
+</div>
+<div id="banner"></div>
+<div id="flash"></div>
+<div id="hint">Arrastra el ratón (o Q / E) para girar la cámara · Esc para pausar</div>
+
+<div id="touch">
+  <div id="joy"><div id="joyKnob"></div></div>
+  <div id="jumpBtn">SALTAR</div>
+  <button id="pauseBtn">❚❚</button>
+</div>
+
+<div class="overlay" id="menu">
+  <h1>Cristales del Cielo</h1>
+  <p>Recoge todos los cristales de cada isla flotante para abrir el portal. Salta sobre los enemigos para derrotarlos y no caigas al vacío.</p>
+  <div class="keys">
+    <b>W A S D</b><span>Moverse (o flechas)</span>
+    <b>Espacio</b><span>Saltar (doble salto en el aire)</span>
+    <b>Ratón</b><span>Arrastra para girar la cámara</span>
+    <b>Esc / P</b><span>Pausa</span>
+  </div>
+  <button class="btn" id="startBtn">Jugar</button>
+  <p id="bestTime" style="margin-top:14px;font-size:14px;"></p>
+</div>
+
+<div class="overlay hidden" id="pause">
+  <h2>Pausa</h2>
+  <button class="btn" id="resumeBtn">Continuar</button>
+  <button class="btn" id="restartBtn" style="background:linear-gradient(180deg,#ffd38f,#ff9f3f);box-shadow:0 6px 0 #a8601a">Reiniciar nivel</button>
+</div>
+
+<div class="overlay hidden" id="gameover">
+  <h2>Fin del juego</h2>
+  <p id="goText">Te quedaste sin vidas.</p>
+  <button class="btn" id="retryBtn">Intentar de nuevo</button>
+</div>
+
+<div class="overlay hidden" id="victory">
+  <h1>¡Victoria!</h1>
+  <p id="winText"></p>
+  <button class="btn" id="againBtn">Jugar otra vez</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+'use strict';
+
+// ---------- Niveles ----------
+// plataforma: [x, top, z, ancho, fondo, opciones]  opciones: {ax:'x'|'y'|'z', r: rango, s: velocidad}
+const LEVELS = [
+  {
+    name: 'Las Islas Tranquilas',
+    sky: 0x87ceeb, fog: 0xbfe6ff,
+    start: [0, 0, 0],
+    platforms: [
+      [0, 0, 0, 10, 10],
+      [0, 0, -12, 6, 6],
+      [0, 1.5, -20, 5, 5],
+      [6, 3, -26, 5, 5],
+      [14, 3, -26, 6, 4],
+      [14, 4.5, -34, 7, 7],
+      [14, 4.5, -45, 9, 9],
+    ],
+    crystals: [[0, 1, -12], [0, 2.5, -20], [6, 4, -26], [15, 4, -26], [12, 5.5, -34]],
+    enemies: [[5, 2.5, 'x']],
+    portal: [14, 4.5, -47],
+  },
+  {
+    name: 'Plataformas Errantes',
+    sky: 0xf7b58a, fog: 0xffd9bf,
+    start: [0, 0, 0],
+    platforms: [
+      [0, 0, 0, 8, 8],
+      [0, 0, -10, 4, 4, { ax: 'x', r: 4, s: 1.1 }],
+      [0, 1, -18, 4, 4],
+      [-6, 2, -24, 4, 4, { ax: 'z', r: 2.5, s: 1.3 }],
+      [-6, 3, -33, 6, 6],
+      [2, 4, -38, 3, 3],
+      [9, 5, -38, 4, 4, { ax: 'y', r: 1.5, s: 1.2 }],
+      [18, 6, -38, 9, 9],
+    ],
+    crystals: [[0, 1, -10], [0, 2, -18], [-6, 3, -24], [-7, 4, -33], [2, 5, -38], [9, 6.5, -38]],
+    enemies: [[4, 2, 'x'], [7, 3, 'z']],
+    portal: [20, 6, -38],
+  },
+  {
+    name: 'La Cumbre de Cristal',
+    sky: 0x2b2d5c, fog: 0x4a3f7a,
+    start: [0, 0, 0],
+    platforms: [
+      [0, 0, 0, 8, 8],
+      [0, 1, -8.5, 3, 3],
+      [5, 2, -13, 3, 3],
+      [10, 3, -19, 3, 3, { ax: 'x', r: 3, s: 1.4 }],
+      [10, 4, -28, 6, 6],
+      [3, 5, -33, 2.5, 2.5],
+      [-4, 6, -38, 3, 3, { ax: 'z', r: 3, s: 1.2 }],
+      [-4, 7, -48, 7, 7],
+      [4, 8, -54, 3, 3, { ax: 'y', r: 2, s: 1.3 }],
+      [13, 9.5, -58, 10, 10],
+    ],
+    crystals: [[0, 2, -8.5], [5, 3, -13], [10, 4.5, -19], [11, 5, -28], [3, 6, -33], [-4, 7.5, -38], [-5, 8, -48], [4, 9.5, -54]],
+    enemies: [[4, 2.2, 'x'], [7, 2.5, 'x'], [7, 2.5, 'z'], [9, 3.5, 'x']],
+    portal: [15, 9.5, -60],
+  },
+];
+
+// ---------- Constantes ----------
+const GRAVITY = 26, JUMP_V = 9.6, SPEED = 7.2, ACCEL = 40, AIR_ACCEL = 18;
+const PR = 0.38, PH = 1.5; // radio y altura del jugador
+const MAX_LIVES = 3;
+
+// ---------- Escena ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 400);
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0x445566, 0.65);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+const sc = sun.shadow.camera; sc.left = -30; sc.right = 30; sc.top = 30; sc.bottom = -30; sc.near = 1; sc.far = 120;
+sun.shadow.bias = -0.0005;
+scene.add(sun, sun.target);
+
+// ---------- Audio ----------
+let actx = null;
+function beep(freq, dur, type = 'sine', vol = 0.15, slide = 0) {
+  if (!actx) return;
+  try {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, actx.currentTime);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), actx.currentTime + dur);
+    g.gain.setValueAtTime(vol, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur);
+    o.connect(g); g.connect(actx.destination); o.start(); o.stop(actx.currentTime + dur);
+  } catch (e) {}
+}
+const SFX = {
+  jump: () => beep(380, 0.15, 'square', 0.06, 300),
+  djump: () => beep(560, 0.15, 'square', 0.06, 400),
+  gem: () => { beep(880, 0.1, 'triangle', 0.12); setTimeout(() => beep(1320, 0.18, 'triangle', 0.12), 70); },
+  stomp: () => beep(220, 0.2, 'square', 0.1, -150),
+  hurt: () => beep(180, 0.4, 'sawtooth', 0.12, -120),
+  portal: () => { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => beep(f, 0.25, 'triangle', 0.1), i * 90)); },
+  open: () => beep(300, 0.6, 'sine', 0.12, 600),
+};
+
+// ---------- Materiales ----------
+const mat = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.8, metalness: 0 }, o));
+const grassMat = mat(0x6ccf5a), dirtMat = mat(0x8a5a3b), moveMat = mat(0x5ab0e0), moveTop = mat(0xa5e3ff);
+const crystalMat = mat(0x7fefff, { emissive: 0x2299cc, emissiveIntensity: 0.6, roughness: 0.2, metalness: 0.3, flatShading: true });
+
+// ---------- Personaje ----------
+function makePlayer() {
+  const g = new THREE.Group();
+  const bodyMat = mat(0xff7a45), whiteMat = mat(0xffffff), darkMat = mat(0x1a1a2e);
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.4, 0.8, 16), bodyMat); body.position.y = 0.6;
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 12), bodyMat); belly.position.y = 0.3; belly.scale.y = 0.7;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.38, 20, 16), bodyMat); head.position.y = 1.15;
+  const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), whiteMat); eyeL.position.set(-0.14, 1.2, -0.32);
+  const eyeR = eyeL.clone(); eyeR.position.x = 0.14;
+  const pupL = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), darkMat); pupL.position.set(-0.14, 1.2, -0.4);
+  const pupR = pupL.clone(); pupR.position.x = 0.14;
+  const footMat = mat(0x3b2a5a);
+  const footL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.14, 0.32), footMat); footL.position.set(-0.17, 0.07, -0.04);
+  const footR = footL.clone(); footR.position.x = 0.17;
+  const scarf = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.07, 8, 20), mat(0x3fb6ff)); scarf.rotation.x = Math.PI / 2; scarf.position.y = 0.92;
+  [body, belly, head, eyeL, eyeR, pupL, pupR, footL, footR, scarf].forEach(m => { m.castShadow = true; g.add(m); });
+  g.userData = { body, head, footL, footR };
+  return g;
+}
+const playerMesh = makePlayer();
+scene.add(playerMesh);
+const blobShadow = new THREE.Mesh(new THREE.CircleGeometry(0.42, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.25, depthWrite: false }));
+blobShadow.rotation.x = -Math.PI / 2; scene.add(blobShadow);
+
+// ---------- Nubes decorativas ----------
+const deco = new THREE.Group(); scene.add(deco);
+function makeClouds(seed) {
+  deco.clear();
+  const cm = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, transparent: true, opacity: 0.85 });
+  let s = seed;
+  const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
+  for (let i = 0; i < 40; i++) {
+    const c = new THREE.Group();
+    const n = 3 + Math.floor(rnd() * 4);
+    for (let j = 0; j < n; j++) {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(1.5 + rnd() * 2, 10, 8), cm);
+      m.position.set(j * 2 - n, rnd() * 1.2, rnd() * 2);
+      c.add(m);
+    }
+    c.position.set((rnd() - 0.5) * 160, -14 - rnd() * 18, (rnd() - 0.5) * 160 - 30);
+    deco.add(c);
+  }
+}
+
+// ---------- Estado del juego ----------
+const world = new THREE.Group(); scene.add(world);
+let platforms = [], crystals = [], enemies = [], portal = null, particles = [];
+let levelIndex = 0, lives = MAX_LIVES, gemsTaken = 0, totalTime = 0, levelTime = 0;
+let state = 'menu'; // menu | play | pause | over | win | transition
+let time = 0;
+
+const player = {
+  pos: new THREE.Vector3(), vel: new THREE.Vector3(), onGround: false, ground: null,
+  jumps: 0, coyote: 0, buffer: 0, invuln: 0, facing: 0, squash: 0, walk: 0,
+};
+
+function buildLevel(i) {
+  world.clear();
+  platforms = []; crystals = []; enemies = []; particles = [];
+  const L = LEVELS[i];
+  scene.background = new THREE.Color(L.sky);
+  scene.fog = new THREE.Fog(L.fog, 40, 140);
+  makeClouds(i * 1000 + 7);
+
+  L.platforms.forEach((p, idx) => {
+    const [x, top, z, w, d, mv] = p;
+    const h = 1.2;
+    const grp = new THREE.Group();
+    const base = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mv ? moveMat : dirtMat);
+    base.position.y = -h / 2; base.castShadow = true; base.receiveShadow = true;
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(w + 0.12, 0.25, d + 0.12), mv ? moveTop : grassMat);
+    cap.position.y = -0.12; cap.receiveShadow = true; cap.castShadow = true;
+    grp.add(base, cap);
+    if (!mv && w * d > 20) {
+      // rocas colgantes debajo de islas grandes
+      const rock = new THREE.Mesh(new THREE.ConeGeometry(Math.min(w, d) * 0.45, Math.min(w, d) * 0.7, 7), dirtMat);
+      rock.rotation.x = Math.PI; rock.position.y = -h - Math.min(w, d) * 0.35; rock.castShadow = true;
+      grp.add(rock);
+    }
+    grp.position.set(x, top, z);
+    world.add(grp);
+    platforms.push({ mesh: grp, base: new THREE.Vector3(x, top, z), pos: new THREE.Vector3(x, top, z), delta: new THREE.Vector3(), w, d, h, mv, idx });
+  });
+
+  L.crystals.forEach(c => {
+    const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.35, 0), crystalMat);
+    m.scale.y = 1.5; m.castShadow = true;
+    m.position.set(c[0], c[1] + 0.3, c[2]);
+    world.add(m);
+    crystals.push({ mesh: m, base: m.position.clone(), taken: false, phase: Math.random() * 6 });
+  });
+
+  L.enemies.forEach(e => {
+    const [pi, range, axis] = e;
+    const pl = platforms[pi];
+    const g = new THREE.Group();
+    const em = mat(0xe8435a, { roughness: 0.5 });
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.5, 18, 14), em); body.position.y = 0.5; body.castShadow = true;
+    const spikeMat = mat(0x2a1a3a);
+    for (let k = 0; k < 6; k++) {
+      const sp = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.3, 6), spikeMat);
+      const a = (k / 6) * Math.PI * 2;
+      sp.position.set(Math.cos(a) * 0.25, 0.95, Math.sin(a) * 0.25);
+      sp.rotation.z = -Math.cos(a) * 0.5; sp.rotation.x = Math.sin(a) * 0.5;
+      g.add(sp);
+    }
+    const eyeM = mat(0xffffff), pupM = mat(0x000000);
+    [-0.17, 0.17].forEach(ex => {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), eyeM); eye.position.set(ex, 0.6, 0.42);
+      const pup = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), pupM); pup.position.set(ex, 0.6, 0.52);
+      g.add(eye, pup);
+    });
+    g.add(body);
+    world.add(g);
+    enemies.push({ mesh: g, plat: pl, range, axis, phase: Math.random() * 6, speed: 1 + Math.random() * 0.4, alive: true, dying: 0 });
+  });
+
+  // portal
+  const pg = new THREE.Group();
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.18, 12, 40), mat(0x9b8cff, { emissive: 0x4433aa, emissiveIntensity: 0.3 }));
+  ring.position.y = 1.5; ring.castShadow = true;
+  const inner = new THREE.Mesh(new THREE.CircleGeometry(1.1, 32), new THREE.MeshBasicMaterial({ color: 0xc8b8ff, transparent: true, opacity: 0.0, side: THREE.DoubleSide }));
+  inner.position.y = 1.5;
+  const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(1, 1.2, 0.3, 20), mat(0x6a6080));
+  pedestal.position.y = 0.15; pedestal.receiveShadow = true;
+  pg.add(ring, inner, pedestal);
+  pg.position.set(...L.portal);
+  world.add(pg);
+  portal = { mesh: pg, ring, inner, open: false };
+
+  gemsTaken = 0; levelTime = 0;
+  respawn(true);
+  updateHUD();
+  showBanner(`Nivel ${i + 1}: ${L.name}`, 2.2);
+}
+
+function respawn(full) {
+  const s = LEVELS[levelIndex].start;
+  player.pos.set(s[0], s[1] + 0.01, s[2]);
+  player.vel.set(0, 0, 0);
+  player.onGround = false; player.ground = null; player.jumps = 0;
+  player.invuln = full ? 0 : 1.6;
+  player.facing = 0;
+  camYaw = 0; camPitch = 0.38;
+}
+
+// ---------- Entrada ----------
+const keys = {};
+let jumpPressed = false;
+window.addEventListener('keydown', e => {
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+  if (!keys[e.code] && (e.code === 'Space')) jumpPressed = true;
+  keys[e.code] = true;
+  if (e.code === 'Escape' || e.code === 'KeyP') togglePause();
+});
+window.addEventListener('keyup', e => { keys[e.code] = false; });
+window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (state === 'play') togglePause(); });
+
+let camYaw = 0, camPitch = 0.38, camDist = 9;
+let dragging = false, lastX = 0, lastY = 0;
+renderer.domElement.addEventListener('mousedown', e => { dragging = true; lastX = e.clientX; lastY = e.clientY; });
+window.addEventListener('mouseup', () => dragging = false);
+window.addEventListener('mousemove', e => {
+  if (!dragging || state !== 'play') return;
+  camYaw -= (e.clientX - lastX) * 0.006;
+  camPitch = Math.max(0.05, Math.min(1.2, camPitch + (e.clientY - lastY) * 0.004));
+  lastX = e.clientX; lastY = e.clientY;
+});
+renderer.domElement.addEventListener('wheel', e => { camDist = Math.max(5, Math.min(16, camDist + e.deltaY * 0.01)); }, { passive: true });
+
+// táctil
+const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+if (isTouch) document.body.classList.add('touch');
+const joy = document.getElementById('joy'), knob = document.getElementById('joyKnob');
+let joyId = null, joyCx = 0, joyCy = 0, joyX = 0, joyY = 0, camTouchId = null, camTx = 0, camTy = 0;
+window.addEventListener('touchstart', e => {
+  for (const t of e.changedTouches) {
+    if (t.target.id === 'jumpBtn') { jumpPressed = true; continue; }
+    if (t.target.id === 'pauseBtn' || t.target.closest('.overlay')) continue;
+    if (t.clientX < window.innerWidth / 2 && joyId === null) {
+      joyId = t.identifier; joyCx = t.clientX; joyCy = t.clientY;
+      joy.style.display = 'block'; joy.style.left = (joyCx - 60) + 'px'; joy.style.top = (joyCy - 60) + 'px';
+    } else if (camTouchId === null) {
+      camTouchId = t.identifier; camTx = t.clientX; camTy = t.clientY;
+    }
+  }
+}, { passive: true });
+window.addEventListener('touchmove', e => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === joyId) {
+      let dx = t.clientX - joyCx, dy = t.clientY - joyCy;
+      const len = Math.hypot(dx, dy), max = 50;
+      if (len > max) { dx *= max / len; dy *= max / len; }
+      joyX = dx / max; joyY = dy / max;
+      knob.style.left = (35 + dx) + 'px'; knob.style.top = (35 + dy) + 'px';
+    } else if (t.identifier === camTouchId && state === 'play') {
+      camYaw -= (t.clientX - camTx) * 0.008;
+      camPitch = Math.max(0.05, Math.min(1.2, camPitch + (t.clientY - camTy) * 0.005));
+      camTx = t.clientX; camTy = t.clientY;
+    }
+  }
+}, { passive: true });
+function endTouch(e) {
+  for (const t of e.changedTouches) {
+    if (t.identifier === joyId) { joyId = null; joyX = joyY = 0; joy.style.display = 'none'; knob.style.left = '35px'; knob.style.top = '35px'; }
+    if (t.identifier === camTouchId) camTouchId = null;
+  }
+}
+window.addEventListener('touchend', endTouch);
+window.addEventListener('touchcancel', endTouch);
+document.getElementById('pauseBtn').addEventListener('click', togglePause);
+
+// ---------- UI ----------
+const $ = id => document.getElementById(id);
+function updateHUD() {
+  $('hudLevel').textContent = `Nivel ${levelIndex + 1}/${LEVELS.length}`;
+  $('hudCrystals').textContent = `💎 ${gemsTaken}/${crystals.length}`;
+  $('hudLives').textContent = '❤️'.repeat(Math.max(0, lives)) + '🖤'.repeat(Math.max(0, MAX_LIVES - lives));
+}
+function fmt(t) { const m = Math.floor(t / 60), s = Math.floor(t % 60); return `${m}:${String(s).padStart(2, '0')}`; }
+let bannerTimer = 0;
+function showBanner(text, dur) { $('banner').textContent = text; $('banner').style.opacity = 1; bannerTimer = dur; }
+function flash() { $('flash').style.opacity = 0.45; setTimeout(() => $('flash').style.opacity = 0, 120); }
+function show(id) { ['menu', 'pause', 'gameover', 'victory'].forEach(o => $(o).classList.toggle('hidden', o !== id)); }
+
+function loadBest() { try { return parseFloat(localStorage.getItem('cdc_best')) || null; } catch (e) { return null; } }
+function saveBest(t) { try { localStorage.setItem('cdc_best', String(t)); } catch (e) {} }
+function refreshBest() { const b = loadBest(); $('bestTime').textContent = b ? `Mejor tiempo: ${fmt(b)}` : ''; }
+refreshBest();
+
+function startGame() {
+  if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  if (actx && actx.state === 'suspended') actx.resume().catch(() => {});
+  levelIndex = 0; lives = MAX_LIVES; totalTime = 0;
+  buildLevel(0);
+  show(null); state = 'play';
+}
+function togglePause() {
+  if (state === 'play') { state = 'pause'; show('pause'); }
+  else if (state === 'pause') { state = 'play'; show(null); }
+}
+$('startBtn').addEventListener('click', startGame);
+$('retryBtn').addEventListener('click', startGame);
+$('againBtn').addEventListener('click', startGame);
+$('resumeBtn').addEventListener('click', togglePause);
+$('restartBtn').addEventListener('click', () => { buildLevel(levelIndex); state = 'play'; show(null); });
+
+// ---------- Física ----------
+function platBox(p) {
+  return { minX: p.pos.x - p.w / 2, maxX: p.pos.x + p.w / 2, minY: p.pos.y - p.h, maxY: p.pos.y, minZ: p.pos.z - p.d / 2, maxZ: p.pos.z + p.d / 2 };
+}
+function overlaps(b, pos) {
+  const E = 0.001;
+  return pos.x + PR > b.minX && pos.x - PR < b.maxX &&
+         pos.z + PR > b.minZ && pos.z - PR < b.maxZ &&
+         pos.y + PH > b.minY + E && pos.y < b.maxY - E;
+}
+function moveAxis(axis, amount) {
+  player.pos[axis] += amount;
+  for (const p of platforms) {
+    const b = platBox(p);
+    if (!overlaps(b, player.pos)) continue;
+    if (axis === 'x') { player.pos.x = amount > 0 ? b.minX - PR - 0.001 : b.maxX + PR + 0.001; player.vel.x = 0; }
+    else if (axis === 'z') { player.pos.z = amount > 0 ? b.minZ - PR - 0.001 : b.maxZ + PR + 0.001; player.vel.z = 0; }
+    else {
+      if (amount <= 0) {
+        player.pos.y = b.maxY;
+        if (player.vel.y < -12) player.squash = 0.35;
+        player.vel.y = 0; player.onGround = true; player.ground = p;
+      } else { player.pos.y = b.minY - PH - 0.001; player.vel.y = 0; }
+    }
+  }
+}
+
+function hurt() {
+  if (player.invuln > 0) return;
+  lives--; SFX.hurt(); flash(); updateHUD();
+  if (lives <= 0) {
+    state = 'over';
+    $('goText').textContent = `Llegaste al nivel ${levelIndex + 1} con ${gemsTaken} cristales.`;
+    setTimeout(() => show('gameover'), 400);
+    return;
+  }
+  respawn(false);
+}
+
+function burst(pos, color, n = 14, spd = 4) {
+  const g = new THREE.SphereGeometry(0.08, 6, 4), m = new THREE.MeshBasicMaterial({ color });
+  for (let i = 0; i < n; i++) {
+    const s = new THREE.Mesh(g, m);
+    s.position.copy(pos);
+    const v = new THREE.Vector3((Math.random() - 0.5) * 2, Math.random() * 1.5 + 0.3, (Math.random() - 0.5) * 2).normalize().multiplyScalar(spd * (0.5 + Math.random()));
+    world.add(s);
+    particles.push({ mesh: s, vel: v, life: 0.6 + Math.random() * 0.3 });
+  }
+}
+
+// ---------- Bucle ----------
+const clock = new THREE.Clock();
+const tmpV = new THREE.Vector3();
+
+function update(dt) {
+  time += dt;
+  levelTime += dt; totalTime += dt;
+
+  // plataformas móviles
+  for (const p of platforms) {
+    if (!p.mv) { p.delta.set(0, 0, 0); continue; }
+    const old = p.pos.clone();
+    p.pos.copy(p.base);
+    p.pos[p.mv.ax] += Math.sin(time * p.mv.s) * p.mv.r;
+    p.delta.subVectors(p.pos, old);
+    p.mesh.position.copy(p.pos);
+  }
+  // arrastre por plataforma
+  if (player.onGround && player.ground) {
+    player.pos.add(player.ground.delta);
+  }
+
+  // entrada
+  let ix = 0, iz = 0;
+  if (keys.KeyW || keys.ArrowUp) iz += 1;
+  if (keys.KeyS || keys.ArrowDown) iz -= 1;
+  if (keys.KeyA || keys.ArrowLeft) ix -= 1;
+  if (keys.KeyD || keys.ArrowRight) ix += 1;
+  if (keys.KeyQ) camYaw += 2.2 * dt;
+  if (keys.KeyE) camYaw -= 2.2 * dt;
+  if (joyId !== null) { ix += joyX; iz -= joyY; }
+  const il = Math.hypot(ix, iz); if (il > 1) { ix /= il; iz /= il; }
+  const fx = -Math.sin(camYaw), fz = -Math.cos(camYaw);
+  const rx = Math.cos(camYaw), rz = -Math.sin(camYaw);
+  const wx = (fx * iz + rx * ix) * SPEED, wz = (fz * iz + rz * ix) * SPEED;
+  const acc = (player.onGround ? ACCEL : AIR_ACCEL) * dt;
+  player.vel.x += Math.max(-acc, Math.min(acc, wx - player.vel.x));
+  player.vel.z += Math.max(-acc, Math.min(acc, wz - player.vel.z));
+  if (Math.hypot(wx, wz) > 0.5) {
+    const target = Math.atan2(-wx, -wz);
+    let d = target - player.facing; d = Math.atan2(Math.sin(d), Math.cos(d));
+    player.facing += d * Math.min(1, dt * 12);
+  }
+
+  // salto
+  if (player.onGround) { player.coyote = 0.12; player.jumps = 0; } else player.coyote -= dt;
+  if (jumpPressed) { player.buffer = 0.12; jumpPressed = false; } else player.buffer -= dt;
+  if (player.buffer > 0) {
+    if (player.coyote > 0) {
+      player.vel.y = JUMP_V; player.coyote = 0; player.buffer = 0; player.jumps = 1; SFX.jump();
+      player.onGround = false; player.ground = null; player.squash = -0.25;
+    } else if (player.jumps < 2) {
+      player.vel.y = JUMP_V * 0.92; player.buffer = 0; player.jumps = 2; SFX.djump();
+      burst(player.pos.clone(), 0xffffff, 8, 2);
+    }
+  }
+
+  // gravedad y movimiento
+  player.vel.y -= GRAVITY * dt;
+  if (player.vel.y < -30) player.vel.y = -30;
+  player.onGround = false; player.ground = null;
+  moveAxis('x', player.vel.x * dt);
+  moveAxis('z', player.vel.z * dt);
+  moveAxis('y', player.vel.y * dt);
+
+  if (player.invuln > 0) player.invuln -= dt;
+  if (player.pos.y < -25) { hurt(); if (state !== 'play') return; }
+
+  // cristales
+  crystals.forEach(c => {
+    if (c.taken) return;
+    c.mesh.rotation.y += dt * 2;
+    c.mesh.position.y = c.base.y + Math.sin(time * 2.5 + c.phase) * 0.15;
+    tmpV.copy(player.pos); tmpV.y += PH / 2;
+    if (tmpV.distanceTo(c.mesh.position) < 1.0) {
+      c.taken = true; world.remove(c.mesh); gemsTaken++; SFX.gem();
+      burst(c.mesh.position, 0x7fefff, 16, 4);
+      updateHUD();
+      if (gemsTaken === crystals.length) { portal.open = true; SFX.open(); showBanner('¡El portal está abierto!', 2); }
+    }
+  });
+
+  // enemigos
+  enemies.forEach(e => {
+    if (!e.alive) {
+      if (e.dying > 0) { e.dying -= dt; e.mesh.scale.set(1 + (0.4 - e.dying), Math.max(0.05, e.dying * 2.5), 1 + (0.4 - e.dying)); if (e.dying <= 0) world.remove(e.mesh); }
+      return;
+    }
+    const t = time * e.speed + e.phase;
+    const off = Math.sin(t) * e.range;
+    e.mesh.position.copy(e.plat.pos);
+    e.mesh.position[e.axis] += off;
+    const dir = Math.cos(t) >= 0 ? 1 : -1;
+    e.mesh.rotation.y = e.axis === 'x' ? (dir > 0 ? Math.PI / 2 : -Math.PI / 2) : (dir > 0 ? 0 : Math.PI);
+    e.mesh.position.y += Math.abs(Math.sin(time * 8 + e.phase)) * 0.12;
+    const ey = e.mesh.position.y + 0.5;
+    const dxz = Math.hypot(player.pos.x - e.mesh.position.x, player.pos.z - e.mesh.position.z);
+    if (dxz < 0.85 && player.pos.y < ey + 0.55 && player.pos.y + PH > ey - 0.5) {
+      if (player.vel.y < 0 && player.pos.y > ey + 0.05) {
+        e.alive = false; e.dying = 0.4; player.vel.y = JUMP_V * 0.8; player.jumps = 1; SFX.stomp();
+        burst(e.mesh.position.clone().setY(ey), 0xe8435a, 18, 5);
+      } else hurt();
+    }
+  });
+  if (state !== 'play') return;
+
+  // portal
+  portal.ring.rotation.z += dt * (portal.open ? 2.5 : 0.4);
+  portal.inner.material.opacity = portal.open ? 0.55 + Math.sin(time * 5) * 0.2 : 0;
+  portal.ring.material.emissiveIntensity = portal.open ? 1.2 : 0.3;
+  if (portal.open) {
+    tmpV.copy(portal.mesh.position); tmpV.y += 1.5;
+    const pp = player.pos.clone(); pp.y += PH / 2;
+    if (pp.distanceTo(tmpV) < 1.4) {
+      SFX.portal();
+      state = 'transition';
+      burst(tmpV, 0xc8b8ff, 30, 6);
+      setTimeout(() => {
+        if (levelIndex + 1 < LEVELS.length) { levelIndex++; buildLevel(levelIndex); state = 'play'; }
+        else {
+          state = 'win';
+          const best = loadBest();
+          let msg = `Completaste los ${LEVELS.length} niveles en ${fmt(totalTime)} con ${lives} ${lives === 1 ? 'vida' : 'vidas'}.`;
+          if (!best || totalTime < best) { saveBest(totalTime); msg += ' ¡Nuevo récord!'; }
+          $('winText').textContent = msg; refreshBest();
+          show('victory');
+        }
+      }, 700);
+    }
+  }
+}
+
+function updateVisuals(dt) {
+  // partículas
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.life -= dt; p.vel.y -= 9 * dt;
+    p.mesh.position.addScaledVector(p.vel, dt);
+    p.mesh.scale.setScalar(Math.max(0.01, p.life * 1.5));
+    if (p.life <= 0) { world.remove(p.mesh); particles.splice(i, 1); }
+  }
+
+  // personaje
+  playerMesh.position.copy(player.pos);
+  playerMesh.rotation.y = player.facing;
+  const sp = Math.hypot(player.vel.x, player.vel.z);
+  const ud = playerMesh.userData;
+  if (player.onGround && sp > 0.5) player.walk += dt * sp * 2.2; else player.walk *= 0.9;
+  ud.footL.position.z = -0.04 + Math.sin(player.walk) * 0.18;
+  ud.footR.position.z = -0.04 - Math.sin(player.walk) * 0.18;
+  ud.footL.position.y = 0.07 + Math.max(0, Math.cos(player.walk)) * 0.08;
+  ud.footR.position.y = 0.07 + Math.max(0, -Math.cos(player.walk)) * 0.08;
+  player.squash *= Math.pow(0.001, dt);
+  const air = player.onGround ? 0 : Math.max(-0.12, Math.min(0.12, player.vel.y * 0.012));
+  const sy = 1 - player.squash + air;
+  playerMesh.scale.set(1 + player.squash * 0.6 - air * 0.5, sy, 1 + player.squash * 0.6 - air * 0.5);
+  playerMesh.visible = player.invuln > 0 ? Math.floor(time * 14) % 2 === 0 : true;
+
+  // sombra simple bajo el jugador
+  let gy = -1000;
+  for (const p of platforms) {
+    const b = platBox(p);
+    if (player.pos.x > b.minX && player.pos.x < b.maxX && player.pos.z > b.minZ && player.pos.z < b.maxZ && b.maxY <= player.pos.y + 0.05) gy = Math.max(gy, b.maxY);
+  }
+  blobShadow.visible = gy > -1000;
+  if (blobShadow.visible) {
+    blobShadow.position.set(player.pos.x, gy + 0.02, player.pos.z);
+    const h = player.pos.y - gy;
+    blobShadow.scale.setScalar(Math.max(0.4, 1 - h * 0.08));
+    blobShadow.material.opacity = Math.max(0.08, 0.3 - h * 0.025);
+  }
+
+  // cámara
+  const target = player.pos.clone(); target.y += 1.2;
+  const cp = new THREE.Vector3(
+    target.x + Math.sin(camYaw) * Math.cos(camPitch) * camDist,
+    target.y + Math.sin(camPitch) * camDist,
+    target.z + Math.cos(camYaw) * Math.cos(camPitch) * camDist
+  );
+  camera.position.lerp(cp, 1 - Math.pow(0.0001, dt));
+  camera.lookAt(target);
+
+  // sol sigue al jugador para sombras nítidas
+  sun.position.set(player.pos.x + 12, player.pos.y + 25, player.pos.z + 8);
+  sun.target.position.copy(player.pos);
+
+  deco.children.forEach((c, i) => { c.position.x += Math.sin(i) * dt * 0.3; });
+
+  if (bannerTimer > 0) { bannerTimer -= dt; if (bannerTimer <= 0) $('banner').style.opacity = 0; }
+  $('hudTime').textContent = `⏱ ${fmt(totalTime)}`;
+}
+
+function loop() {
+  requestAnimationFrame(loop);
+  const dt = Math.min(clock.getDelta(), 1 / 30);
+  if (state === 'play') update(dt);
+  if (state === 'play' || state === 'transition' || state === 'over') updateVisuals(dt);
+  if (state === 'menu') {
+    // cámara giratoria en el menú
+    time += dt;
+    camera.position.set(Math.sin(time * 0.15) * 22, 10, Math.cos(time * 0.15) * 22 - 20);
+    camera.lookAt(5, 2, -22);
+  }
+  renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// escena de fondo para el menú
+buildLevel(0);
+$('banner').style.opacity = 0; bannerTimer = 0;
+state = 'menu';
+loop();
+
+// gancho de pruebas
+window.__game = { player, get state() { return state; }, set state(v) { state = v; }, keys, startGame, crystals: () => crystals, enemies: () => enemies, platforms: () => platforms, portal: () => portal, get levelIndex() { return levelIndex; }, jump: () => { jumpPressed = true; } };
+})();
+</script>
+</body>
+</html>
