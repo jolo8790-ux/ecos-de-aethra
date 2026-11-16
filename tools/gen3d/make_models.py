@@ -1,26 +1,31 @@
-# Paso 2: imagen -> malla con textura (Hunyuan3D 2.1). Paso 3: simplificar para el navegador.
-# Uso: python make_models.py [ids...]   (elige la variante _1 salvo que exista elegida/<id>.png)
-import json, os, sys, time, traceback
+# Paso 2: imagen -> malla con textura (Hunyuan3D 2.1), simplificada para el navegador.
+# Uso (dentro de /workspace/venv): python make_models.py [ids...]
+# Usa elegida/<id>.png si existe; si no, la variante _1.
+import json, os, sys, time, traceback, shutil
 H = os.environ.get('HY', '/workspace/Hunyuan3D-2.1')
-sys.path[:0] = [H, f'{H}/hy3dshape', f'{H}/hy3dpaint']
-os.chdir(H)
-from PIL import Image
-import trimesh
-from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline
-from hy3dshape.rembg import BackgroundRemover
-from textureGenPipeline import Hunyuan3DPaintPipeline, Hunyuan3DPaintConfig
 here = os.path.dirname(os.path.abspath(__file__))
 cfg = json.load(open(os.path.join(here, 'assets.json')))
 out = os.environ.get('OUT', '/workspace/gen3d_out')
+sys.path[:0] = [H, f'{H}/hy3dshape', f'{H}/hy3dpaint']
+os.chdir(H)
+try:
+    from torchvision_fix import apply_fix; apply_fix()
+except Exception as e: print('aviso torchvision_fix:', e)
+from PIL import Image
+import trimesh
+from hy3dshape.rembg import BackgroundRemover
+from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline
+from textureGenPipeline import Hunyuan3DPaintPipeline, Hunyuan3DPaintConfig
 for d in ('raw', 'glb', 'log'): os.makedirs(f'{out}/{d}', exist_ok=True)
 only = set(sys.argv[1:])
 shape = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained('tencent/Hunyuan3D-2.1')
 rembg = BackgroundRemover()
-pc = Hunyuan3DPaintConfig(max_num_view=6, resolution=512)
-pc.realesrgan_ckpt_path = f'{H}/hy3dpaint/ckpt/RealESRGAN_x4plus.pth'
-pc.multiview_cfg_path = f'{H}/hy3dpaint/cfgs/hunyuan-paint-pbr.yaml'
-pc.custom_pipeline = f'{H}/hy3dpaint/hunyuanpaintpbr'
-paint = Hunyuan3DPaintPipeline(pc)
+conf = Hunyuan3DPaintConfig(6, 512)
+conf.realesrgan_ckpt_path = 'hy3dpaint/ckpt/RealESRGAN_x4plus.pth'
+conf.multiview_cfg_path = 'hy3dpaint/cfgs/hunyuan-paint-pbr.yaml'
+conf.custom_pipeline = 'hy3dpaint/hunyuanpaintpbr'
+conf.texture_size = 1024; conf.render_size = 1024   # texturas de 1024: suficientes para el juego y mucho más ligeras
+paint = Hunyuan3DPaintPipeline(conf)
 for a in cfg['assets']:
     i = a['id']
     if only and i not in only: continue
@@ -31,13 +36,16 @@ for a in cfg['assets']:
         img = rembg(Image.open(src).convert('RGB'))
         img.save(f'{out}/raw/{i}_rgba.png')
         mesh = shape(image=img, num_inference_steps=30, octree_resolution=256, seed=1)[0]
-        # simplificar antes de pintar: menos caras = textura más limpia y archivo pequeño
-        mesh = mesh.simplify_quadric_decimation(face_count=a['faces']) if len(mesh.faces) > a['faces'] else mesh
+        mesh.export(f'{out}/raw/{i}_full.glb')
+        if len(mesh.faces) > a['faces']:   # menos caras: archivo pequeño y estilo low-poly
+            mesh = mesh.simplify_quadric_decimation(face_count=a['faces'])
         mesh.export(f'{out}/raw/{i}_shape.obj')
-        paint(mesh_path=f'{out}/raw/{i}_shape.obj', image_path=f'{out}/raw/{i}_rgba.png', output_mesh_path=f'{out}/raw/{i}_tex.obj')
-        tm = trimesh.load(f'{out}/raw/{i}_tex.obj', force='mesh')
-        tm.export(f'{out}/glb/{i}.glb')
-        print(f'OK {i} {time.time()-t0:.0f}s caras={len(tm.faces)}', flush=True)
+        res = paint(mesh_path=f'{out}/raw/{i}_shape.obj', image_path=f'{out}/raw/{i}_rgba.png',
+                    output_mesh_path=f'{out}/raw/{i}_tex.obj', use_remesh=False, save_glb=True)
+        g = f'{out}/raw/{i}_tex.glb'
+        if os.path.exists(g): shutil.copy(g, f'{out}/glb/{i}.glb')
+        else: trimesh.load(f'{out}/raw/{i}_tex.obj').export(f'{out}/glb/{i}.glb')
+        print(f'OK {i} {time.time()-t0:.0f}s caras={len(mesh.faces)} -> {os.path.getsize(f"{out}/glb/{i}.glb")//1024} KB', flush=True)
     except Exception:
         open(f'{out}/log/{i}.txt', 'w').write(traceback.format_exc())
         print(f'FALLO {i} (ver log/{i}.txt)', flush=True)
