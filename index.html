@@ -115,6 +115,10 @@
 </script>
 </head>
 <body>
+<div id="glLost" class="hidden" style="position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#10213a;color:#fff;font-size:20px;text-align:center;padding:20px">
+  <div>La tarjeta gráfica se reinició. Recuperando la imagen…</div>
+  <button id="glReload" class="hidden" onclick="location.reload()" style="font:inherit;padding:10px 22px;border-radius:12px;border:0;background:#7fd3ff;color:#10213a;cursor:pointer">Recargar desde el último punto guardado</button>
+</div>
 <div id="hud" class="hidden"><div class="chip" id="hudHearts"></div><div class="chip" id="hudFrag">◆ 0/0</div></div>
 <div id="bossbar" class="hidden"><div class="bname" id="bossName"></div><div class="btrack"><div class="bfill" id="bossFill"></div></div></div>
 <div id="objective" class="hidden"><div class="lbl">Objetivo</div><div class="txt" id="objText"></div><div class="dist" id="objDist"></div></div>

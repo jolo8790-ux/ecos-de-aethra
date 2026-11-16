@@ -21,8 +21,16 @@ const ZONES = { puerto_bruma: puertoBruma, bosque_colgante: bosqueColgante, ruin
 const $ = id => document.getElementById(id);
 
 // ---------- motor ----------
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+// Gráficas integradas (Intel/UHD, móviles): menos píxeles y sombras más pequeñas para no saturar la GPU.
+const LOW_GPU = (() => {
+  try {
+    const gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info');
+    const name = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : '';
+    return /intel|uhd|hd graphics|iris|mali|adreno|powervr|swiftshader|llvmpipe/i.test(name) || /Android|iPhone|iPad/i.test(navigator.userAgent);
+  } catch (e) { return false; }
+})();
+renderer.setPixelRatio(Math.min(devicePixelRatio, LOW_GPU ? 1 : 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -32,7 +40,21 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 600);
 const hemi = new THREE.HemisphereLight(0xdff1ff, 0x5c6a50, 0.9); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff1d6, 1.6);
-sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+sun.castShadow = true; sun.shadow.mapSize.set(LOW_GPU ? 1024 : 2048, LOW_GPU ? 1024 : 2048);
+if (LOW_GPU) renderer.shadowMap.type = THREE.PCFShadowMap;
+
+// Si la tarjeta gráfica se reinicia (pasa en algunas integradas), el juego no se queda en blanco:
+// avisa, espera a que vuelva y, si no vuelve, ofrece recargar desde el último punto guardado.
+let glLost = false;
+renderer.domElement.addEventListener('webglcontextlost', e => {
+  e.preventDefault(); glLost = true;
+  const m = document.getElementById('glLost'); if (m) m.classList.remove('hidden');
+  try { persist(); } catch (err) {}
+  setTimeout(() => { if (glLost) { const b = document.getElementById('glReload'); if (b) b.classList.remove('hidden'); } }, 4000);
+}, false);
+renderer.domElement.addEventListener('webglcontextrestored', () => {
+  glLost = false; const m = document.getElementById('glLost'); if (m) m.classList.add('hidden');
+}, false);
 Object.assign(sun.shadow.camera, { left: -28, right: 28, top: 28, bottom: -28, near: 1, far: 140 });
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
 scene.add(sun, sun.target);
@@ -618,12 +640,19 @@ $('sDbg').onchange = e => { settings.debug = e.target.checked; writeSettings(set
 const clock = new THREE.Clock();
 let fpsAcc = 0, fpsN = 0, fps = 0;
 
+let frameErrors = 0;
 function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(clock.getDelta(), 1 / 30);
+  if (glLost) return;
   if (paused4test) { renderer.render(scene, camera); return; }
-  simulate(dt);
-  renderer.render(scene, camera);
+  try {
+    simulate(dt);
+    renderer.render(scene, camera);
+  } catch (e) { // un error en un fotograma no debe congelar el juego
+    if (frameErrors++ < 5) console.error('Error en el fotograma', e);
+    if (frameErrors === 3) toast('Algo falló; si se queda quieto, pulsa Esc y carga la partida');
+  }
   input.endFrame();
 }
 let paused4test = false;
