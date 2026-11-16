@@ -889,9 +889,8 @@ class Vaelor {
       const hand = findBone(this.ch.model, 'handslotr');
       this.sword = buildDarkSword(); if (hand) { hand.add(this.sword); this.sword.rotation.y = Math.PI; }
       const head = this.ch.bones.head;
-      if (head) { const helm = buildHelm(); this.ch.model.add(helm); helm.position.set(0, 1.42, 0); this.ch.model.updateMatrixWorld(true); head.attach(helm); }
-      const chest = this.ch.bones.chest;
-      if (chest) { const cape = buildCape(); this.ch.model.add(cape); cape.position.set(0, 1.25, -0.28); this.ch.model.updateMatrixWorld(true); chest.attach(cape); this.cape = cape; }
+      if (head) { const helm = buildHelm(); head.add(helm); helm.position.set(0, 0.56, 0.02); helm.scale.setScalar(1.65); } // medido en el espacio del hueso de la cabeza
+      // el modelo del caballero ya trae capa (recoloreada en LOOKS.vaelor)
     } else { // respaldo sin modelos
       mesh(new THREE.CylinderGeometry(0.5, 0.6, 2.2, 8), mat(0x3a2a4a), this.body, 0, 1.1, 0);
       mesh(new THREE.SphereGeometry(0.35, 10, 8), mat(0x5a4a6a), this.body, 0, 2.4, 0);
