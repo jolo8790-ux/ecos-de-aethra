@@ -34,6 +34,7 @@ export class Player {
     this.dodge = null; this.dodgeCd = 0; this.airDashUsed = false; this.launchT = 0;
     this.canGlide = false; this.gliding = false; this.glideT = 0; this.updrafts = [];
     this.canGrapple = false; this.grapple = null;
+    this.canShield = false; this.shielding = false; this.canPulse = false; this.pulseCd = 0;
     this.events = [];            // eventos para main (golpes, daño, muerte)
 
     this.shadow = new THREE.Mesh(new THREE.CircleGeometry(0.4, 20), new THREE.MeshBasicMaterial({ color: 0, transparent: true, opacity: 0.25, depthWrite: false }));
@@ -52,6 +53,7 @@ export class Player {
     if (hand) { hand.add(this.staff); this.staff.rotation.y = Math.PI; } // igual que las armas originales del paquete
     this.staff.visible = this.canFight;
     this.glider = buildGlider(); ch.root.add(this.glider);
+    this.shieldMesh = buildShield(); ch.root.add(this.shieldMesh);
   }
   gesture(name, opts) { if (this.anim.gesture) this.anim.gesture(name, opts); }
   setFight(on) { this.canFight = on; if (this.staff) this.staff.visible = on; }
@@ -75,9 +77,23 @@ export class Player {
 
   heal(n) { this.hp = Math.min(this.maxHp, this.hp + n); }
 
+  // ¿El escudo cubre un ataque que viene desde ese punto? (frente de Lía, unos 140°)
+  blocks(from) {
+    if (!this.shielding) return false;
+    const dx = from.x - this.pos.x, dz = from.z - this.pos.z, l = Math.hypot(dx, dz);
+    if (l < 0.05) return true;
+    return (dx * -Math.sin(this.facing) + dz * -Math.cos(this.facing)) / l > 0.3;
+  }
+
   // Recibir daño: devuelve true si hizo efecto.
   damage(amount, from) {
     if (this.invuln > 0 || (this.dodge && this.dodge.t < this.dodge.iframes) || this.hp <= 0) return false;
+    if (this.blocks(from)) { // el escudo detiene el golpe
+      const dx = this.pos.x - from.x, dz = this.pos.z - from.z, l = Math.hypot(dx, dz) || 1;
+      this.vel.x = dx / l * 4; this.vel.z = dz / l * 4;
+      this.shieldFlash = 1; this.audio.play('block'); this.events.push({ type: 'block' });
+      return false;
+    }
     this.hp -= amount; this.invuln = 1.1; this.hurtT = 0.35;
     const dx = this.pos.x - from.x, dz = this.pos.z - from.z, l = Math.hypot(dx, dz) || 1;
     this.vel.x = dx / l * 7; this.vel.z = dz / l * 7; this.vel.y = 5; this.grounded = false;
@@ -101,6 +117,24 @@ export class Player {
     if (!locked) { mx = input.move.x; my = input.move.y; }
     const fx = -Math.sin(camYaw), fz = -Math.cos(camYaw), rx = Math.cos(camYaw), rz = -Math.sin(camYaw);
     let dirX = fx * my + rx * mx, dirZ = fz * my + rz * mx;
+
+    // ---- escudo (mantener V / LB) ----
+    this.shielding = this.canShield && !this.frozen && this.hurtT <= 0 && input.held('shield') && this.grounded && !this.attack && !this.dodge;
+    if (this.shielding && !this._wasShielding) this.audio.play('shieldUp');
+    this._wasShielding = this.shielding;
+    if (this.shielding) { // apunta hacia donde mira la cámara
+      this.facing += angleDiff(camYaw, this.facing) * Math.min(1, dt * 14);
+    }
+
+    // ---- pulso de luz (Z / LT) ----
+    this.pulseCd -= dt;
+    if (!locked && this.canPulse && input.pressed('pulse') && this.pulseCd <= 0 && !this.dodge) {
+      this.pulseCd = 1.1; this.attack = null;
+      this.events.push({ type: 'pulse', pos: this.pos.clone(), radius: 6.5 });
+      this.audio.play('pulse');
+      this.anim.gesture && this.anim.gesture('Spellcast_Raise', { speed: 1.8, fadeIn: 0.05, fadeOut: 0.2 });
+      this.fx && this.fx.ring(this.pos.clone().setY(this.pos.y + 0.8), 0xfff2a8);
+    }
 
     // ---- ataques ----
     if (!locked && this.canFight && input.pressed('attack')) {
@@ -149,7 +183,7 @@ export class Player {
       const atk = this.attack;
       if (this.launchT > 0) this.launchT -= dt;
       const launching = this.launchT > 0 && !this.grounded; // tras el garfio se conserva el impulso
-      const speed = Math.max((input.walk ? WALK : RUN) * (atk ? 0.15 : 1), launching ? Math.hypot(this.vel.x, this.vel.z) : 0);
+      const speed = Math.max((input.walk ? WALK : RUN) * (atk ? 0.15 : 1) * (this.shielding ? 0.35 : 1), launching ? Math.hypot(this.vel.x, this.vel.z) : 0);
       const wx = dirX * speed, wz = dirZ * speed;
       const a = (this.grounded ? ACCEL : this.gliding ? AIR_ACCEL * 1.6 : AIR_ACCEL) * dt;
       if (this.hurtT <= 0) {
@@ -159,7 +193,7 @@ export class Player {
       if (atk && atk.t < atk.dur * 0.35) { // pequeño avance al golpear
         this.vel.x = -Math.sin(this.facing) * atk.def.lunge; this.vel.z = -Math.cos(this.facing) * atk.def.lunge;
       }
-      if (!atk && Math.hypot(wx, wz) > 0.3) {
+      if (!atk && !this.shielding && Math.hypot(wx, wz) > 0.3) {
         const target = Math.atan2(-wx, -wz);
         const turn = Math.hypot(this.vel.x, this.vel.z) < 1.5 ? 16 : 10;
         this.facing += angleDiff(target, this.facing) * Math.min(1, dt * turn);
@@ -309,7 +343,7 @@ export class Player {
       vel: this.vel, grounded: this.grounded, facing: this.facing, jumps: this.jumps,
       input: { x: this._wx || 0, z: this._wz || 0 }, lookAt: this.attack ? null : this.lookAt,
       landed: this._landed, landSpeed: this._landSpeed, doubleJumped: this._dj, jumped: this._jumped,
-      busy: !!(this.attack || this.dodge || this.grapple), gliding: this.gliding,
+      busy: !!(this.attack || this.dodge || this.grapple), gliding: this.gliding, shielding: this.shielding,
     });
     if (ev.footstep && !this.attack) {
       this.audio.play(ev.run ? 'stepRun' : 'step');
@@ -317,6 +351,15 @@ export class Player {
     }
     if (ev.skid && this.fx && Math.random() < 0.5) this.fx.dust(this.pos, 1, 0.8);
     this._updateRope();
+    if (this.shieldMesh) { // el escudo de prisma aparece delante de Lía
+      const S = this.shieldMesh.userData;
+      S.k = (S.k || 0) + ((this.shielding ? 1 : 0) - (S.k || 0)) * Math.min(1, dt * 16);
+      this.shieldFlash = Math.max(0, (this.shieldFlash || 0) - dt * 4);
+      this.shieldMesh.visible = S.k > 0.03;
+      this.shieldMesh.scale.setScalar(Math.max(0.01, S.k) * (1 + this.shieldFlash * 0.25));
+      S.mat.opacity = 0.35 + this.shieldFlash * 0.5; S.mat.emissiveIntensity = 0.8 + this.shieldFlash * 2.5;
+      S.rim.rotation.z += dt * 1.5;
+    }
     if (this.glider) { // el planeador se despliega con un pequeño rebote
       const want = this.gliding ? 1 : 0;
       this.glider.userData.k = (this.glider.userData.k || 0) + (want - (this.glider.userData.k || 0)) * Math.min(1, dt * 12);
@@ -359,6 +402,18 @@ function buildGlider() {
   const keel = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.4, 6), wood); keel.rotation.x = Math.PI / 2; keel.position.y = 0.02; tilt.add(keel);
   [-0.22, 0.22].forEach(x => { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.85, 4), wood); r.position.set(x, -0.42, 0); r.rotation.z = x * 0.7; g.add(r); });
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  g.visible = false;
+  return g;
+}
+
+// Escudo de prisma: hexágono de luz translúcida delante de Lía.
+function buildShield() {
+  const g = new THREE.Group(); g.position.set(0, 1.0, -0.75);
+  const mat = new THREE.MeshStandardMaterial({ color: 0xbff4ff, emissive: 0x4ad8ff, emissiveIntensity: 0.8, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false });
+  const face = new THREE.Mesh(new THREE.CircleGeometry(0.8, 6), mat); g.add(face);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.8, 0.04, 6, 6), new THREE.MeshStandardMaterial({ color: 0xe8fbff, emissive: 0x7ae8ff, emissiveIntensity: 1.5 }));
+  g.add(rim);
+  g.userData = { mat, rim, k: 0 };
   g.visible = false;
   return g;
 }

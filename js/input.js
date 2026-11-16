@@ -62,7 +62,8 @@ export class Input {
     let joyId = null, cx = 0, cy = 0, camId = null, tx = 0, ty = 0;
     this._joy = { x: 0, y: 0 };
     const btn = (id, action) => document.getElementById(id).addEventListener('touchstart', e => { e.stopPropagation(); this._pressed.add(action); this._held.add(action); }, { passive: true });
-    btn('tJump', 'jump'); btn('tAct', 'interact'); btn('tPause', 'pause'); btn('tAtk', 'attack'); btn('tDodge', 'dodge'); btn('tHook', 'grapple');
+    btn('tJump', 'jump'); btn('tAct', 'interact'); btn('tPause', 'pause'); btn('tAtk', 'attack'); btn('tDodge', 'dodge'); btn('tHook', 'grapple'); btn('tShield', 'shield'); btn('tPulse', 'pulse');
+    document.getElementById('tShield').addEventListener('touchend', () => this._held.delete('shield'));
     document.getElementById('tJump').addEventListener('touchend', () => this._held.delete('jump'));
     addEventListener('touchstart', e => {
       for (const t of e.changedTouches) {
@@ -120,7 +121,8 @@ export class Input {
       this.look.x += rx * 14; this.look.y += ry * 10;
       const b = i => pad.buttons[i] && pad.buttons[i].pressed;
       const edge = (i, action) => { const now = b(i); if (now && !this._prevPad[i]) { this._pressed.add(action); this.usingGamepad = true; } this._prevPad[i] = now; };
-      edge(0, 'jump'); edge(2, 'attack'); edge(1, 'dodge'); edge(3, 'interact'); edge(9, 'pause'); edge(5, 'grapple'); edge(7, 'grapple');
+      edge(0, 'jump'); edge(2, 'attack'); edge(1, 'dodge'); edge(3, 'interact'); edge(9, 'pause'); edge(5, 'grapple'); edge(7, 'grapple'); edge(6, 'pulse'); edge(12, 'choiceUp'); edge(13, 'choiceDown');
+      this._padShield = b(4);
       this._padJump = b(0);
     }
 
@@ -130,13 +132,17 @@ export class Input {
   }
 
   pressed(action) { return this._pressed.has(action); }
-  held(action) { return action === 'jump' ? !!(this.keys.Space || this._padJump || this._held.has('jump')) : this._held.has(action); }
+  held(action) {
+    if (action === 'jump') return !!(this.keys.Space || this._padJump || this._held.has('jump'));
+    if (action === 'shield') return !!(this.keys.KeyV || this._padShield || this._held.has('shield'));
+    return this._held.has(action);
+  }
 
   // Llamar al final del frame.
   endFrame() { this._pressed.clear(); this.look.x = this.look.y = 0; this.zoom = 0; }
 }
 
 const KEYMAP = {
-  Space: 'jump', KeyE: 'interact', Enter: 'interact', KeyF: 'interact', KeyJ: 'attack', KeyK: 'dodge', KeyL: 'dodge', KeyG: 'grapple', KeyC: 'grapple',
-  Escape: 'pause', KeyP: 'pause',
+  Space: 'jump', KeyE: 'interact', Enter: 'interact', KeyF: 'interact', KeyJ: 'attack', KeyK: 'dodge', KeyL: 'dodge', KeyG: 'grapple', KeyC: 'grapple', KeyZ: 'pulse', KeyX: 'pulse', Digit1: 'choice1', Digit2: 'choice2', Numpad1: 'choice1', Numpad2: 'choice2',
+  Escape: 'pause', KeyP: 'pause', ArrowUp: 'choiceUp', ArrowDown: 'choiceDown',
 };

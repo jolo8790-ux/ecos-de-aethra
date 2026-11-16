@@ -59,6 +59,7 @@ export const LOOKS = {
   kael: { model: 'kael', scale: 1.04, recolor: [{ from: [70, 185], to: 275, sat: 0.9, light: 0.85 }] },
   marta: { model: 'marta', scale: 1.06, recolor: [{ from: [230, 320], to: 215, sat: 0.9, light: 0.9 }], hat: 'captain' },
   tomas: { model: 'tomas', scale: 0.78 },
+  vaelor: { model: 'tomas', scale: 1.3, recolor: [{ from: [0, 360], minSat: 0.05, to: 270, sat: 0.6, light: 0.45 }] },
 };
 
 const findBone = (root, name) => { let b = null; root.traverse(o => { if (!b && o.isBone && o.name === name) b = o; }); return b; };
@@ -205,11 +206,16 @@ export class HeroModelAnimator {
     this.prevSin = s;
 
     const g = 1 - this.air;
+    // escudo: mantiene la pose de bloqueo mientras se protege
+    this.shieldW = (this.shieldW || 0) + ((c.shielding ? 1 : 0) - (this.shieldW || 0)) * damp(14, dt);
+    const sw = this.shieldW, block = A.Block;
+    if (block) block.time = block.getClip().duration * 0.42;
     this.b.apply(dt, {
-      Idle: g * (1 - this.moveW),
-      Walking_A: g * this.moveW * (1 - this.runW),
-      Running_B: g * this.moveW * this.runW,
+      Idle: g * (1 - this.moveW) * (1 - sw),
+      Walking_A: g * this.moveW * (1 - this.runW) * (1 - sw * 0.6),
+      Running_B: g * this.moveW * this.runW * (1 - sw),
       Jump_Idle: this.air,
+      Block: g * sw,
     }, 14);
 
     // eventos de salto / aterrizaje

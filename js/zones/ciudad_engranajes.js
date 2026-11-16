@@ -99,7 +99,7 @@ export default {
 
   chapterEnd: {
     kicker: 'Fin del capítulo 3', title: 'Los diarios de Ilan',
-    sub: 'El capítulo 4 llega en la siguiente etapa del desarrollo.',
+    next: { label: 'Continuar: Capítulo 4', zone: 'glaciar_eco', cp: 'llegada' },
   },
 
   story: {

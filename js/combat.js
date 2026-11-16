@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createCharacter } from './characters.js';
 
 // Combate: criaturas de cristal, proyectiles, curaciones y el jefe Raíz Madre.
 // Todas las criaturas avisan antes de atacar (brillo rojo y temblor) para que el jugador pueda esquivar.
@@ -84,11 +85,15 @@ const BROTE_LOOKS = {
   brote: { rock: 0x6b5a4a, crystal: 0x7ff0d8, emissive: 0x1a8f7a, hp: 3 },
   brote_vidrio: { rock: 0xc8a06a, crystal: 0xffc86a, emissive: 0xa0601a, hp: 3 },
   automata: { rock: 0x8a7a6a, crystal: 0xd4a24c, emissive: 0x8a4a1a, hp: 4, metal: true },
+  brote_hielo: { rock: 0x8aa0b8, crystal: 0xd8f6ff, emissive: 0x3a8ad0, hp: 3 },
+  sombra: { rock: 0x3a2a4a, crystal: 0xb07aff, emissive: 0x5a2aa8, hp: 3, aura: true },
 };
 const ESPORA_LOOKS = {
   espora: { stem: 0x4f7a3a, core: 0xf29bff, coreE: 0x9a2aa8, petal: 0xc79bff },
   espora_vidrio: { stem: 0xb08a5a, core: 0xffb86a, coreE: 0xa8501a, petal: 0xffe0a8 },
   torreta: { stem: 0x5a4a3a, core: 0xff7a3a, coreE: 0xa8301a, petal: 0xb08a4a },
+  espora_hielo: { stem: 0x6a8aa0, core: 0xbff4ff, coreE: 0x3a8ad0, petal: 0xe8fbff, range: 18 },
+  centinela: { stem: 0x3a2a4a, core: 0xc07aff, coreE: 0x6a2aa8, petal: 0x7a5aa8 },
 };
 class Brote extends Enemy {
   constructor(c, x, y, z, type = 'brote') {
@@ -109,10 +114,24 @@ class Brote extends Enemy {
     [-0.22, 0.22].forEach(lx => mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.22, 6), mat(0x4a3a2e), g, lx, 0.1, 0));
     this.mark = mesh(new THREE.ConeGeometry(0.12, 0.35, 4), new THREE.MeshBasicMaterial({ color: 0xff5a4a }), this.group, 0, 1.7, 0);
     this.mark.rotation.x = Math.PI; this.mark.visible = false; this.mark.userData.noFlash = true;
+    if (L.aura) { // aura de sombra: solo el pulso de luz la deshace
+      this.aura = mesh(new THREE.SphereGeometry(0.95, 16, 12), new THREE.MeshStandardMaterial({ color: 0x5a2aa8, emissive: 0x3a0a6a, emissiveIntensity: 0.8, transparent: true, opacity: 0.4, depthWrite: false }), this.group, 0, 0.55, 0);
+      this.aura.userData.noFlash = true; this.aura.castShadow = false;
+    }
   }
+  hurt(dmg, from, push) {
+    if (this.aura) { // el bastón rebota en el aura
+      this.c.audio.play('dark'); this.c.fx.sparkle(this.pos.clone().setY(this.pos.y + 0.6), 6, 0xb07aff);
+      this.c.onAuraClang && this.c.onAuraClang();
+      return true;
+    }
+    return super.hurt(dmg, from, push);
+  }
+  dispel() { if (!this.aura) return; this.group.remove(this.aura); this.aura = null; this.c.fx.sparkle(this.pos.clone().setY(this.pos.y + 0.6), 20, 0xfff2a8); }
   update(dt, pl) {
     if (!this.alive) return;
     this.t += dt; this.cd -= dt; this.updateFlash(dt);
+    if (this.aura) { this.aura.scale.setScalar(1 + Math.sin(this.t * 4) * 0.05); this.aura.rotation.y += dt; }
     const dx = pl.pos.x - this.pos.x, dz = pl.pos.z - this.pos.z, dist = Math.hypot(dx, dz), dy = Math.abs(pl.pos.y - this.pos.y);
     const toP = Math.atan2(-dx, -dz);
     const sees = dist < 10 && dy < 2.5 && pl.hp > 0;
@@ -200,13 +219,13 @@ class Espora extends Enemy {
     const head = pl.pos.clone().setY(pl.pos.y + 0.9);
     const dist = Math.hypot(pl.pos.x - this.pos.x, pl.pos.z - this.pos.z);
     let open = 0;
-    if (dist < 13 && Math.abs(pl.pos.y - this.pos.y) < 6 && pl.hp > 0) {
+    if (dist < (this.look.range || 13) && Math.abs(pl.pos.y - this.pos.y) < 7 && pl.hp > 0) {
       this.cd -= dt;
       this.head.rotation.y += angDiff(Math.atan2(-(pl.pos.x - this.pos.x), -(pl.pos.z - this.pos.z)), this.head.rotation.y) * damp(4, dt);
       if (this.cd < 0.6) { open = 1 - this.cd / 0.6; if (!this.warned) { this.warned = true; this.c.audio.play('windup'); } }
       if (this.cd <= 0) {
         const from = this.pos.clone().setY(this.pos.y + 1.05);
-        this.c.shoot(from, head, 7.5, this.look.core);
+        this.c.shoot(from, head, 7.5, this.look.core, this);
         this.cd = 2.6; this.warned = false;
       }
     }
@@ -227,7 +246,7 @@ class RaizMadre {
   constructor(c, x, y, z) {
     this.c = c; this.pos = new THREE.Vector3(x, y, z);
     this.maxHp = 8; this.hp = 8; this.state = 'sleep'; this.t = 0; this.cd = 2.5; this.phase = 1;
-    this.roots = []; this.flash = 0; this.summonCd = 8; this.name = 'Raíz Madre';
+    this.roots = []; this.flash = 0; this.summonCd = 8; this.name = 'Raíz Madre'; this.phaseMsg = '¡La Raíz Madre está furiosa!';
     const g = this.group = new THREE.Group(); g.position.copy(this.pos); c.root.add(g);
     const bark = mat(0x5a3f2b, { flatShading: true }), barkDark = mat(0x3f2b1d, { flatShading: true });
     this.trunk = mesh(new THREE.CylinderGeometry(2.2, 3.2, 5.5, 9, 3), bark, g, 0, 2.75, 0);
@@ -379,7 +398,7 @@ class Root {
 // y el cristal de su cola (punto débil) queda al alcance. También barre la arena con un láser bajo: hay que saltarlo.
 class Escorpion {
   constructor(c, x, y, z, B) {
-    this.c = c; this.pos = new THREE.Vector3(x, y, z); this.name = 'Escorpión Prisma';
+    this.c = c; this.pos = new THREE.Vector3(x, y, z); this.name = 'Escorpión Prisma'; this.phaseMsg = '¡El Escorpión Prisma está furioso!';
     this.maxHp = 6; this.hp = 6; this.state = 'sleep'; this.t = 0; this.st = 0; this.cycle = 0; this.phase = 1;
     this.facing = 0; this.arena = B.arena || [x, z + 8, 12]; this.radius = 2.2; this.curl = 0; this.flash = 0; this.stunHits = 0;
     const g = this.group = new THREE.Group(); c.root.add(g);
@@ -524,7 +543,7 @@ class Escorpion {
 // Tras el puñetazo queda atascado: aparece un anillo para el garfio que sube a su pecho, donde se golpea el núcleo.
 class Coloso {
   constructor(c, x, y, z, B) {
-    this.c = c; this.pos = new THREE.Vector3(x, y, z); this.name = 'Coloso de Engranajes';
+    this.c = c; this.pos = new THREE.Vector3(x, y, z); this.name = 'Coloso de Engranajes'; this.phaseMsg = '¡El Coloso se sobrecalienta!';
     this.maxHp = 6; this.hp = 6; this.state = 'sleep'; this.t = 0; this.st = 0; this.cycle = 0; this.phase = 1;
     this.facing = B.facing ?? Math.PI; this.radius = 2.4; this.flash = 0; this.waves = []; this.stuckHits = 0;
     const g = this.group = new THREE.Group(); c.root.add(g);
@@ -681,6 +700,378 @@ class Coloso {
 }
 
 // ---------------------------------------------------------------------------------
+// Sierpe de Escarcha: vuela en círculos sobre la arena y lanza orbes de hielo.
+// Un orbe devuelto con el escudo la derriba: la cabeza queda en el suelo y el cuerno de cristal se puede golpear.
+class Sierpe {
+  constructor(c, x, y, z, B) {
+    this.c = c; this.pos = new THREE.Vector3(x, y, z); this.center = new THREE.Vector3(x, y, z);
+    this.name = 'Sierpe de Escarcha'; this.phaseMsg = '¡La Sierpe de Escarcha está furiosa!';
+    this.maxHp = 6; this.hp = 6; this.state = 'sleep'; this.t = 0; this.st = 0; this.phase = 1; this.flash = 0;
+    this.R = B.orbit || 8.5; this.H = B.height || 6; this.ang = 0; this.radius = 1.6; this.downHits = 0; this.cycle = 0; this.icicles = [];
+    this.head = new THREE.Vector3(x, y + 1.5, z); this.trail = [];
+    const g = this.group = new THREE.Group(); c.root.add(g);
+    const scale = mat(0x9ad8f0, { flatShading: true, roughness: 0.3, metalness: 0.2 }), belly = mat(0xe8fbff, { flatShading: true });
+    this.headG = new THREE.Group(); g.add(this.headG);
+    mesh(new THREE.BoxGeometry(1.2, 0.8, 1.8), scale, this.headG, 0, 0, -0.2);
+    mesh(new THREE.BoxGeometry(1.0, 0.35, 1.3), belly, this.headG, 0, -0.45, -0.6); // mandíbula
+    this.eyeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x7ae8ff, emissiveIntensity: 1.5 });
+    [-0.45, 0.45].forEach(ex => { const e = mesh(new THREE.SphereGeometry(0.14, 8, 6), this.eyeMat, this.headG, ex, 0.2, -0.9); e.userData.noFlash = true; });
+    this.hornMat = new THREE.MeshStandardMaterial({ color: 0xe8fbff, emissive: 0x4ad8ff, emissiveIntensity: 0.8, flatShading: true });
+    this.horn = mesh(new THREE.ConeGeometry(0.3, 1.2, 5), this.hornMat, this.headG, 0, 0.9, 0.1); this.horn.rotation.x = 0.4; this.horn.userData.noFlash = true;
+    [-1, 1].forEach(s => { const sp = mesh(new THREE.ConeGeometry(0.12, 0.7, 4), belly, this.headG, s * 0.55, 0.55, 0.4); sp.rotation.z = -s * 0.6; sp.rotation.x = 0.6; });
+    this.segs = [];
+    for (let i = 0; i < 12; i++) {
+      const r = 0.62 - i * 0.035;
+      const sg = new THREE.Group(); g.add(sg);
+      mesh(new THREE.SphereGeometry(r, 10, 8), scale, sg).scale.set(1, 0.85, 1.2);
+      if (i % 2 === 0) mesh(new THREE.ConeGeometry(0.12, 0.5, 4), belly, sg, 0, r * 0.9, 0);
+      if (i === 3 || i === 5) [-1, 1].forEach(s => { const w = mesh(new THREE.ConeGeometry(0.5, 1.8, 3), mat(0xc8f0ff, { flatShading: true, transparent: true, opacity: 0.8, side: THREE.DoubleSide }), sg, s * 1.1, 0.2, 0); w.rotation.z = -s * 1.3; w.userData.wing = s; });
+      this.segs.push(sg);
+    }
+    this.reflectPos = new THREE.Vector3(); this.reflectRadius = 1.5;
+    const self = this;
+    this.weak = { radius: 0.9, pos: new THREE.Vector3(), get hittable() { return self.state === 'downed' && self.downHits < 2; }, hit: () => self.wound() };
+    this.weakPoints = [this.weak];
+    for (let i = 0; i < 60; i++) this.trail.push(this.head.clone().add(new THREE.Vector3(0, 0, i * 0.25)));
+    this._place(0);
+  }
+  get alive() { return this.state !== 'dead'; }
+  get fighting() { return !['sleep', 'intro', 'dying', 'dead'].includes(this.state); }
+  wake() { if (this.state === 'sleep') { this.state = 'intro'; this.st = 2.4; this.c.audio.play('roar'); this.c.shake(0.5, 2); } }
+  _orbitPoint(a, h = this.H) { return new THREE.Vector3(this.center.x + Math.cos(a) * this.R, this.center.y + h + Math.sin(a * 3) * 0.6, this.center.z + Math.sin(a) * this.R); }
+  _place(dt) {
+    // la cola sigue el rastro de la cabeza
+    const last = this.trail[0];
+    if (last.distanceTo(this.head) > 0.12) { this.trail.unshift(this.head.clone()); if (this.trail.length > 80) this.trail.pop(); }
+    this.headG.position.copy(this.head);
+    const grounded = this.state === 'fall' || this.state === 'downed';
+    this.layK = (this.layK || 0) + ((grounded ? 1 : 0) - (this.layK || 0)) * Math.min(1, dt * 5);
+    const out = this.head.clone().sub(this.center); out.y = 0; if (out.lengthSq() < 0.01) out.set(0, 0, 1); out.normalize();
+    const side = new THREE.Vector3(-out.z, 0, out.x);
+    for (let i = 0; i < this.segs.length; i++) {
+      const p = this.trail[Math.min(this.trail.length - 1, (i + 1) * 4)].clone();
+      if (this.layK > 0.01) { // tendida en el suelo, ondulando hacia fuera de la arena
+        const g = new THREE.Vector3(this.head.x, this.center.y + 0.5, this.head.z).addScaledVector(out, (i + 1) * 1.05).addScaledVector(side, Math.sin(i * 0.9) * 0.8);
+        p.lerp(g, this.layK);
+      }
+      this.segs[i].position.copy(p);
+      const q = i === 0 ? this.head : this.segs[i - 1].position;
+      this.segs[i].lookAt(q); this.segs[i].rotateY(Math.PI);
+      this.segs[i].children.forEach(o => { if (o.userData.wing) o.rotation.y = Math.sin(this.t * 6 + i) * 0.4 * o.userData.wing; });
+    }
+    this.headG.updateMatrixWorld(true);
+    this.horn.getWorldPosition(this.weak.pos);
+    this.reflectPos.copy(this.head);
+    this.pos.set(this.head.x, this.center.y, this.head.z);
+  }
+  _face(target, dt, k = 6) {
+    const d = target.clone().sub(this.head); const want = Math.atan2(-d.x, -d.z);
+    this.headG.rotation.y += angDiff(want, this.headG.rotation.y) * damp(k, dt);
+  }
+  update(dt, pl) {
+    this.t += dt;
+    if (this.flash > 0 && (this.flash -= dt) <= 0) setFlash(this.group, false);
+    const plHead = pl.pos.clone().setY(pl.pos.y + 0.9);
+    switch (this.state) {
+      case 'sleep': this.head.set(this.center.x, this.center.y + 1.2 + Math.sin(this.t) * 0.1, this.center.z - 3); this.headG.rotation.y = 0; break;
+      case 'intro': {
+        this.st -= dt; const k = 1 - this.st / 2.4;
+        this.head.lerp(this._orbitPoint(this.ang), damp(2, dt)); this.ang += dt * 0.6 * k;
+        this.eyeMat.emissiveIntensity = 1.5 + k * 2;
+        if (this.st <= 0) { this.state = 'orbit'; this.st = 3; }
+        break;
+      }
+      case 'orbit': {
+        const sp = this.phase === 1 ? 0.55 : 0.75;
+        this.ang += dt * sp;
+        this.head.lerp(this._orbitPoint(this.ang), damp(4, dt));
+        const nxt = this._orbitPoint(this.ang + 0.3); this._face(nxt, dt, 5);
+        this.st -= dt;
+        if (this.st <= 0) {
+          this.cycle++;
+          if (this.phase === 2 && this.cycle % 3 === 0) { this.state = 'rain'; this.st = 2.2; this._rain(pl); }
+          else { this.state = 'hover'; this.st = 1.0; this.shots = this.phase === 1 ? 1 : 3; this.c.audio.play('windup'); }
+        }
+        break;
+      }
+      case 'hover':
+        this._face(plHead, dt, 8); this.hornMat.emissiveIntensity = 2 + Math.sin(this.t * 20);
+        this.head.y += Math.sin(this.t * 3) * 0.01;
+        this.st -= dt;
+        if (this.st <= 0 && this.shots > 0) {
+          this.shots--; this.st = 0.45;
+          const from = this.head.clone().add(new THREE.Vector3(-Math.sin(this.headG.rotation.y) * 1.2, -0.3, -Math.cos(this.headG.rotation.y) * 1.2));
+          const total = this.phase === 1 ? 1 : 3, idx = total - 1 - this.shots, spread = [0, -1.8, 1.8][idx] || 0; // el primero siempre va directo
+          const tgt = plHead.clone().add(new THREE.Vector3(spread * Math.cos(this.headG.rotation.y), 0, -spread * Math.sin(this.headG.rotation.y)));
+          this.c.shoot(from, tgt, this.phase === 1 ? 8 : 9.5, 0xbff4ff, this, 0.32);
+          this.c.audio.play('ice');
+        } else if (this.st <= 0) { this.state = 'orbit'; this.st = this.phase === 1 ? 2.6 : 1.8; this.hornMat.emissiveIntensity = 0.8; }
+        break;
+      case 'rain':
+        this.ang += dt * 0.4; this.head.lerp(this._orbitPoint(this.ang, this.H + 2), damp(3, dt)); this._face(plHead, dt, 3);
+        this.st -= dt; if (this.st <= 0) { this.state = 'orbit'; this.st = 1.6; }
+        break;
+      case 'fall': { // derribada por su propio orbe
+        this.st -= dt;
+        const tgt = this.downAt; this.head.lerp(tgt, damp(5, dt));
+        this.headG.rotation.z = Math.sin(this.t * 30) * 0.2;
+        if (this.st <= 0) { this.state = 'downed'; this.st = 4; this.downHits = 0; this.headG.rotation.z = 0.25; this.c.shake(0.6, 0.5); this.c.audio.play('stomp'); this.c.fx.dust(this.head, 20, 2, 0xe8fbff); this.c.onBossStun && this.c.onBossStun(); }
+        break;
+      }
+      case 'downed':
+        this.st -= dt; this.hornMat.emissiveIntensity = 2.2 + Math.sin(this.t * 10); this.eyeMat.emissiveIntensity = 0.3;
+        this.head.y = this.downAt.y + Math.sin(this.t * 2) * 0.05;
+        if (this.st <= 0 || this.downHits >= 2) { this.state = 'rise'; this.st = 1.2; this.trail = this.segs.flatMap(sg => [sg.position.clone(), sg.position.clone(), sg.position.clone(), sg.position.clone()]); this.trail.unshift(this.head.clone()); this.layK = 0; this.headG.rotation.z = 0; this.eyeMat.emissiveIntensity = 1.5; this.hornMat.emissiveIntensity = 0.8; this.c.audio.play('roar'); }
+        break;
+      case 'rise':
+        this.st -= dt; this.head.lerp(this._orbitPoint(this.ang), damp(3, dt));
+        if (this.st <= 0) { this.state = 'orbit'; this.st = 2; }
+        break;
+      case 'dying':
+        this.st -= dt; this.head.y -= dt * 2; this.headG.rotation.z += dt * 2;
+        if (Math.random() < 0.6) this.c.fx.sparkle(this.trail[Math.floor(Math.random() * 40)].clone(), 4, 0xe8fbff);
+        if (this.st <= 0) { this.state = 'dead'; this.c.root.remove(this.group); this.c.onBossDefeated && this.c.onBossDefeated(this); }
+        break;
+    }
+    // carámbanos que caen
+    for (const ic of this.icicles) {
+      ic.t += dt;
+      if (ic.t < 1.0) { ic.ring.material.opacity = 0.3 + Math.sin(ic.t * 25) * 0.2; ic.m.position.y = ic.y + 8 - 0; }
+      else if (!ic.hit) { ic.m.position.y = Math.max(ic.y + 0.6, ic.m.position.y - dt * 30); if (ic.m.position.y <= ic.y + 0.61) { ic.hit = true; this.c.audio.play('ice'); this.c.fx.sparkle(ic.m.position, 10, 0xe8fbff); if (Math.hypot(pl.pos.x - ic.x, pl.pos.z - ic.z) < 1.3 && Math.abs(pl.pos.y - ic.y) < 1.5) pl.damage(1, new THREE.Vector3(ic.x, ic.y, ic.z)); } }
+      if (ic.t > 1.6) { ic.done = true; this.c.root.remove(ic.m); this.c.root.remove(ic.ring); }
+    }
+    this.icicles = this.icicles.filter(i => !i.done);
+    if (this.state !== 'dead') this._place(dt);
+  }
+  _rain(pl) {
+    for (let i = 0; i < 4; i++) {
+      const x = pl.pos.x + (i ? (Math.random() - 0.5) * 6 : 0), z = pl.pos.z + (i ? (Math.random() - 0.5) * 6 : 0), y = this.center.y;
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.2, 24), new THREE.MeshBasicMaterial({ color: 0x7ae8ff, transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false }));
+      ring.rotation.x = -Math.PI / 2; ring.position.set(x, y + 0.05, z); this.c.root.add(ring);
+      const m = mesh(new THREE.ConeGeometry(0.35, 1.4, 6), mat(0xe8fbff, { emissive: 0x4ad8ff, emissiveIntensity: 0.6, flatShading: true }), this.c.root, x, y + 9, z); m.rotation.x = Math.PI;
+      this.icicles.push({ ring, m, x, y, z, t: -i * 0.15 });
+    }
+  }
+  reflectHit() {
+    if (!['orbit', 'hover', 'rain'].includes(this.state)) return;
+    const c = this.center, d = this.head.clone().sub(c); d.y = 0; d.setLength(Math.min(this.R - 2, 5));
+    this.downAt = new THREE.Vector3(c.x + d.x, c.y + 0.9, c.z + d.z);
+    this.state = 'fall'; this.st = 0.8; this.c.audio.play('shatter'); this.c.shake(0.4, 0.4);
+  }
+  wound() {
+    if (this.state !== 'downed') return false;
+    this.hp -= 1; this.downHits++; this.flash = 0.15; setFlash(this.group, true);
+    this.c.audio.play('shatter'); this.c.shake(0.3, 0.3); this.c.fx.sparkle(this.weak.pos, 18, 0xe8fbff);
+    if (this.hp <= 3 && this.phase === 1) { this.phase = 2; this.c.onBossPhase && this.c.onBossPhase(this); }
+    if (this.hp <= 0) { this.state = 'dying'; this.st = 2.6; this.c.shake(0.7, 2.4); }
+    return true;
+  }
+  clang() { this.c.audio.play('ice'); this.c.onBossClang && this.c.onBossClang(); }
+  dispose() { for (const ic of this.icicles) { this.c.root.remove(ic.m); this.c.root.remove(ic.ring); } }
+}
+
+// ---------------------------------------------------------------------------------
+// Vaelor, Gran Maestre de la Orden: lo protege una barrera de sombra.
+// El pulso de luz (o uno de sus orbes devuelto con el escudo) la rompe y deja a Vaelor expuesto al bastón.
+class Vaelor {
+  constructor(c, x, y, z, B) {
+    this.c = c; this.pos = new THREE.Vector3(x, y, z); this.home = this.pos.clone(); this.arenaR = B.arenaR || 9;
+    this.name = 'Vaelor, Gran Maestre'; this.phaseMsg = 'Vaelor: «¡Basta de juegos, niña!»';
+    this.maxHp = 6; this.hp = 6; this.state = 'sleep'; this.t = 0; this.st = 0; this.phase = 1; this.flash = 0;
+    this.facing = B.facing ?? 0; this.radius = 1.2; this.cycle = 0; this.barrier = true; this.exposedHits = 0; this.summoned = false;
+    const g = this.group = new THREE.Group(); c.root.add(g);
+    this.body = new THREE.Group(); g.add(this.body);
+    this.ch = c.chars ? createCharacter(c.chars, 'vaelor') : null;
+    if (this.ch) {
+      this.body.add(this.ch.root);
+      for (const a of Object.values(this.ch.actions)) { a.play(); a.timeScale = 0; a.setEffectiveWeight(0); }
+      this.w = {}; this.cur = 'Idle'; this.oneShot = null;
+      const hand = findBone(this.ch.model, 'handslotr');
+      this.sword = buildDarkSword(); if (hand) { hand.add(this.sword); this.sword.rotation.y = Math.PI; }
+      const head = this.ch.bones.head;
+      if (head) { const helm = buildHelm(); this.ch.model.add(helm); helm.position.set(0, 1.42, 0); this.ch.model.updateMatrixWorld(true); head.attach(helm); }
+      const chest = this.ch.bones.chest;
+      if (chest) { const cape = buildCape(); this.ch.model.add(cape); cape.position.set(0, 1.25, -0.28); this.ch.model.updateMatrixWorld(true); chest.attach(cape); this.cape = cape; }
+    } else { // respaldo sin modelos
+      mesh(new THREE.CylinderGeometry(0.5, 0.6, 2.2, 8), mat(0x3a2a4a), this.body, 0, 1.1, 0);
+      mesh(new THREE.SphereGeometry(0.35, 10, 8), mat(0x5a4a6a), this.body, 0, 2.4, 0);
+    }
+    this.barrierMat = new THREE.MeshStandardMaterial({ color: 0x5a2aa8, emissive: 0x3a0a8a, emissiveIntensity: 0.9, transparent: true, opacity: 0.38, depthWrite: false, side: THREE.DoubleSide });
+    this.barrierMesh = mesh(new THREE.IcosahedronGeometry(1.9, 1), this.barrierMat, g, 0, 1.4, 0); this.barrierMesh.userData.noFlash = true; this.barrierMesh.castShadow = false;
+    this.tele = new THREE.Mesh(new THREE.RingGeometry(0.4, 3.2, 32, 1, -Math.PI * 0.35, Math.PI * 0.7), new THREE.MeshBasicMaterial({ color: 0xff3a5a, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+    this.tele.rotation.x = -Math.PI / 2; c.root.add(this.tele);
+    this.reflectPos = new THREE.Vector3(); this.reflectRadius = 1.9;
+    const self = this;
+    this.weak = { radius: 1.0, pos: new THREE.Vector3(), get hittable() { return self.state === 'exposed' && self.exposedHits < 2; }, hit: () => self.wound() };
+    this.weakPoints = [this.weak];
+    this._place();
+  }
+  get alive() { return this.state !== 'dead'; }
+  get fighting() { return !['sleep', 'intro', 'dying', 'dead'].includes(this.state); }
+  wake() { if (this.state === 'sleep') { this.state = 'intro'; this.st = 1.6; this.c.audio.play('dark'); this.c.shake(0.4, 1.2); this._anim('Spellcast_Raise', { speed: 0.8 }); } }
+  _anim(name, { speed = 1, hold = false } = {}) { if (!this.ch || !this.ch.actions[name]) return; this.oneShot = { name, t: 0, speed, hold, dur: this.ch.actions[name].getClip().duration }; }
+  _animate(dt, moving) {
+    if (!this.ch) return;
+    const A = this.ch.actions, os = this.oneShot;
+    let osW = 0;
+    if (os) {
+      os.t += dt * os.speed;
+      const a = A[os.name]; a.time = Math.min(os.t, os.dur - 1e-3);
+      osW = Math.min(1, os.t / 0.12, os.hold ? 1 : (os.dur - os.t) / 0.2);
+      if (!os.hold && os.t >= os.dur) { a.setEffectiveWeight(0); this.oneShot = null; osW = 0; }
+      else a.setEffectiveWeight(Math.max(0, osW));
+    }
+    const base = moving ? 'Walking_A' : 'Idle';
+    A.Idle.time = (this.t * 0.8) % A.Idle.getClip().duration;
+    A.Walking_A.time = (this.t * 0.9) % A.Walking_A.getClip().duration;
+    for (const n of ['Idle', 'Walking_A']) {
+      const want = (n === base ? 1 : 0) * (1 - osW);
+      this.w[n] = (this.w[n] || 0) + (want - (this.w[n] || 0)) * damp(10, dt);
+      A[n].setEffectiveWeight(this.w[n]);
+    }
+    this.ch.mixer.update(0.0001);
+    if (this.cape) this.cape.rotation.x = 0.12 + Math.sin(this.t * 2.3) * 0.06 + (moving ? 0.2 : 0);
+  }
+  _place() {
+    this.group.position.copy(this.pos); this.body.rotation.y = this.facing;
+    this.reflectPos.set(this.pos.x, this.pos.y + 1.4, this.pos.z);
+    this.weak.pos.set(this.pos.x, this.pos.y + 1.2, this.pos.z);
+    this.barrierMesh.visible = this.barrier && this.state !== 'dead';
+  }
+  update(dt, pl) {
+    this.t += dt;
+    if (this.flash > 0 && (this.flash -= dt) <= 0) setFlash(this.body, false);
+    const dx = pl.pos.x - this.pos.x, dz = pl.pos.z - this.pos.z, dist = Math.hypot(dx, dz);
+    const toP = Math.atan2(-dx, -dz);
+    let moving = false;
+    this.barrierMat.emissiveIntensity = 0.9 + Math.sin(this.t * 4) * 0.3; this.barrierMesh.rotation.y += dt * 0.5;
+    switch (this.state) {
+      case 'sleep': this.facing = toP; break;
+      case 'intro': this.st -= dt; this.facing += angDiff(toP, this.facing) * damp(4, dt); if (this.st <= 0) { this.state = 'idle'; this.st = 1.2; } break;
+      case 'idle': {
+        this.facing += angDiff(toP, this.facing) * damp(5, dt);
+        if (dist > 5.5) { const sp = 2.2; this.pos.x -= Math.sin(this.facing) * sp * dt; this.pos.z -= Math.cos(this.facing) * sp * dt; moving = true; }
+        this.st -= dt;
+        if (this.st <= 0) {
+          this.cycle++;
+          if (dist < 3.6) { this.state = 'windup'; this.st = 0.8; this._anim('1H_Melee_Attack_Chop', { speed: 0.45, hold: true }); this.c.audio.play('windup'); }
+          else if (this.cycle % 4 === 0) { this.state = 'vanish'; this.st = 0.5; this.c.audio.play('dark'); }
+          else { this.state = 'cast'; this.st = 0.9; this.shots = this.shotsTotal = this.phase === 1 ? 1 : 3; this._anim('Spellcast_Raise', { speed: 1.2 }); this.c.audio.play('windup'); }
+          if (this.phase === 2 && !this.summoned) { this.summoned = true; for (let i = 0; i < 2; i++) { const a = i * Math.PI + 0.7; const e = this.c.addEnemy('sombra', this.home.x + Math.cos(a) * 5, this.pos.y + 0.3, this.home.z + Math.sin(a) * 5); e.summoned = true; this.c.fx.dust(e.pos, 10, 1.2, 0xb07aff); } }
+        }
+        break;
+      }
+      case 'cast':
+        this.facing += angDiff(toP, this.facing) * damp(6, dt);
+        this.st -= dt;
+        if (this.st <= 0 && this.shots > 0) {
+          this.shots--; this.st = 0.4;
+          const from = this.pos.clone().add(new THREE.Vector3(-Math.sin(this.facing) * 1.0, 1.9, -Math.cos(this.facing) * 1.0));
+          const idx = (this.shotsTotal || 1) - 1 - this.shots, off = [0, -1.6, 1.6][idx] || 0;
+          const tgt = pl.pos.clone().setY(pl.pos.y + 0.9).add(new THREE.Vector3(off * Math.cos(this.facing), 0, -off * Math.sin(this.facing)));
+          this.c.shoot(from, tgt, this.phase === 1 ? 8.5 : 10, 0xb07aff, this, 0.3);
+          this.c.audio.play('dark');
+        } else if (this.st <= 0) { this.state = 'idle'; this.st = this.phase === 1 ? 1.8 : 1.2; }
+        break;
+      case 'windup': {
+        this.st -= dt;
+        const fx = -Math.sin(this.facing), fz = -Math.cos(this.facing);
+        this.tele.position.set(this.pos.x, this.pos.y + 0.06, this.pos.z); this.tele.rotation.z = this.facing + Math.PI / 2;
+        this.tele.material.opacity = 0.25 + Math.sin(this.t * 20) * 0.15;
+        if (this.sword) this.sword.userData.blade.emissiveIntensity = 2.5;
+        if (this.st <= 0) {
+          this.tele.material.opacity = 0; this.state = 'swing'; this.st = 0.5;
+          if (this.oneShot) { this.oneShot.speed = 2.2; this.oneShot.hold = false; }
+          this.c.audio.play('swing'); this.c.shake(0.3, 0.2);
+          const rel = (dx * fx + dz * fz) / Math.max(dist, 0.01);
+          if (dist < 3.4 && rel > 0.2 && Math.abs(pl.pos.y - this.pos.y) < 1.6) pl.damage(1, this.pos);
+        }
+        break;
+      }
+      case 'swing': this.st -= dt; if (this.sword) this.sword.userData.blade.emissiveIntensity = 0.8; if (this.st <= 0) { this.state = 'idle'; this.st = 1.0; } break;
+      case 'vanish':
+        this.st -= dt; this.body.scale.setScalar(Math.max(0.05, this.st / 0.5)); this.barrierMesh.scale.setScalar(Math.max(0.05, this.st / 0.5));
+        if (this.st <= 0) {
+          const a = Math.random() * Math.PI * 2, r = 3 + Math.random() * (this.arenaR - 4);
+          this.pos.set(this.home.x + Math.cos(a) * r, this.pos.y, this.home.z + Math.sin(a) * r);
+          this.state = 'appear'; this.st = 0.5; this.c.fx.sparkle(this.pos.clone().setY(this.pos.y + 1.2), 20, 0xb07aff);
+        }
+        break;
+      case 'appear':
+        this.st -= dt; const k = 1 - Math.max(0, this.st / 0.5); this.body.scale.setScalar(Math.max(0.05, k)); this.barrierMesh.scale.setScalar(Math.max(0.05, k));
+        if (this.st <= 0) { this.body.scale.setScalar(1); this.barrierMesh.scale.setScalar(1); this.state = 'cast'; this.st = 0.5; this.shots = this.shotsTotal = this.phase === 1 ? 2 : 3; this._anim('Spellcast_Raise', { speed: 1.4 }); }
+        break;
+      case 'exposed':
+        this.st -= dt;
+        if (this.st <= 0 || this.exposedHits >= 2) { this.barrier = true; this.state = 'idle'; this.st = 0.8; this.c.audio.play('dark'); this.oneShot = null; }
+        break;
+      case 'dying':
+        this.st -= dt; this.body.position.y = -(2.6 - this.st) * 0.15;
+        if (Math.random() < 0.5) this.c.fx.sparkle(this.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 2, Math.random() * 2.5, (Math.random() - 0.5) * 2)), 4, 0xb07aff);
+        if (this.st <= 0) { this.state = 'dead'; this.c.root.remove(this.group); this.c.root.remove(this.tele); this.c.onBossDefeated && this.c.onBossDefeated(this); }
+        break;
+    }
+    // mantenerse dentro de la arena
+    const hx = this.pos.x - this.home.x, hz = this.pos.z - this.home.z, hl = Math.hypot(hx, hz);
+    if (hl > this.arenaR - 1.5) { this.pos.x = this.home.x + hx / hl * (this.arenaR - 1.5); this.pos.z = this.home.z + hz / hl * (this.arenaR - 1.5); }
+    this._animate(dt, moving);
+    if (this.state !== 'dead') this._place();
+  }
+  _breakBarrier() {
+    if (!this.barrier || !this.fighting || this.state === 'exposed') return false;
+    this.barrier = false; this.state = 'exposed'; this.st = 3.6; this.exposedHits = 0;
+    this.tele.material.opacity = 0; if (this.sword) this.sword.userData.blade.emissiveIntensity = 0.8;
+    this.c.audio.play('shatter'); this.c.shake(0.4, 0.4); this.c.fx.sparkle(this.reflectPos, 30, 0xfff2a8);
+    this._anim('Hit_A', { speed: 0.6, hold: true });
+    this.c.onBossStun && this.c.onBossStun();
+    return true;
+  }
+  pulseHit() { this._breakBarrier(); }
+  reflectHit() { if (!this._breakBarrier() && this.state === 'exposed') this.wound(); }
+  wound() {
+    if (this.state !== 'exposed') return false;
+    this.hp -= 1; this.exposedHits++; this.flash = 0.15; setFlash(this.body, true);
+    this.c.audio.play('hit'); this.c.shake(0.3, 0.3); this.c.fx.sparkle(this.weak.pos, 14, 0xb07aff);
+    if (this.hp <= 3 && this.phase === 1) { this.phase = 2; this.c.onBossPhase && this.c.onBossPhase(this); }
+    if (this.hp <= 0) {
+      this.state = 'dying'; this.st = 2.6; this.barrier = false; this.c.shake(0.6, 2);
+      this._anim('Death_A', { speed: 0.7, hold: true });
+      for (const e of this.c.enemies) if (e.summoned && e.alive) e.die();
+    }
+    return true;
+  }
+  clang() { this.c.audio.play('dark'); this.c.onBossClang && this.c.onBossClang(); }
+  dispose() { this.c.root.remove(this.tele); }
+}
+
+const findBone = (root, name) => { let b = null; root.traverse(o => { if (!b && o.isBone && o.name === name) b = o; }); return b; };
+function buildDarkSword() {
+  const g = new THREE.Group();
+  const blade = new THREE.MeshStandardMaterial({ color: 0x2a1a3a, emissive: 0x8a3aff, emissiveIntensity: 0.8, metalness: 0.7, roughness: 0.25, flatShading: true });
+  const b = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.5, 0.03), blade); b.position.y = 0.95; g.add(b);
+  const tip = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.25, 4), blade); tip.position.y = 1.82; g.add(tip);
+  const guard = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.06, 0.08), mat(0xd4a24c, { metalness: 0.7 })); guard.position.y = 0.2; g.add(guard);
+  const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.3, 6), mat(0x2a1a1a)); grip.position.y = 0.03; g.add(grip);
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  g.userData.blade = blade;
+  return g;
+}
+function buildHelm() {
+  const g = new THREE.Group(), dark = mat(0x2a2235, { metalness: 0.6, roughness: 0.4, flatShading: true }), gold = mat(0xd4a24c, { metalness: 0.7, roughness: 0.3 });
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 8, 0, Math.PI * 2, 0, Math.PI / 1.8), dark); g.add(dome);
+  for (let i = 0; i < 5; i++) { const s = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.3, 4), gold); s.position.set((i - 2) * 0.12, 0.42 - Math.abs(i - 2) * 0.05, 0.1); g.add(s); }
+  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.06, 0.05), new THREE.MeshStandardMaterial({ color: 0xff3a5a, emissive: 0xff2a4a, emissiveIntensity: 1.5 })); visor.position.set(0, 0.05, 0.38); g.add(visor);
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return g;
+}
+function buildCape() {
+  const g = new THREE.Group();
+  const cape = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.3, 1, 4), new THREE.MeshStandardMaterial({ color: 0x4a1a3a, roughness: 0.8, side: THREE.DoubleSide }));
+  cape.position.y = -0.65; g.add(cape); cape.castShadow = true;
+  return g;
+}
+
+// ---------------------------------------------------------------------------------
 export class Combat {
   constructor(scene, physics, fx, audio) {
     this.scene = scene; this.physics = physics; this.fx = fx; this.audio = audio;
@@ -698,7 +1089,7 @@ export class Combat {
     this.voidY = zone.water ? zone.water.y : -30;
     for (const e of zone.enemies || []) this.addEnemy(e.type, e.x, e.y || 0, e.z);
     if (zone.boss && !save.flags[zone.boss.flag]) {
-      const B = zone.boss, K = { raiz: RaizMadre, escorpion: Escorpion, coloso: Coloso }[B.type] || RaizMadre;
+      const B = zone.boss, K = { raiz: RaizMadre, escorpion: Escorpion, coloso: Coloso, sierpe: Sierpe, vaelor: Vaelor }[B.type] || RaizMadre;
       this.boss = new K(this, B.x, B.y, B.z, B);
     }
   }
@@ -708,12 +1099,55 @@ export class Combat {
   }
   shake(amount, time) { this.shakeAmt = Math.max(this.shakeAmt, amount); this.shakeT = Math.max(this.shakeT, time); }
 
-  shoot(from, to, speed, color = 0xf29bff) {
-    const m = new THREE.Mesh(new THREE.IcosahedronGeometry(0.2, 1), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 1.5 }));
+  shoot(from, to, speed, color = 0xf29bff, owner = null, size = 0.2) {
+    const m = new THREE.Mesh(new THREE.IcosahedronGeometry(size, 1), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 1.5 }));
     m.position.copy(from); this.root.add(m);
     const v = to.clone().sub(from).normalize().multiplyScalar(speed);
-    this.projectiles.push({ m, v, life: 4, pos: m.position, radius: 0.3 });
+    const p = { m, v, life: 4.5, pos: m.position, radius: 0.3 + (size - 0.2), owner, color };
+    this.projectiles.push(p);
     this.audio.play('shoot');
+    return p;
+  }
+  // El escudo devuelve el proyectil hacia donde apunta Lía: su lanzador o una cerradura de hielo que esté delante.
+  reflect(p, pl) {
+    p.reflected = true; p.life = 3;
+    const fx = -Math.sin(pl.facing), fz = -Math.cos(pl.facing);
+    const cands = [];
+    if (p.owner && p.owner.alive !== false) cands.push({ get: () => this._targetPos(p.owner) });
+    if (this.world) for (const L of this.world.locks) if (!L.open) cands.push({ get: () => L.pos });
+    let best = null, bd = 0.72;
+    for (const c of cands) {
+      const t = c.get(); if (!t) continue;
+      const dx = t.x - pl.pos.x, dz = t.z - pl.pos.z, l = Math.hypot(dx, dz);
+      if (l > 26) continue;
+      const dot = l < 1 ? 1 : (dx * fx + dz * fz) / l;
+      if (dot > bd) { bd = dot; best = c; }
+    }
+    p.homing = best ? best.get : null;
+    const dir = best ? best.get().clone().sub(p.pos).normalize() : new THREE.Vector3(fx, 0.05, fz).normalize();
+    p.v.copy(dir).multiplyScalar(Math.max(13, p.v.length() * 1.6));
+    p.m.material = new THREE.MeshStandardMaterial({ color: 0xe8fbff, emissive: 0x7ae8ff, emissiveIntensity: 2.2 });
+    this.audio.play('reflect'); this.fx.ring(p.pos.clone(), 0xbff4ff);
+    pl.shieldFlash = 1;
+  }
+  _targetPos(o) {
+    if (!o || o.alive === false) return null;
+    if (o.reflectPos) return o.reflectPos;
+    return o.pos.clone().setY(o.pos.y + 1.0);
+  }
+  // Pulso de luz: aturde y deshace auras, destruye proyectiles y afecta al jefe.
+  pulse(pos, r) {
+    let n = 0;
+    for (const e of this.enemies) {
+      if (!e.alive || e.pos.distanceTo(pos) > r) continue;
+      n++;
+      if (e.dispel) e.dispel();
+      e.state = 'stagger'; e.stagger = 1.4; e.hp -= 1; e.flash = 0.12; setFlash(e.group, true);
+      if (e.hp <= 0) e.die();
+    }
+    for (const p of this.projectiles) if (!p.reflected && p.pos.distanceTo(pos) < r) { p.life = 0; this.fx.sparkle(p.pos, 6, 0xfff2a8); }
+    if (this.boss && this.boss.pulseHit && this.boss.fighting && this.boss.pos.distanceTo(pos) < r + (this.boss.radius || 1)) this.boss.pulseHit();
+    return n;
   }
   spawnHeal(x, y, z) {
     const g = new THREE.Group(); g.position.set(x, y + 0.6, z); this.root.add(g);
@@ -778,7 +1212,7 @@ export class Combat {
       }
       if (hit) { this.hitstop = Math.max(this.hitstop, ev.def.dmg > 1 ? 0.09 : 0.06); this.shake(ev.def.dmg > 1 ? 0.18 : 0.1, 0.12); }
     }
-    pl.events = pl.events.filter(e => e.type === 'hurt' || e.type === 'dead' || e.type === 'airdash');
+    pl.events = pl.events.filter(e => e.type === 'hurt' || e.type === 'dead' || e.type === 'airdash' || e.type === 'pulse' || e.type === 'block');
   }
 
   update(dt, pl) {
@@ -788,11 +1222,25 @@ export class Combat {
     // proyectiles
     for (const p of this.projectiles) {
       if (p.life <= 0) continue;
-      p.life -= dt; p.pos.addScaledVector(p.v, dt); p.m.rotation.x += dt * 5;
-      const d = p.pos.distanceTo(new THREE.Vector3(pl.pos.x, pl.pos.y + 0.9, pl.pos.z));
-      if (d < 0.65 && pl.damage(1, p.pos)) p.life = 0;
-      if (this.physics.groundAt(p.pos.x, p.pos.z, 0.1, p.pos.y).y > p.pos.y - 0.05) p.life = 0;
-      if (p.life <= 0) { this.root.remove(p.m); this.fx.sparkle(p.pos, 6, 0xf29bff); }
+      p.life -= dt;
+      if (p.reflected) { // se guía hacia su objetivo
+        const tgt = p.homing && p.homing();
+        if (tgt) { const want = tgt.clone().sub(p.pos).normalize().multiplyScalar(p.v.length()); p.v.lerp(want, damp(7, dt)); }
+      }
+      p.pos.addScaledVector(p.v, dt); p.m.rotation.x += dt * 5;
+      if (!p.reflected) {
+        const d = p.pos.distanceTo(new THREE.Vector3(pl.pos.x, pl.pos.y + 0.9, pl.pos.z));
+        if (pl.shielding && d < 1.35 + p.radius && pl.blocks(p.pos)) this.reflect(p, pl);
+        else if (d < 0.55 + p.radius && pl.damage(1, p.pos)) p.life = 0;
+      } else {
+        for (const e of this.enemies) if (e.alive && p.pos.distanceTo(e.pos.clone().setY(e.pos.y + 0.7)) < e.radius + p.radius + 0.2) { if (e.dispel) e.dispel(); e.hurt(2, p.pos, 5); p.life = 0; break; }
+        const b = this.boss;
+        if (p.life > 0 && b && b.reflectHit && b.fighting && b.reflectPos && p.pos.distanceTo(b.reflectPos) < (b.reflectRadius || 1.4)) { b.reflectHit(); p.life = 0; this.fx.sparkle(p.pos, 20, 0xbff4ff); }
+        if (p.life > 0 && this.world) for (const L of this.world.locks) if (!L.open && p.pos.distanceTo(L.pos) < 1.1) { p.life = 0; this.onLockHit && this.onLockHit(L); break; }
+      }
+      p.age = (p.age || 0) + dt;
+      if (p.life > 0 && p.age > 0.2 && this.physics.groundAt(p.pos.x, p.pos.z, 0.1, p.pos.y).y > p.pos.y - 0.05) p.life = 0;
+      if (p.life <= 0) { this.root.remove(p.m); this.fx.sparkle(p.pos, 6, p.reflected ? 0xbff4ff : (p.color || 0xf29bff)); }
     }
     this.projectiles = this.projectiles.filter(p => p.life > 0);
     // curaciones

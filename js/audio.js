@@ -59,6 +59,13 @@ export class Audio {
       case 'gear': this.tone(120, 0.08, 'square', 0.05, 0); this.noise(0.05, 0.05, 1500); break;
       case 'laser': this.tone(1200, 0.6, 'sawtooth', 0.04, -600); break;
       case 'stomp': this.noise(0.5, 0.22, 200); this.tone(45, 0.5, 'sine', 0.2, -10); break;
+      case 'block': this.tone(1100, 0.15, 'triangle', 0.08, -300); this.noise(0.08, 0.06, 5000); break;
+      case 'shieldUp': this.tone(600, 0.12, 'sine', 0.05, 400); break;
+      case 'reflect': [1500, 2200].forEach((f, i) => this.tone(f, 0.15, 'triangle', 0.07, -400, i * 0.03)); break;
+      case 'pulse': this.tone(320, 0.6, 'sine', 0.12, 900); [880, 1320, 1760].forEach((f, i) => this.tone(f, 0.4, 'triangle', 0.05, 0, i * 0.05)); break;
+      case 'unlock': [523, 659, 784, 1046].forEach((f, i) => this.tone(f, 0.3, 'triangle', 0.08, 0, i * 0.08)); break;
+      case 'dark': this.tone(90, 0.8, 'sawtooth', 0.06, -30); this.noise(0.5, 0.05, 300); break;
+      case 'ice': this.noise(0.3, 0.08, 6000); this.tone(2400, 0.2, 'triangle', 0.04, -1200); break;
       case 'splash': this.noise(0.5, 0.14, 1200); this.tone(200, 0.3, 'sine', 0.06, -120); break;
     }
   }

@@ -23,6 +23,7 @@ export class World {
     this.checkpoints = {};   // id -> {pos, facing}
     this.water = null; this.airships = {};
     this.updrafts = []; this.grapplePoints = []; this.pillars = []; this.movers = [];
+    this.locks = []; this.lightCrystals = []; this.lightPlatforms = []; this.darkBarriers = [];
     this.playerPos = new THREE.Vector3();
   }
 
@@ -30,6 +31,7 @@ export class World {
     this.root.clear(); this.physics.clear();
     this.animated = []; this.interactables = []; this.checkpoints = {}; this.water = null; this.airships = {};
     this.updrafts = []; this.grapplePoints = []; this.pillars = []; this.movers = [];
+    this.locks = []; this.lightCrystals = []; this.lightPlatforms = []; this.darkBarriers = [];
   }
 
   build(zone, save) {
@@ -57,6 +59,16 @@ export class World {
     (z.tents || []).forEach(t => this._tent(t));
     (z.gears || []).forEach(g => this._gear(g));
     (z.towers || []).forEach(t => this._tower(t));
+    (z.pines || []).forEach(p => this._pine(p));
+    (z.icicleWalls || []).forEach(p => this._icicleWall(p));
+    (z.obelisks || []).forEach(p => this._obelisk(p));
+    (z.banners || []).forEach(p => this._banner(p));
+    (z.locks || []).forEach(l => this._lock(l, save));
+    (z.lightPlatforms || []).forEach(p => this._lightPlatform(p));
+    (z.lightCrystals || []).forEach(c => this._lightCrystal(c, save));
+    for (const c of this.lightCrystals) if (c._initial) c.set(true);
+    (z.darkBarriers || []).forEach(b => this._darkBarrier(b, save));
+    if (z.snow) this._snow(z.snow);
     if (z.id === 'bosque_colgante') this._fireflies(60);
     (z.rocks || []).forEach(r => this._rock(r));
     (z.fences || []).forEach(f => this._fence(f));
@@ -166,7 +178,7 @@ export class World {
     }
   }
 
-  _item({ id, x, y = 0, z, verb = 'Recoger', model = 'key', when }) {
+  _item({ id, x, y = 0, z, verb = 'Recoger', model = 'key', when, radius = 1.5 }) {
     const g = new THREE.Group(); g.position.set(x, y, z); this.root.add(g);
     const gold = mat(0xe8b94a, { metalness: 0.6, roughness: 0.3, emissive: 0x6a4a00, emissiveIntensity: 0.4 });
     const k = new THREE.Group(); k.position.y = 0.75; g.add(k);
@@ -191,6 +203,17 @@ export class World {
       this._mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.45, 8), metal, 0, 0.2, 0, k);
       this._mesh(new THREE.TorusGeometry(0.12, 0.03, 6, 12), gold, 0, 0.5, 0, k);
     }
+    if (model === 'heart') { // el Corazón de Aethra, con sus cinco fragmentos alrededor
+      const core = this._mesh(new THREE.IcosahedronGeometry(0.55, 0), mat(0xfff2d8, { emissive: 0xffb84a, emissiveIntensity: 1.4, flatShading: true }), 0, 0.9, 0, k);
+      for (let i = 0; i < 5; i++) { const a = (i / 5) * Math.PI * 2; const s = this._mesh(new THREE.OctahedronGeometry(0.22, 0), mat(0xbff8ff, { emissive: 0x3ac8ff, emissiveIntensity: 1.4, flatShading: true }), Math.cos(a) * 1.1, 0.9, Math.sin(a) * 1.1, k); s.scale.y = 1.5; }
+      const pedestal = this._mesh(new THREE.CylinderGeometry(1.4, 1.7, 0.7, 10), mat(0x2a2235, { flatShading: true }), 0, 0.35, 0, g);
+      this.physics.addBox(x, y + 0.35, z, 2.8, 0.7, 2.8);
+      k.position.y = 1.4; core.userData.core = true;
+    }
+    if (model === 'shield') {
+      this._mesh(new THREE.CircleGeometry(0.4, 6), mat(0xbff4ff, { emissive: 0x4ad8ff, emissiveIntensity: 0.9, transparent: true, opacity: 0.6, side: THREE.DoubleSide }), 0, 0.2, 0, k);
+      this._mesh(new THREE.TorusGeometry(0.4, 0.04, 6, 6), mat(0xe8fbff, { emissive: 0x7ae8ff, emissiveIntensity: 1.2 }), 0, 0.2, 0, k);
+    }
     if (model === 'key') {
       this._mesh(new THREE.TorusGeometry(0.13, 0.035, 8, 16), gold, 0, 0.14, 0, k);
       this._mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.36, 8), gold, 0, -0.14, 0, k);
@@ -200,7 +223,7 @@ export class World {
     const glow = new THREE.PointLight(0xffd27a, 1.2, 4, 2); glow.position.y = 0.8; g.add(glow);
     const baseY = k.position.y;
     this.animated.push(t => { k.rotation.y = t * 1.6; k.position.y = baseY + Math.sin(t * 2.2) * 0.08; });
-    this.interactables.push({ id, type: 'item', pos: new THREE.Vector3(x, y, z), radius: 1.5, verb, who: '', lines: [], mesh: g, when, headY: 0.8 });
+    this.interactables.push({ id, type: 'item', pos: new THREE.Vector3(x, y, z), radius, verb, who: '', lines: [], mesh: g, when, headY: 0.8 });
   }
 
   _trigger({ id, x, y = 0, z, radius = 1.8, verb = 'Usar', name = '', lines = [], when }) {
@@ -357,6 +380,110 @@ export class World {
     const win = mat(0xffd27a, { emissive: 0xffa040, emissiveIntensity: 1.2 });
     for (let i = 0; i < 6; i++) this._mesh(new THREE.BoxGeometry(0.5, 0.8, 0.1), win, (i % 2 ? 1 : -1) * w * 0.25, h * 0.4 + i * 2.5, w / 2 + 0.05, g).castShadow = false;
     this.physics.addBox(x, y + h / 2, z, w, h, w);
+  }
+
+  // ---------- piezas de los capítulos 4 y 5 ----------
+  // Cerradura de hielo: un ojo de cristal en la pared; un orbe devuelto con el escudo la rompe y abre su puerta.
+  _lock({ id, x, y, z, rot = 0, gate, flag, base }, save) {
+    const open = !!save.flags[flag];
+    const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rot; this.root.add(g);
+    const frame = this._mesh(new THREE.TorusGeometry(0.75, 0.15, 8, 6), mat(0x8aa0b8, { flatShading: true }), 0, 0, 0, g);
+    const eyeMat = new THREE.MeshStandardMaterial({ color: 0xbff4ff, emissive: 0x4ad8ff, emissiveIntensity: open ? 0.1 : 1.4, flatShading: true });
+    const eye = this._mesh(new THREE.OctahedronGeometry(0.45, 0), eyeMat, 0, 0, 0, g);
+    if (base !== undefined && y - base > 0.3) { this._mesh(new THREE.BoxGeometry(0.35, y - base, 0.35), mat(0x6a7a8a, { flatShading: true }), 0, -(y - base) / 2 - 0.4, 0, g); this.physics.addBox(x, (y + base) / 2 - 0.4, z, 0.4, y - base, 0.4, { noCamera: true }); }
+    let gateMesh = null, gateBox = null;
+    if (gate) {
+      gateMesh = this._mesh(new THREE.BoxGeometry(gate.w, gate.h, gate.d), new THREE.MeshStandardMaterial({ color: 0xc8f0ff, emissive: 0x2a7ab0, emissiveIntensity: 0.4, transparent: true, opacity: 0.75, roughness: 0.05, flatShading: true }), gate.x, gate.y - gate.h / 2, gate.z);
+      gateBox = this.physics.addBox(gate.x, gate.y - gate.h / 2, gate.z, gate.w, gate.h, gate.d);
+      if (open) { gateMesh.visible = false; gateBox.off = true; }
+    }
+    const L = { id, flag, pos: new THREE.Vector3(x, y, z), open, eyeMat, gateMesh, gateBox, gate };
+    this.animated.push(t => { if (!L.open) { eye.rotation.y = t; eyeMat.emissiveIntensity = 1.2 + Math.sin(t * 4) * 0.4; } });
+    this.locks.push(L);
+  }
+  openLock(L) {
+    if (L.open) return;
+    L.open = true; L.eyeMat.emissiveIntensity = 0.1;
+    if (L.gateMesh) { L.gateMesh.visible = false; L.gateBox.off = true; }
+  }
+
+  // Cristal de luz: el pulso lo enciende y hace aparecer los puentes de luz que tiene enlazados.
+  _lightCrystal({ id, x, y = 0, z, flag }, save) {
+    const g = new THREE.Group(); g.position.set(x, y, z); this.root.add(g);
+    this._mesh(new THREE.CylinderGeometry(0.5, 0.7, 0.6, 8), mat(0x6a5a7a, { flatShading: true }), 0, 0.3, 0, g);
+    const cm = new THREE.MeshStandardMaterial({ color: 0x8a7a9a, emissive: 0xfff2a8, emissiveIntensity: 0, flatShading: true, roughness: 0.2 });
+    const gem = this._mesh(new THREE.OctahedronGeometry(0.45, 0), cm, 0, 1.3, 0, g); gem.scale.y = 1.6;
+    const light = new THREE.PointLight(0xfff2a8, 0, 8, 1.6); light.position.y = 1.3; g.add(light);
+    this.physics.addBox(x, y + 0.3, z, 1.2, 0.6, 1.2, { noCamera: true });
+    const C = { id, flag, pos: new THREE.Vector3(x, y + 1.2, z), on: false, cm, light };
+    C.set = on => { C.on = on; cm.emissiveIntensity = on ? 1.6 : 0; cm.color.setHex(on ? 0xfff6d0 : 0x8a7a9a); light.intensity = on ? 2.2 : 0; for (const p of this.lightPlatforms) if (p.crystal === id) p.set(on); };
+    this.animated.push(t => { gem.rotation.y = t * (C.on ? 1.5 : 0.3); });
+    this.lightCrystals.push(C);
+    C._initial = !!save.flags[flag];
+  }
+  _lightPlatform({ crystal, x, y, z, w = 2.5, d = 2.5 }) {
+    const m = this._mesh(new THREE.BoxGeometry(w, 0.3, d), new THREE.MeshStandardMaterial({ color: 0xfff6d0, emissive: 0xffd27a, emissiveIntensity: 0.9, transparent: true, opacity: 0.85 }), x, y - 0.15, z);
+    m.castShadow = false;
+    const ghost = this._mesh(new THREE.BoxGeometry(w, 0.3, d), new THREE.MeshBasicMaterial({ color: 0xfff2a8, wireframe: true, transparent: true, opacity: 0.25 }), x, y - 0.15, z);
+    ghost.castShadow = false;
+    const box = this.physics.addBox(x, y - 0.15, z, w, 0.3, d, { noCamera: true });
+    const P = { crystal, mesh: m, ghost, box };
+    P.set = on => { m.visible = on; ghost.visible = !on; box.off = !on; };
+    P.set(false);
+    this.lightPlatforms.push(P);
+  }
+  // Barrera de sombra: bloquea el paso hasta que el pulso de luz la deshace.
+  _darkBarrier({ id, x, y = 0, z, w = 4, h = 3.5, d = 0.6, flag }, save) {
+    if (save.flags[flag]) return;
+    const matB = new THREE.MeshStandardMaterial({ color: 0x3a1a5a, emissive: 0x5a2aa8, emissiveIntensity: 0.8, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false });
+    const m = this._mesh(new THREE.BoxGeometry(w, h, d), matB, x, y + h / 2, z); m.castShadow = false;
+    const box = this.physics.addBox(x, y + h / 2, z, w, h, d);
+    const B = { id, flag, pos: new THREE.Vector3(x, y + h / 2, z), half: Math.max(w, d) / 2, mesh: m, box, gone: false };
+    this.animated.push(t => { if (!B.gone) { matB.emissiveIntensity = 0.7 + Math.sin(t * 3 + x) * 0.3; m.scale.x = 1 + Math.sin(t * 5) * 0.01; } });
+    this.darkBarriers.push(B);
+  }
+  dispelBarrier(B) { if (B.gone) return; B.gone = true; B.box.off = true; this.root.remove(B.mesh); }
+
+  _pine({ x, z, y = 0, s = 1 }) {
+    const g = new THREE.Group(); g.position.set(x, y, z); g.scale.setScalar(s); this.root.add(g);
+    this._mesh(new THREE.CylinderGeometry(0.15, 0.22, 1.2, 6), mat(0x5a4030), 0, 0.6, 0, g);
+    [[1.3, 1.6, 1.6], [1.0, 1.4, 2.5], [0.7, 1.2, 3.3]].forEach(([r, h, yy]) => {
+      this._mesh(new THREE.ConeGeometry(r, h, 7), mat(0x3a6a5a, { flatShading: true }), 0, yy, 0, g);
+      this._mesh(new THREE.ConeGeometry(r * 0.85, h * 0.45, 7), mat(0xf4fbff, { flatShading: true }), 0, yy + h * 0.3, 0, g);
+    });
+    this.physics.addBox(x, y + 1 * s, z, 0.5 * s, 2 * s, 0.5 * s, { noCamera: true });
+  }
+  _snow(n) {
+    const geo = new THREE.BufferGeometry(), pos = new Float32Array(n * 3), seeds = [];
+    for (let i = 0; i < n; i++) seeds.push([(Math.random() - 0.5) * 40, Math.random() * 20, (Math.random() - 0.5) * 40, Math.random() * 6]);
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.12, transparent: true, opacity: 0.85, depthWrite: false }));
+    pts.frustumCulled = false; this.root.add(pts);
+    this.animated.push(t => {
+      const c = this.playerPos;
+      for (let i = 0; i < n; i++) { const [x, y, z, ph] = seeds[i]; pos[i * 3] = c.x + x + Math.sin(t * 0.7 + ph) * 0.8; pos[i * 3 + 1] = c.y - 4 + ((y - t * 1.4) % 20 + 20) % 20; pos[i * 3 + 2] = c.z + z + Math.cos(t * 0.5 + ph) * 0.8; }
+      geo.attributes.position.needsUpdate = true;
+    });
+  }
+  _icicleWall({ x, y = 0, z, w = 3, h = 3 }) { // decoración: cascada helada
+    const m = mat(0xc8f0ff, { emissive: 0x2a7ab0, emissiveIntensity: 0.3, transparent: true, opacity: 0.85, flatShading: true, roughness: 0.05 });
+    for (let i = 0; i < 6; i++) { const c = this._mesh(new THREE.ConeGeometry(0.35 + (i % 3) * 0.1, h * (0.6 + (i % 2) * 0.4), 6), m, x - w / 2 + (i + 0.5) * w / 6, y + h / 2, z); c.rotation.x = Math.PI; }
+  }
+  _obelisk({ x, y = 0, z, h = 7 }) {
+    const g = new THREE.Group(); g.position.set(x, y, z); this.root.add(g);
+    this._mesh(new THREE.BoxGeometry(1.2, h, 1.2), mat(0x2a2235, { flatShading: true }), 0, h / 2, 0, g);
+    this._mesh(new THREE.ConeGeometry(0.85, 1.2, 4), mat(0xd4a24c, { metalness: 0.6 }), 0, h + 0.6, 0, g).rotation.y = Math.PI / 4;
+    const rune = mat(0xb07aff, { emissive: 0x8a3aff, emissiveIntensity: 1.2 });
+    for (let i = 0; i < 3; i++) this._mesh(new THREE.BoxGeometry(0.3, 0.6, 0.05), rune, 0, h * 0.35 + i * 1.3, 0.62, g).castShadow = false;
+    this.physics.addBox(x, y + h / 2, z, 1.2, h, 1.2);
+  }
+  _banner({ x, y = 0, z, rot = 0 }) {
+    const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rot; this.root.add(g);
+    this._mesh(new THREE.CylinderGeometry(0.06, 0.06, 4.5, 6), mat(0x3a3a46), 0, 2.25, 0, g);
+    const cloth = this._mesh(new THREE.PlaneGeometry(1.1, 2.2, 1, 6), mat(0x5a1a4a, { side: THREE.DoubleSide }), 0.6, 3.2, 0, g);
+    const sym = this._mesh(new THREE.CircleGeometry(0.28, 6), mat(0xd4a24c, { side: THREE.DoubleSide, emissive: 0x6a4a10, emissiveIntensity: 0.5 }), 0.6, 3.4, 0.01, g);
+    this.animated.push(t => { cloth.rotation.y = Math.sin(t * 1.5 + x) * 0.15; sym.rotation.y = cloth.rotation.y; });
+    this.physics.addBox(x, y + 2.25, z, 0.3, 4.5, 0.3, { noCamera: true });
   }
 
   _bigTree({ x, z, y = -14, r = 2.4, h = 48 }) {

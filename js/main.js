@@ -12,9 +12,11 @@ import puertoBruma from './zones/puerto_bruma.js';
 import bosqueColgante from './zones/bosque_colgante.js';
 import ruinasVidrio from './zones/ruinas_vidrio.js';
 import ciudadEngranajes from './zones/ciudad_engranajes.js';
+import glaciarEco from './zones/glaciar_eco.js';
+import ciudadelaOrden from './zones/ciudadela_orden.js';
 import { Combat } from './combat.js';
 
-const ZONES = { puerto_bruma: puertoBruma, bosque_colgante: bosqueColgante, ruinas_vidrio: ruinasVidrio, ciudad_engranajes: ciudadEngranajes };
+const ZONES = { puerto_bruma: puertoBruma, bosque_colgante: bosqueColgante, ruinas_vidrio: ruinasVidrio, ciudad_engranajes: ciudadEngranajes, glaciar_eco: glaciarEco, ciudadela_orden: ciudadelaOrden };
 const $ = id => document.getElementById(id);
 
 // ---------- motor ----------
@@ -53,7 +55,8 @@ const cam = new FollowCamera(camera, physics);
 const combat = new Combat(scene, physics, fx, audio);
 combat.world = world;
 let hookTarget = null;
-let bossActive = false, deadT = 0, hintClang = false, hintStun = false, lastHp = -1, endNext = null;
+let bossActive = false, deadT = 0, hintClang = false, hintStun = false, hintAura = false, lastHp = -1, endNext = null, pendingFinale = null;
+const pulseFx = [];
 
 let settings = loadSettings();
 let save = null;
@@ -74,6 +77,9 @@ const S = {
   give: name => { toast(`Obtuviste: ${name}`); audio.play('fragment'); player.gesture('Cheer', { speed: 1.2, fadeOut: 0.3 }); },
   ending: () => { pendingEnding = true; },
   chapterEnd: () => { pendingChapterEnd = true; },
+  finale: kind => { pendingFinale = kind; },
+  endingDialog: kind => startDialog(zone.story.endings[kind], '', null, () => S.finale(kind)),
+  dispel: id => { const B = world.darkBarriers.find(b => b.id === id); if (B) { world.dispelBarrier(B); fx.sparkle(B.pos, 30, 0xfff2a8); if (B.flag) save.flags[B.flag] = true; } },
   get bossActive() { return bossActive; },
   effect: (kind, id) => {
     const it = world.interactables.find(o => o.id === id);
@@ -94,7 +100,7 @@ applySettings();
 let charsReady = false;
 $('bContinue').disabled = $('bNew').disabled = true;
 loadCharacterLibrary(p => { $('loading').textContent = `Cargando personajes… ${Math.round(p * 100)}%`; })
-  .then(lib => { player.useModel(lib); world.chars = lib; })
+  .then(lib => { player.useModel(lib); world.chars = lib; combat.chars = lib; })
   .catch(e => { console.warn('No se pudieron cargar los personajes animados; se usan los de formas simples.', e); })
   .finally(() => { charsReady = true; $('loading').classList.add('hidden'); $('bContinue').disabled = $('bNew').disabled = false; });
 
@@ -109,7 +115,7 @@ function loadZone(id, checkpointId) {
   world.build(zone, save);
   player.updrafts = world.updrafts;
   combat.spawnZone(zone, save);
-  bossActive = false; hintClang = false; hintStun = false; $('bossbar').classList.add('hidden');
+  bossActive = false; hintClang = false; hintStun = false; hintAura = false; $('bossbar').classList.add('hidden');
   applyAbilities(); player.hp = player.maxHp;
   respawn(checkpointId);
   updateHUD();
@@ -123,6 +129,10 @@ function applyAbilities() {
   player.canAirDash = !!save.flags.impulso;
   player.canGlide = !!save.flags.planeador;
   player.canGrapple = !!save.flags.garfio;
+  player.canShield = !!save.flags.escudo;
+  player.canPulse = !!save.flags.pulso;
+  $('tShield').classList.toggle('hidden', !(player.canShield && input.isTouch));
+  $('tPulse').classList.toggle('hidden', !(player.canPulse && input.isTouch));
   $('tHook').classList.toggle('hidden', !(player.canGrapple && input.isTouch));
   player.maxHp = 4 + Math.floor(save.fragments.length / 5);
 }
@@ -226,6 +236,8 @@ function showLine() {
   document.body.classList.toggle('memory', !!l.memory);
   $('dWho').textContent = l.who || '';
   $('dText').textContent = '';
+  $('dChoices').innerHTML = ''; $('dChoices').classList.add('hidden');
+  d.sel = 0;
   if (l.system) audio.play('checkpoint');
 }
 function updateDialog(dt) {
@@ -236,6 +248,23 @@ function updateDialog(dt) {
     if (Math.floor(d.shown) !== before && before % 3 === 0) audio.play('talk');
     $('dText').textContent = d.full.slice(0, Math.floor(d.shown));
   }
+  const line = d.lines[d.i];
+  if (line.choices && d.shown >= d.full.length) { // elección: botones, 1/2, flechas + E
+    const box = $('dChoices');
+    if (box.classList.contains('hidden')) {
+      box.classList.remove('hidden');
+      box.innerHTML = line.choices.map((c, i) => `<button class="choice" data-i="${i}"><b>${i + 1}</b>${c.label}</button>`).join('');
+      box.querySelectorAll('.choice').forEach(b => b.onclick = e => { e.stopPropagation(); choose(+b.dataset.i); });
+      $('dNext').textContent = input.isTouch ? 'toca una opción' : 'elige con 1 / 2, o con las flechas y E';
+    }
+    if (input.pressed('choiceUp')) d.sel = (d.sel + line.choices.length - 1) % line.choices.length;
+    if (input.pressed('choiceDown')) d.sel = (d.sel + 1) % line.choices.length;
+    box.querySelectorAll('.choice').forEach((b, i) => b.classList.toggle('sel', i === d.sel));
+    if (input.pressed('choice1')) return choose(0);
+    if (input.pressed('choice2') && line.choices.length > 1) return choose(1);
+    if (input.pressed('interact')) return choose(d.sel);
+    return;
+  }
   if (input.pressed('interact') || input.pressed('jump') || input.pressed('click')) {
     if (d.shown < d.full.length) { d.shown = d.full.length; $('dText').textContent = d.full; return; }
     d.i++;
@@ -243,6 +272,13 @@ function updateDialog(dt) {
     showLine();
   }
   if (dialog) $('dNext').textContent = `${d.i + 1}/${d.lines.length} · ${input.isTouch ? 'toca' : input.usingGamepad ? 'A' : 'E / clic'} para continuar`;
+}
+function choose(i) {
+  const d = dialog; if (!d) return;
+  const c = d.lines[d.i].choices[i]; if (!c) return;
+  audio.play('checkpoint');
+  closeDialog(false);
+  if (c.then) c.then();
 }
 function closeDialog(finished) {
   $('dialog').classList.add('hidden');
@@ -255,6 +291,7 @@ function closeDialog(finished) {
   if (finished && d && d.then) d.then();
   if (pendingEnding) { pendingEnding = false; startEnding(); }
   if (pendingChapterEnd) { pendingChapterEnd = false; showChapterEnd(); }
+  if (pendingFinale) { const k = pendingFinale; pendingFinale = null; startFinale(k); }
 }
 $('dialog').addEventListener('touchstart', () => input._pressed.add('click'), { passive: true });
 $('dialog').addEventListener('click', () => input._pressed.add('click'));
@@ -305,7 +342,41 @@ function startEnding() {
   $('fade').style.opacity = 1;
   cutscene = { t: 0, ship, placed: false };
 }
+// ---------- finales del juego ----------
+function startFinale(kind) {
+  state = 'cutscene'; document.body.classList.add('cine');
+  save.flags['final_' + kind] = true; save.flags.juego_completado = true; writeSave(save);
+  const F = zone.finale[kind];
+  cutscene = { t: 0, finale: true, kind, F, top0: skyMat.uniforms.top.value.clone(), bot0: skyMat.uniforms.bottom.value.clone(), fog0: scene.fog.color.clone() };
+  player.frozen = true;
+  audio.play('unlock');
+}
+function updateFinale(dt) {
+  const c = cutscene, F = c.F; c.t += dt;
+  const k = Math.min(1, c.t / 4);
+  skyMat.uniforms.top.value.copy(c.top0).lerp(new THREE.Color(F.sky.top), k);
+  skyMat.uniforms.bottom.value.copy(c.bot0).lerp(new THREE.Color(F.sky.bottom), k);
+  scene.fog.color.copy(c.fog0).lerp(new THREE.Color(F.sky.fog), k);
+  const at = zone.finaleAt, a = c.t * 0.18 + 0.4, r = 9 + c.t * 0.6;
+  camera.position.set(at[0] + Math.sin(a) * r, at[1] + 3 + c.t * 0.5, at[2] + Math.cos(a) * r);
+  camera.lookAt(at[0], at[1] + 1.5, at[2]);
+  if (Math.random() < dt * 30) fx.sparkle(new THREE.Vector3(at[0] + (Math.random() - 0.5) * 16, at[1] + Math.random() * 8, at[2] + (Math.random() - 0.5) * 16), 2, F.mote);
+  player.anim.update(dt, { vel: new THREE.Vector3(), grounded: true, facing: player.facing, input: { x: 0, z: 0 }, lookAt: null });
+  if (c.t > 8 && !c.faded) { c.faded = true; $('fade').style.opacity = 1; }
+  if (c.t > 9) {
+    cutscene = null; state = 'end';
+    let all = 0; for (const z of Object.values(ZONES)) all += z.fragments.length;
+    const other = c.kind === 'a' ? 'b' : 'a';
+    showEndCard({
+      kicker: 'Final', title: F.title,
+      stats: `Tiempo de juego: ${fmtTime(save.playTime)}<br>Fragmentos encontrados: ${save.fragments.length}/${all}<br>Finales vistos: ${['a', 'b'].filter(x => save.flags['final_' + x]).length}/2`,
+      sub: (save.flags['final_' + other] ? 'Viste los dos finales. ' : 'Hay otro final: vuelve al altar y elige el otro camino. ') + 'Gracias por jugar Ecos de Aethra.',
+    });
+    $('fade').style.opacity = 0;
+  }
+}
 function updateCutscene(dt) {
+  if (cutscene.finale) return updateFinale(dt);
   const c = cutscene; c.t += dt;
   const ship = c.ship;
   if (!c.placed && c.t > 0.7) {
@@ -358,6 +429,7 @@ function leaveEnding(toTitle) {
   if (ship && player.mesh.parent === ship.group) { scene.add(player.mesh); ship.offset.set(0, 0, 0); ship.spin = 3; }
   document.body.classList.remove('cine');
   $('endcard').classList.add('hidden');
+  player.frozen = false;
   if (toTitle) { writeSave(save); state = 'title'; showOverlay('title'); refreshTitle(); return; }
   if (zone.id === 'puerto_bruma') { player.teleport(0, 0.05, 31.5, 0); cam.snap(player); }
   state = 'play';
@@ -372,8 +444,17 @@ function handlePlayerEvents() {
   for (const ev of player.events) {
     if (ev.type === 'hurt') { combat.shake(0.25, 0.25); $('hudHearts').classList.remove('hit'); void $('hudHearts').offsetWidth; $('hudHearts').classList.add('hit'); }
     if (ev.type === 'dead') startDeath();
+    if (ev.type === 'pulse') doPulse(ev.pos, ev.radius);
   }
   player.events = player.events.filter(e => e.type === 'hitcheck' || e.type === 'swing');
+}
+// Pulso de luz: enciende cristales, deshace barreras de sombra y afecta a enemigos y al jefe.
+function doPulse(pos, r) {
+  const sph = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshBasicMaterial({ color: 0xfff2a8, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending }));
+  sph.position.copy(pos).setY(pos.y + 0.9); scene.add(sph); pulseFx.push({ m: sph, t: 0, r });
+  combat.pulse(pos, r);
+  for (const C of world.lightCrystals) if (!C.on && C.pos.distanceTo(pos) < r + 0.5) { C.set(true); if (C.flag) S.set(C.flag); audio.play('unlock'); toast('¡El cristal de luz se enciende!'); }
+  for (const B of world.darkBarriers) if (!B.gone && B.pos.distanceTo(pos) < r + B.half) { world.dispelBarrier(B); fx.sparkle(B.pos, 30, 0xfff2a8); if (B.flag) S.set(B.flag); audio.play('unlock'); }
 }
 function startDeath() {
   if (state === 'dead') return;
@@ -436,9 +517,11 @@ combat.onBossDefeated = () => {
   bossActive = false;
   setTimeout(() => { startDialog(zone.story.bossDefeated, '', null, () => { zone.story.onBossDefeated && zone.story.onBossDefeated(S); player.gesture('Cheer', { speed: 1.2 }); }); }, 300);
 };
-combat.onBossClang = () => { if (!hintClang) { hintClang = true; toast({ bosque_colgante: 'El tronco es demasiado duro. ¡Golpea los nudos brillantes de las raíces!', ruinas_vidrio: 'Su caparazón es irrompible. Haz que choque contra un pilar.', ciudad_engranajes: 'El latón es demasiado duro. Espera a que se atasque tras el puñetazo.' }[zone.id] || 'Demasiado duro'); } };
-combat.onBossPhase = b => toast(`¡${(b && b.name) || 'El guardián'} está furioso!`);
-combat.onBossStun = () => { if (!hintStun) { hintStun = true; toast(zone.id === 'ruinas_vidrio' ? '¡Está aturdido! Golpea el cristal de su cola' : '¡Se quedó atascado! Lanza el garfio al anillo de su pecho'); } };
+combat.onBossClang = () => { if (!hintClang) { hintClang = true; toast({ bosque_colgante: 'El tronco es demasiado duro. ¡Golpea los nudos brillantes de las raíces!', ruinas_vidrio: 'Su caparazón es irrompible. Haz que choque contra un pilar.', ciudad_engranajes: 'El latón es demasiado duro. Espera a que se atasque tras el puñetazo.', glaciar_eco: 'Está demasiado alto. Devuélvele un orbe de hielo con el escudo (mantén V).', ciudadela_orden: 'La barrera de sombra lo protege. Rómpela con el pulso de luz (Z) o devolviéndole un orbe con el escudo.' }[zone.id] || 'Demasiado duro'); } };
+combat.onBossPhase = b => toast((b && b.phaseMsg) || '¡El guardián está furioso!');
+combat.onLockHit = L => { world.openLock(L); if (L.flag) S.set(L.flag); audio.play('unlock'); fx.sparkle(L.pos, 30, 0xbff4ff); toast('¡La cerradura de hielo se rompe!'); };
+combat.onAuraClang = () => { if (!hintAura) { hintAura = true; toast(player.canPulse ? 'Un aura de sombra lo protege. ¡Usa el pulso de luz (Z)!' : 'Un aura de sombra lo protege.'); } };
+combat.onBossStun = () => { if (!hintStun) { hintStun = true; toast({ ruinas_vidrio: '¡Está aturdido! Golpea el cristal de su cola', ciudad_engranajes: '¡Se quedó atascado! Lanza el garfio al anillo de su pecho', glaciar_eco: '¡Cayó al suelo! Golpea el cuerno de cristal', ciudadela_orden: '¡Su barrera se rompió! Golpéalo ahora' }[zone.id] || '¡Ahora!'); } };
 function updateCombatHUD() {
   if (player.hp !== lastHp || player._lastMax !== player.maxHp) {
     lastHp = player.hp; player._lastMax = player.maxHp;
@@ -585,6 +668,8 @@ function simulate(dt) {
 
   world.update(time, dt);
   fx.update(dt);
+  for (const p of pulseFx) { p.t += dt; const k = p.t / 0.45; p.m.scale.setScalar(0.5 + k * p.r); p.m.material.opacity = 0.5 * (1 - k); if (k >= 1) { scene.remove(p.m); p.done = true; } }
+  for (let i = pulseFx.length - 1; i >= 0; i--) if (pulseFx[i].done) pulseFx.splice(i, 1);
   const wantFov = 60 + player.anim.runW * 5 * (state === 'play' ? 1 : 0);
   if (Math.abs(camera.fov - wantFov) > 0.01) { camera.fov += (wantFov - camera.fov) * Math.min(1, dt * 4); camera.updateProjectionMatrix(); }
   sun.position.set(player.pos.x + 18, player.pos.y + 30, player.pos.z + 10);
@@ -624,7 +709,7 @@ frame();
 // step(n): avanza n pasos de 1/60 s sin depender de la velocidad de dibujo (para pruebas en máquinas lentas)
 window.__aethra = {
   player, cam, world, input, get state() { return state; }, get save() { return save; }, startGame, newSave, loadZone,
-  hold(on) { paused4test = on; }, S, combat, enterZone, get zone() { return zone; }, get dialog() { return dialog; },
+  hold(on) { paused4test = on; }, S, combat, enterZone, choose, get zone() { return zone; }, get dialog() { return dialog; },
   step(n, press) {
     for (let i = 0; i < n; i++) { if (press && i === 0) input._pressed.add(press); simulate(1 / 60); input.endFrame(); }
   },
