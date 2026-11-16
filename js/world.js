@@ -152,6 +152,12 @@ export class World {
 
   _house({ x, z, w, d, h = 3.2, base = 0, roof = C.roofRed, wall = C.plaster, door = 'z+' }) {
     const g = new THREE.Group(); g.position.set(x, base, z); this.root.add(g);
+    const rh0 = Math.min(w, d) * 0.45;
+    if (this._model('casa', { x: w + 0.7, y: h + rh0 + 0.2, z: d + 0.7 }, 0, 0, 0, { parent: g, rotY: door === 'z+' ? 0 : Math.PI })) {
+      this.physics.addBox(x, base + h / 2, z, w, h, d);
+      this.physics.addBox(x, base + h + rh0 * 0.25, z, w * 0.5, rh0 * 0.5, d + 0.6);
+      return;
+    }
     this._mesh(new THREE.BoxGeometry(w, h, d), mat(wall), 0, h / 2, 0, g);
     // tejado a dos aguas
     const rh = Math.min(w, d) * 0.45;
@@ -334,10 +340,8 @@ export class World {
   _arch({ x, z, y = 0, rot = 0, w = 5, h = 5 }) {
     const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rot; this.root.add(g);
     const stone = mat(0xd8b88a, { flatShading: true });
-    if (!this._model('arco_ruina', { x: w + 1.4, y: h + 0.9, z: 1.4 }, 0, 0, 0, { parent: g })) {
-      [-1, 1].forEach(s => this._mesh(new THREE.BoxGeometry(0.9, h, 0.9), stone, s * w / 2, h / 2, 0, g));
-      this._mesh(new THREE.BoxGeometry(w + 1.2, 0.8, 1.0), stone, 0, h + 0.4, 0, g);
-    }
+    [-1, 1].forEach(s => this._mesh(new THREE.BoxGeometry(0.9, h, 0.9), stone, s * w / 2, h / 2, 0, g));
+    this._mesh(new THREE.BoxGeometry(w + 1.2, 0.8, 1.0), stone, 0, h + 0.4, 0, g);
     [-1, 1].forEach(s => {
       const c = Math.cos(rot), sn = Math.sin(rot);
       this.physics.addBox(x + c * s * w / 2, y + h / 2, z - sn * s * w / 2, 0.9, h, 0.9);
@@ -345,7 +349,6 @@ export class World {
   }
 
   _column({ x, z, y = 0, h = 3, broken = false }) {
-    if (this._model('columna_ruina', { x: 1.3, y: h + 0.2, z: 1.3 }, x, y, z, { rotY: (x * 3 + z) % 6.28 })) { this.physics.addBox(x, y + h / 2, z, 0.9, h, 0.9, { noCamera: true }); return; }
     const stone = mat(0xd8b88a, { flatShading: true });
     const c = this._mesh(new THREE.CylinderGeometry(0.45, 0.5, h, 8), stone, x, y + h / 2, z);
     if (broken) c.rotation.z = 0.08;
@@ -369,7 +372,7 @@ export class World {
   _tent({ x, z, y = 0, rot = 0 }) {
     const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rot; this.root.add(g);
     const cloth = mat(0xc87a4a, { flatShading: true });
-    if (this._model('carpa', { w: 3.4 }, 0, 0, 0, { parent: g })) { this.physics.addBox(x, y + 1, z, 2.4, 2, 2.4); return; }
+    if (this._model('carpa', { x: 2.8, y: 2.1, z: 3.8 }, 0, 0, 0, { parent: g })) { this.physics.addBox(x, y + 1, z, 2.4, 2, 2.4); return; }
     const tent = this._mesh(new THREE.ConeGeometry(1.8, 2.2, 4), cloth, 0, 1.1, 0, g); tent.rotation.y = Math.PI / 4;
     this._mesh(new THREE.BoxGeometry(0.7, 1.2, 0.05), mat(0x3a2a1a), 0, 0.6, 1.25, g);
     this._mesh(new THREE.BoxGeometry(0.8, 0.5, 0.6), mat(C.wood), 2.2, 0.25, 0.5, g); // caja de mapas
@@ -392,7 +395,6 @@ export class World {
   _tower({ x, z, y = -14, h = 30, w = 4, color = 0x7a6a5a }) {
     const g = new THREE.Group(); g.position.set(x, y, z); this.root.add(g);
     const stone = mat(color, { flatShading: true }), brass = mat(0xb08a4a, { metalness: 0.5, roughness: 0.4 });
-    if (this._model('torre', { x: w * 1.25, y: h + w * 1.1, z: w * 1.25 }, 0, 0, 0, { parent: g, rotY: (x + z) % 6.28 })) { this.physics.addBox(x, y + h / 2, z, w, h, w); return; }
     this._mesh(new THREE.BoxGeometry(w, h, w), stone, 0, h / 2, 0, g);
     for (let i = 1; i < 5; i++) this._mesh(new THREE.BoxGeometry(w + 0.3, 0.4, w + 0.3), brass, 0, (h / 5) * i, 0, g);
     this._mesh(new THREE.ConeGeometry(w * 0.85, w * 1.1, 4), mat(0x4a3a6a, { flatShading: true }), 0, h + w * 0.55, 0, g).rotation.y = Math.PI / 4;

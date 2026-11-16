@@ -75,10 +75,13 @@ def main():
     out = os.path.join(repo, 'assets', 'props')
     os.makedirs(out, exist_ok=True)
     ids = []
+    skip = set(filter(None, os.environ.get('EXCLUDE', '').split(',')))  # modelos que el juego no usa
     for f in sorted(os.listdir(src)):
         if not f.endswith('.glb'):
             continue
         pid = f[:-4]
+        if pid in skip:
+            continue
         js, b = read_glb(open(os.path.join(src, f), 'rb').read())
         data = write_glb(*shrink(js, b))
         with open(os.path.join(out, pid + '.glb.js'), 'w') as fh:
