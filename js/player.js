@@ -1,56 +1,19 @@
 import * as THREE from 'three';
 import { STEP_HEIGHT } from './physics.js';
+import { buildHumanoid, HeroAnimator } from './rig.js';
+import { createCharacter, HeroModelAnimator } from './characters.js';
 
 export const RADIUS = 0.35, HEIGHT = 1.55;
 const RUN = 6.8, WALK = 2.6, ACCEL = 38, AIR_ACCEL = 16, GRAVITY = 28, JUMP_V = 10, DOUBLE_JUMP_V = 9;
 const COYOTE = 0.12, BUFFER = 0.14, SNAP_DOWN = 0.45;
 
-const m = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.75, ...o });
-
-// Modelo de Lía hecho con formas simples; las articulaciones son grupos para animarlas.
-function buildLia() {
-  const root = new THREE.Group();
-  const skin = m(0xf2c29b), hair = m(0x4a2c1d), jacket = m(0x2f8f9d), pants = m(0x3b3554), boots = m(0x5a3a22), scarf = m(0xf2b134), bag = m(0x9c6b3e), white = m(0xffffff), dark = m(0x1c1c28);
-  const add = (parent, geo, mat, x, y, z) => { const mesh = new THREE.Mesh(geo, mat); mesh.position.set(x, y, z); mesh.castShadow = true; parent.add(mesh); return mesh; };
-
-  const hips = new THREE.Group(); hips.position.y = 0.72; root.add(hips);
-  const torso = new THREE.Group(); hips.add(torso);
-  add(torso, new THREE.CylinderGeometry(0.22, 0.25, 0.5, 12), jacket, 0, 0.27, 0);
-  add(torso, new THREE.CylinderGeometry(0.255, 0.2, 0.14, 12), jacket, 0, 0.0, 0);
-  add(torso, new THREE.TorusGeometry(0.17, 0.06, 8, 16), scarf, 0, 0.53, 0).rotation.x = Math.PI / 2;
-  const tail = add(torso, new THREE.BoxGeometry(0.1, 0.32, 0.04), scarf, 0.1, 0.38, 0.2); tail.rotation.z = 0.2;
-  const strap = add(torso, new THREE.BoxGeometry(0.05, 0.62, 0.05), bag, 0, 0.27, 0); strap.rotation.z = 0.75;
-  add(torso, new THREE.BoxGeometry(0.22, 0.18, 0.1), bag, -0.24, 0.02, 0.05);
-
-  const head = new THREE.Group(); head.position.y = 0.78; torso.add(head);
-  add(head, new THREE.SphereGeometry(0.23, 18, 14), skin, 0, 0, 0);
-  const hairCap = add(head, new THREE.SphereGeometry(0.245, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.55), hair, 0, 0.02, 0.02);
-  hairCap.rotation.x = -0.25;
-  const pony = add(head, new THREE.ConeGeometry(0.09, 0.38, 8), hair, 0, -0.06, 0.27); pony.rotation.x = -2.5;
-  add(head, new THREE.SphereGeometry(0.05, 8, 6), white, -0.085, 0.0, -0.2);
-  add(head, new THREE.SphereGeometry(0.05, 8, 6), white, 0.085, 0.0, -0.2);
-  add(head, new THREE.SphereGeometry(0.028, 6, 5), dark, -0.085, 0.0, -0.245);
-  add(head, new THREE.SphereGeometry(0.028, 6, 5), dark, 0.085, 0.0, -0.245);
-
-  const limb = (parent, x, y, len, r, mat, endMat) => {
-    const j = new THREE.Group(); j.position.set(x, y, 0); parent.add(j);
-    add(j, new THREE.CylinderGeometry(r, r * 0.9, len, 8), mat, 0, -len / 2, 0);
-    if (endMat) add(j, new THREE.BoxGeometry(r * 2.2, 0.12, r * 3.2), endMat, 0, -len + 0.02, -0.05);
-    else add(j, new THREE.SphereGeometry(r * 1.05, 8, 6), skin, 0, -len, 0);
-    return j;
-  };
-  const armL = limb(torso, -0.29, 0.48, 0.48, 0.07, jacket);
-  const armR = limb(torso, 0.29, 0.48, 0.48, 0.07, jacket);
-  const legL = limb(hips, -0.12, 0, 0.66, 0.09, pants, boots);
-  const legR = limb(hips, 0.12, 0, 0.66, 0.09, pants, boots);
-  root.userData = { hips, torso, head, armL, armR, legL, legR };
-  return root;
-}
-
 export class Player {
-  constructor(scene, physics, audio) {
-    this.physics = physics; this.audio = audio;
-    this.mesh = buildLia(); scene.add(this.mesh);
+  constructor(scene, physics, audio, fx) {
+    this.physics = physics; this.audio = audio; this.fx = fx;
+    this.rig = buildHumanoid({ scarf: 0xf2b134, bag: 0x9c6b3e, hairStyle: 'ponytail', scale: 0.93 });
+    this.mesh = this.rig.root; scene.add(this.mesh);
+    this.anim = new HeroAnimator(this.rig);
+    this.lookAt = null;
     this.pos = new THREE.Vector3(); this.vel = new THREE.Vector3();
     this.facing = Math.PI; this.grounded = false; this.ground = null;
     this.coyote = 0; this.buffer = 0; this.jumps = 0; this.airTime = 0;
@@ -60,6 +23,15 @@ export class Player {
     this.shadow.rotation.x = -Math.PI / 2; scene.add(this.shadow);
   }
 
+  // Cambia el personaje hecho con formas por el modelo animado (cuando termina de cargar).
+  useModel(lib) {
+    const scene = this.mesh.parent;
+    const ch = createCharacter(lib, 'lia');
+    scene.remove(this.mesh); scene.add(ch.root);
+    this.ch = ch; this.mesh = ch.root; this.anim = new HeroModelAnimator(ch);
+  }
+  gesture(name, opts) { if (this.anim.gesture) this.anim.gesture(name, opts); }
+
   teleport(x, y, z, facing = this.facing) {
     this.pos.set(x, y, z); this.vel.set(0, 0, 0); this.facing = facing;
     this.grounded = false; this.jumps = 0;
@@ -67,6 +39,7 @@ export class Player {
 
   update(dt, input, camYaw) {
     const P = this.physics;
+    this._landed = false; this._landSpeed = 0; this._dj = false; this._jumped = false;
     let mx = 0, my = 0;
     if (!this.frozen) { mx = input.move.x; my = input.move.y; }
     const speed = input.walk ? WALK : RUN;
@@ -86,10 +59,12 @@ export class Player {
     if (this.buffer > 0) {
       if (this.coyote > 0) {
         this.vel.y = JUMP_V; this.grounded = false; this.coyote = 0; this.buffer = 0; this.jumps = 1;
-        this.audio.play('jump');
+        this.audio.play('jump'); this._jumped = true;
+        if (this.fx) this.fx.dust(this.pos, 5, 0.6);
       } else if (this.jumps < 2) {
         this.vel.y = DOUBLE_JUMP_V; this.buffer = 0; this.jumps = 2;
-        this.audio.play('djump');
+        this.audio.play('djump'); this._dj = true;
+        if (this.fx) this.fx.ring(this.pos.clone().setY(this.pos.y + 0.2));
       }
     }
     if (this.vel.y > 0 && !input.held('jump') && this.jumps === 1) this.vel.y -= GRAVITY * 1.4 * dt; // soltar = salto más bajo
@@ -113,44 +88,33 @@ export class Player {
       const g = P.groundAt(this.pos.x, this.pos.z, RADIUS, prevY + 0.05 + (wasGrounded ? STEP_HEIGHT * 0.5 : 0));
       const snap = wasGrounded ? SNAP_DOWN : 0;
       if (newY <= g.y + 0.001 || (wasGrounded && prevY - g.y <= snap && g.y > -Infinity)) {
-        if (!wasGrounded && this.vel.y < -14) this.landSquash = 0.28;
-        if (!wasGrounded && this.airTime > 0.25) this.audio.play('land');
+        if (!wasGrounded && this.airTime > 0.12) {
+          this._landed = true; this._landSpeed = -this.vel.y;
+          if (this.airTime > 0.25) { this.audio.play('land'); if (this.fx) this.fx.dust(this.pos, Math.round(4 + Math.min(10, -this.vel.y * 0.5)), Math.min(1.6, -this.vel.y / 12)); }
+        }
         this.pos.y = g.y; this.vel.y = 0; this.grounded = true; this.ground = g.obj; this.jumps = 0;
       } else {
         this.pos.y = newY; this.grounded = false; this.ground = null;
       }
     }
     this.airTime = this.grounded ? 0 : this.airTime + dt;
+    this._wx = wx; this._wz = wz;
     this._animate(dt);
   }
 
   _animate(dt) {
-    const u = this.mesh.userData;
-    const sp = Math.hypot(this.vel.x, this.vel.z);
     this.mesh.position.copy(this.pos);
     this.mesh.rotation.y = this.facing;
-    if (this.grounded) {
-      this.phase += dt * (3 + sp * 1.55);
-      const amp = Math.min(1, sp / RUN) * 0.75;
-      const s = Math.sin(this.phase);
-      u.legL.rotation.x = s * amp; u.legR.rotation.x = -s * amp;
-      u.armL.rotation.x = -s * amp * 0.9; u.armR.rotation.x = s * amp * 0.9;
-      u.armL.rotation.z = -0.08; u.armR.rotation.z = 0.08;
-      u.hips.position.y = 0.72 + Math.abs(Math.cos(this.phase)) * amp * 0.07;
-      u.torso.rotation.x = -amp * 0.12;
-      if (sp < 0.3) { // respiración en reposo
-        const t = performance.now() / 1000;
-        u.torso.rotation.x = Math.sin(t * 2) * 0.02; u.legL.rotation.x *= 0.8; u.legR.rotation.x *= 0.8;
-      }
-    } else {
-      const up = this.vel.y > 0;
-      u.legL.rotation.x = up ? -0.6 : -0.25; u.legR.rotation.x = up ? 0.2 : 0.35;
-      u.armL.rotation.x = -0.4; u.armR.rotation.x = -0.4;
-      u.armL.rotation.z = -0.7; u.armR.rotation.z = 0.7;
-      if (this.jumps === 2) u.torso.rotation.x = Math.min(0, u.torso.rotation.x - dt * 8); else u.torso.rotation.x = 0;
+    const ev = this.anim.update(dt, {
+      vel: this.vel, grounded: this.grounded, facing: this.facing, jumps: this.jumps,
+      input: { x: this._wx || 0, z: this._wz || 0 }, lookAt: this.lookAt,
+      landed: this._landed, landSpeed: this._landSpeed, doubleJumped: this._dj, jumped: this._jumped,
+    });
+    if (ev.footstep) {
+      this.audio.play(ev.run ? 'stepRun' : 'step');
+      if (ev.run && this.fx) this.fx.puff(this.pos, -Math.sin(this.facing), -Math.cos(this.facing));
     }
-    this.landSquash *= Math.pow(0.0005, dt);
-    this.mesh.scale.set(1 + this.landSquash * 0.5, 1 - this.landSquash, 1 + this.landSquash * 0.5);
+    if (ev.skid && this.fx && Math.random() < 0.5) this.fx.dust(this.pos, 1, 0.8);
 
     // sombra de contacto
     const g = this.physics.groundAt(this.pos.x, this.pos.z, 0.01, this.pos.y + 0.05);

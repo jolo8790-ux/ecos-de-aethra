@@ -34,6 +34,8 @@ export class Audio {
       case 'jump': this.tone(320, 0.14, 'triangle', 0.1, 260); break;
       case 'djump': this.tone(520, 0.16, 'triangle', 0.1, 380); this.noise(0.15, 0.04, 2500); break;
       case 'land': this.noise(0.08, 0.06, 400); break;
+      case 'step': this.noise(0.045, 0.025, 500 + Math.random() * 200); break;
+      case 'stepRun': this.noise(0.05, 0.04, 650 + Math.random() * 250); break;
       case 'fragment': [784, 988, 1318].forEach((f, i) => this.tone(f, 0.22, 'triangle', 0.1, 0, i * 0.07)); break;
       case 'checkpoint': [523, 784].forEach((f, i) => this.tone(f, 0.4, 'sine', 0.12, 0, i * 0.12)); break;
       case 'talk': this.tone(660 + Math.random() * 120, 0.04, 'square', 0.03); break;

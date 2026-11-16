@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { buildHumanoid, NpcAnimator } from './rig.js';
+import { createCharacter, NpcModelAnimator, LOOKS } from './characters.js';
 
 // Construye una zona a partir de sus datos (js/zones/*.js): mallas + colisiones + objetos interactivos.
 
@@ -19,12 +21,13 @@ export class World {
     this.animated = [];      // objetos con update(t, dt)
     this.interactables = []; // {id,type,pos,radius,mesh,data}
     this.checkpoints = {};   // id -> {pos, facing}
-    this.water = null;
+    this.water = null; this.airships = {};
+    this.playerPos = new THREE.Vector3();
   }
 
   clear() {
     this.root.clear(); this.physics.clear();
-    this.animated = []; this.interactables = []; this.checkpoints = {}; this.water = null;
+    this.animated = []; this.interactables = []; this.checkpoints = {}; this.water = null; this.airships = {};
   }
 
   build(zone, save) {
@@ -43,6 +46,9 @@ export class World {
     (z.lighthouses || []).forEach(l => this._lighthouse(l));
     (z.signs || []).forEach(s => this._sign(s));
     (z.npcs || []).forEach(n => this._npc(n));
+    (z.items || []).forEach(i => this._item(i));
+    (z.triggers || []).forEach(t => this._trigger(t));
+    (z.airships || []).forEach(a => this._airship(a));
     (z.lanterns || []).forEach(l => this._lantern(l, save));
     (z.fragments || []).forEach(f => { if (!save.fragments.includes(f.id)) this._fragment(f); });
     this.checkpoints[z.start.id] = { pos: new THREE.Vector3(...z.start.pos), facing: z.start.facing || 0 };
@@ -123,6 +129,71 @@ export class World {
     this.physics.addBox(x, base + h + rh * 0.25, z, w * 0.5, rh * 0.5, d + 0.6);
   }
 
+  // Aplica las condiciones de la historia: muestra u oculta lo que depende del progreso.
+  applyConditions(S) {
+    for (const it of this.interactables) {
+      if (!it.when) continue;
+      const on = !!it.when(S);
+      if (on === it.active) continue;
+      it.active = on;
+      if (it.mesh) it.mesh.visible = on;
+      if (it.mark) it.mark.visible = on;
+      if (it.box) it.box.off = !on;
+    }
+  }
+
+  _item({ id, x, y = 0, z, verb = 'Recoger', model = 'key', when }) {
+    const g = new THREE.Group(); g.position.set(x, y, z); this.root.add(g);
+    const gold = mat(0xe8b94a, { metalness: 0.6, roughness: 0.3, emissive: 0x6a4a00, emissiveIntensity: 0.4 });
+    const k = new THREE.Group(); k.position.y = 0.75; g.add(k);
+    if (model === 'key') {
+      this._mesh(new THREE.TorusGeometry(0.13, 0.035, 8, 16), gold, 0, 0.14, 0, k);
+      this._mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.36, 8), gold, 0, -0.14, 0, k);
+      this._mesh(new THREE.BoxGeometry(0.1, 0.05, 0.03), gold, 0.05, -0.26, 0, k);
+      this._mesh(new THREE.BoxGeometry(0.07, 0.05, 0.03), gold, 0.04, -0.17, 0, k);
+    }
+    const glow = new THREE.PointLight(0xffd27a, 1.2, 4, 2); glow.position.y = 0.8; g.add(glow);
+    this.animated.push(t => { k.rotation.y = t * 1.6; k.position.y = 0.75 + Math.sin(t * 2.2) * 0.08; });
+    this.interactables.push({ id, type: 'item', pos: new THREE.Vector3(x, y, z), radius: 1.5, verb, who: '', lines: [], mesh: g, when, headY: 0.8 });
+  }
+
+  _trigger({ id, x, y = 0, z, radius = 1.8, verb = 'Usar', name = '', lines = [], when }) {
+    this.interactables.push({ id, type: 'trigger', pos: new THREE.Vector3(x, y, z), radius, verb, who: name, lines, when, headY: 1.2 });
+  }
+
+  _airship({ id, x, y, z }) {
+    const g = new THREE.Group(); g.position.set(x, y, z); this.root.add(g);
+    const cream = mat(0xf1e3c8), red = mat(0xc9563c), wood = mat(C.wood), dark = mat(C.woodDark), brass = mat(0xd4a24c, { metalness: 0.5, roughness: 0.4 });
+    const balloon = this._mesh(new THREE.SphereGeometry(2.4, 28, 18), cream, 0, 4.4, 0, g);
+    balloon.scale.set(1, 0.82, 1.9);
+    [-2.6, 0, 2.6].forEach(zz => { const rr = 2.4 * Math.sqrt(1 - (zz / 4.56) ** 2) + 0.04; const r = this._mesh(new THREE.TorusGeometry(rr, 0.09, 8, 36), red, 0, 4.4, zz, g); r.scale.y = 0.82; });
+    this._mesh(new THREE.SphereGeometry(2.42, 28, 18, 0, Math.PI * 2, 0, 0.5), red, 0, 4.4, 0, g).scale.set(1, 0.82, 1.9); // casquete
+    [[0, 6.1, 3.6, 0], [1.5, 4.4, 3.6, Math.PI / 2], [-1.5, 4.4, 3.6, Math.PI / 2]].forEach(([fx, fy, fz, rz]) => {
+      const f = this._mesh(new THREE.BoxGeometry(0.08, 1.3, 1.4), red, fx, fy, fz, g); f.rotation.z = rz;
+    });
+    this._mesh(new THREE.BoxGeometry(2.2, 0.7, 3.8), wood, 0, 0.35, 0, g);
+    this._mesh(new THREE.BoxGeometry(2.3, 0.12, 3.9), dark, 0, 0.72, 0, g);
+    this._mesh(new THREE.BoxGeometry(1.2, 0.5, 0.9), dark, 0, 0.98, -1.2, g); // cabina
+    [[-1, -1.7], [1, -1.7], [-1, 1.7], [1, 1.7]].forEach(([rx, rz]) => {
+      const rope = this._mesh(new THREE.CylinderGeometry(0.025, 0.025, 3.4, 4), dark, rx * 1.15, 2.4, rz * 1.1, g);
+      rope.rotation.z = -rx * 0.12; rope.castShadow = false;
+    });
+    const prop = new THREE.Group(); prop.position.set(0, 0.5, 2.15); g.add(prop);
+    this._mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.3, 8), brass, 0, 0, 0, prop).rotation.x = Math.PI / 2;
+    [0, 1, 2].forEach(i => { const b = this._mesh(new THREE.BoxGeometry(0.12, 0.9, 0.04), brass, 0, 0, 0.12, prop); b.rotation.z = i * Math.PI * 2 / 3; b.geometry.translate(0, 0.45, 0); });
+    // pasarela desde el muelle
+    const plank = this._mesh(new THREE.BoxGeometry(1.0, 0.08, 3.4), wood, 0, -0.62, -3.3, g); plank.rotation.x = -0.36;
+    const a = { group: g, plank, base: new THREE.Vector3(x, y, z), prop, spin: 3, seat: new THREE.Vector3(0.3, 0.72, 0.4), offset: new THREE.Vector3() };
+    this.airships[id] = a;
+    this.physics.addBox(x, y + 0.36, z, 2.2, 0.72, 3.8, { noCamera: true });
+    this.animated.push((t, dt) => {
+      g.position.set(a.base.x + a.offset.x, a.base.y + a.offset.y + Math.sin(t * 0.9) * 0.12, a.base.z + a.offset.z);
+      g.rotation.z = Math.sin(t * 0.7) * 0.02;
+      prop.rotation.z += dt * a.spin;
+      plank.visible = a.offset.lengthSq() < 0.01;
+    });
+  }
+
   _tree({ x, z, y = 0, s = 1 }) {
     const g = new THREE.Group(); g.position.set(x, y, z); g.scale.setScalar(s); this.root.add(g);
     this._mesh(new THREE.CylinderGeometry(0.18, 0.26, 1.6, 7), mat(C.woodDark), 0, 0.8, 0, g);
@@ -193,19 +264,29 @@ export class World {
     this.interactables.push({ id, type: 'sign', pos: new THREE.Vector3(x, y, z), radius: 1.8, verb: 'Leer', who: title || 'Cartel', lines, mesh: g });
   }
 
-  _npc({ id, x, z, y = 0, rot = 0, name, color = 0x6a8fd8, hair = 0xdddddd, lines }) {
-    const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rot; this.root.add(g);
-    this._mesh(new THREE.CylinderGeometry(0.28, 0.36, 1.0, 12), mat(color), 0, 0.5, 0, g);
-    const head = this._mesh(new THREE.SphereGeometry(0.26, 16, 12), mat(0xe8b48f), 0, 1.25, 0, g);
-    this._mesh(new THREE.SphereGeometry(0.27, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.5), mat(hair), 0, 1.3, 0.02, g);
-    [-0.09, 0.09].forEach(ex => this._mesh(new THREE.SphereGeometry(0.035, 6, 5), mat(0x1c1c28), ex, 1.27, -0.24, g));
-    // marcador flotante
-    const mark = this._mesh(new THREE.OctahedronGeometry(0.12, 0), mat(0xffe27a, { emissive: 0xffb000, emissiveIntensity: 0.8 }), 0, 1.95, 0, g);
+  _npc({ id, x, z, y = 0, rot = 0, name, lines, look = {}, style = 'calm', when, model }) {
+    let rig, anim, s;
+    if (model && this.chars) { // personaje animado con malla y esqueleto
+      rig = createCharacter(this.chars, model);
+      anim = new NpcModelAnimator(rig, rot, { style });
+      s = (LOOKS[model] && LOOKS[model].scale) || 1;
+    } else {                   // respaldo hecho con formas
+      rig = buildHumanoid({ top: 0x6a8fd8, hair: 0xdddddd, hairStyle: 'short', ...look });
+      anim = new NpcAnimator(rig, rot, { style });
+      s = look.scale || 1;
+    }
+    rig.root.position.set(x, y, z); rig.root.rotation.y = rot; this.root.add(rig.root);
+    const mark = this._mesh(new THREE.OctahedronGeometry(0.12, 0), mat(0xffe27a, { emissive: 0xffb000, emissiveIntensity: 0.8 }), x, y + 2.0 * s, z);
     mark.castShadow = false;
-    this.physics.addBox(x, y + 0.75, z, 0.8, 1.5, 0.8, { noCamera: true });
-    const ph = Math.random() * 6;
-    this.animated.push(t => { head.position.y = 1.25 + Math.sin(t * 2 + ph) * 0.02; mark.position.y = 1.95 + Math.sin(t * 3) * 0.08; mark.rotation.y = t * 2; });
-    this.interactables.push({ id, type: 'npc', pos: new THREE.Vector3(x, y, z), radius: 2.2, verb: 'Hablar', who: name, lines, mesh: g, mark });
+    const box = this.physics.addBox(x, y + 0.8 * s, z, 0.8 * s, 1.6 * s, 0.8 * s, { noCamera: true });
+    const it = { id, type: 'npc', pos: new THREE.Vector3(x, y, z), radius: 2.2, verb: 'Hablar', who: name, lines, mesh: rig.root, mark, anim, headY: 1.6 * s, when, box };
+    this.animated.push((t, dt) => {
+      anim.talking = !!it.talking;
+      anim.update(dt, this.playerPos);
+      mark.position.y = y + 2.0 * s + Math.sin(t * 3) * 0.08; mark.rotation.y = t * 2;
+      mark.visible = !it.talking && it.active !== false;
+    });
+    this.interactables.push(it);
   }
 
   _lantern({ id, x, z, y = 0, facing = 0 }, save) {

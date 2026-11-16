@@ -9,7 +9,7 @@ Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes
 | Etapa | Contenido | Estado |
 | --- | --- | --- |
 | 1. Fundamentos | Motor, cámara, controles, física, guardado | Lista |
-| 2. Prólogo jugable | Puerto Bruma, diálogos, primera misión | Pendiente |
+| 2. Prólogo jugable | Puerto Bruma, diálogos, primera misión | Lista |
 | 3. Combate y capítulo 1 | Bastón, esquiva, Bosque Colgante, Raíz Madre | Pendiente |
 | 4. Capítulos 2 y 3 | Planeador, garfio, 2 jefes | Pendiente |
 | 5. Capítulos 4 y 5 | Escudo, pulso de luz, 2 finales | Pendiente |
@@ -47,8 +47,17 @@ js/camera.js            cámara en tercera persona que esquiva paredes
 js/world.js             construye una zona a partir de sus datos
 js/audio.js             efectos de sonido sintetizados
 js/save.js              guardado local y código de exportación
+js/characters.js        personajes animados (modelos KayKit), mezcla de animaciones, mirada
+js/rig.js               personaje de respaldo hecho con formas (si los modelos no cargan)
+js/fx.js                partículas: polvo, destellos
+assets/characters/      modelos y animaciones (.glb codificados en .js)
+tools/build_assets.mjs  reconstruye los modelos desde el paquete KayKit original
 js/zones/*.js           datos de cada zona (plataformas, personajes, diálogos)
 prototipos/             prototipos anteriores (Cristales del Cielo)
 ```
 
 Para añadir una zona nueva basta con crear un archivo en `js/zones/` con sus datos y registrarlo en `js/main.js`.
+
+## Créditos
+
+Personajes y animaciones: [KayKit Adventurers Character Pack](https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0) de Kay Lousberg ([kaylousberg.com](https://www.kaylousberg.com)), licencia CC0.

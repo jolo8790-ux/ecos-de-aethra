@@ -28,6 +28,7 @@ export class Physics {
     let best = -Infinity, hit = null;
     const rr = radius * 0.75;
     for (const b of this.boxes) {
+      if (b.off) continue;
       if (x + rr <= b.minX || x - rr >= b.maxX || z + rr <= b.minZ || z - rr >= b.maxZ) continue;
       if (b.maxY <= maxY && b.maxY > best) { best = b.maxY; hit = b; }
     }
@@ -45,6 +46,7 @@ export class Physics {
     pos[axis] += amount;
     let blocked = false;
     for (const b of this.boxes) {
+      if (b.off) continue;
       if (pos.x + radius <= b.minX || pos.x - radius >= b.maxX || pos.z + radius <= b.minZ || pos.z - radius >= b.maxZ) continue;
       if (pos.y + height <= b.minY + 0.001 || pos.y >= b.maxY - 0.001) continue;
       // ¿es un escalón que se puede subir?
@@ -62,6 +64,7 @@ export class Physics {
 
   _blockedAbove(pos, radius, height, newFeet) {
     for (const b of this.boxes) {
+      if (b.off) continue;
       if (pos.x + radius <= b.minX || pos.x - radius >= b.maxX || pos.z + radius <= b.minZ || pos.z - radius >= b.maxZ) continue;
       if (b.minY < newFeet + height && b.maxY > newFeet + 0.001) return true;
     }
@@ -72,6 +75,7 @@ export class Physics {
   ceilingAt(pos, radius, headY) {
     let best = Infinity;
     for (const b of this.boxes) {
+      if (b.off) continue;
       if (pos.x + radius <= b.minX || pos.x - radius >= b.maxX || pos.z + radius <= b.minZ || pos.z - radius >= b.maxZ) continue;
       if (b.minY >= headY - 0.05 && b.minY < best) best = b.minY;
     }
@@ -82,7 +86,7 @@ export class Physics {
   raycast(ox, oy, oz, dx, dy, dz, maxDist) {
     let best = maxDist;
     for (const b of this.boxes) {
-      if (b.noCamera) continue;
+      if (b.noCamera || b.off) continue;
       let tmin = 0, tmax = best;
       const axes = [[ox, dx, b.minX, b.maxX], [oy, dy, b.minY, b.maxY], [oz, dz, b.minZ, b.maxZ]];
       let ok = true;
