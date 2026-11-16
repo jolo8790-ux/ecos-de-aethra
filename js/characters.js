@@ -39,8 +39,8 @@ function recolor(texture, rules) {
     c.getHSL(hsl);
     const deg = hsl.h * 360;
     for (const r of rules) {
-      if (hsl.s >= (r.minSat ?? 0.15) && deg >= r.from[0] && deg <= r.from[1]) {
-        c.setHSL(r.to / 360, Math.min(1, hsl.s * (r.sat ?? 1)), Math.min(1, hsl.l * (r.light ?? 1)));
+      if (hsl.s >= (r.minSat ?? 0.15) && hsl.s <= (r.maxSat ?? 1) && deg >= r.from[0] && deg <= r.from[1]) {
+        c.setHSL(r.to / 360, Math.min(1, r.setSat ?? hsl.s * (r.sat ?? 1)), Math.min(1, hsl.l * (r.light ?? 1)));
         px[i] = c.r * 255; px[i + 1] = c.g * 255; px[i + 2] = c.b * 255;
         break;
       }
@@ -59,7 +59,14 @@ export const LOOKS = {
   kael: { model: 'kael', scale: 1.04, recolor: [{ from: [70, 185], to: 275, sat: 0.9, light: 0.85 }] },
   marta: { model: 'marta', scale: 1.06, recolor: [{ from: [230, 320], to: 215, sat: 0.9, light: 0.9 }], hat: 'captain' },
   tomas: { model: 'tomas', scale: 0.78 },
-  vaelor: { model: 'tomas', scale: 1.3, recolor: [{ from: [0, 360], minSat: 0.05, to: 270, sat: 0.6, light: 0.45 }] },
+  // Vaelor: armadura gris oscura con reflejos morados, capa granate y pelo oscuro; la piel no se toca
+  vaelor: { model: 'tomas', scale: 1.3, recolor: [
+    { from: [0, 360], minSat: 0, maxSat: 0.12, to: 265, setSat: 0.16, light: 0.62 },   // metal gris
+    { from: [340, 360], minSat: 0.35, to: 330, sat: 0.9, light: 0.55 },                 // capa roja
+    { from: [0, 12], minSat: 0.45, to: 330, sat: 0.9, light: 0.55 },
+    { from: [36, 60], minSat: 0.3, to: 25, sat: 0.5, light: 0.45 },                      // pelo rubio
+    { from: [180, 260], minSat: 0.15, to: 270, sat: 0.9, light: 0.7 },                   // detalles azules
+  ] },
 };
 
 const findBone = (root, name) => { let b = null; root.traverse(o => { if (!b && o.isBone && o.name === name) b = o; }); return b; };
@@ -88,7 +95,7 @@ export function createCharacter(lib, lookName) {
   if (look.hat === 'captain' && bones.head) {
     // se coloca en el espacio del modelo y luego se cuelga del hueso conservando la posición (el hueso tiene otra escala)
     const hat = captainHat();
-    model.add(hat); hat.position.set(0, 1.47, 0.02); hat.rotation.x = 0.1; hat.scale.setScalar(1.3);
+    model.add(hat); hat.position.set(0, 1.64, -0.02); hat.rotation.x = -0.08; hat.scale.setScalar(1.3);
     model.updateMatrixWorld(true);
     bones.head.attach(hat);
   }
@@ -210,13 +217,30 @@ export class HeroModelAnimator {
     this.shieldW = (this.shieldW || 0) + ((c.shielding ? 1 : 0) - (this.shieldW || 0)) * damp(14, dt);
     const sw = this.shieldW, block = A.Block;
     if (block) block.time = block.getClip().duration * 0.42;
+    // planeador y garfio: brazos en alto sujetando el armazón o la cuerda
+    this.armsUp = (this.armsUp || 0) + (((c.gliding || c.grappling) ? 1 : 0) - (this.armsUp || 0)) * damp(10, dt);
+    const raise = A.Spellcast_Raise, au = this.armsUp;
+    if (raise && au > 0.01) raise.time = raise.getClip().duration * 0.55 + Math.sin(this.t * 3) * 0.04;
+    // antes de tener el bastón, Lía usa el reposo sin arma
+    const unarmed = c.canFight === false && A.Unarmed_Idle ? 1 : 0;
+    if (A.Unarmed_Idle) A.Unarmed_Idle.time = (this.t * 0.9) % A.Unarmed_Idle.getClip().duration;
+    const idleW = g * (1 - this.moveW) * (1 - sw);
     this.b.apply(dt, {
-      Idle: g * (1 - this.moveW) * (1 - sw),
+      Idle: idleW * (1 - unarmed),
+      Unarmed_Idle: idleW * unarmed,
       Walking_A: g * this.moveW * (1 - this.runW) * (1 - sw * 0.6),
       Running_B: g * this.moveW * this.runW * (1 - sw),
-      Jump_Idle: this.air,
+      Jump_Idle: this.air * (1 - au * 0.7),
+      Spellcast_Raise: au * Math.max(this.air, 0.3) * 0.85,
       Block: g * sw,
     }, 14);
+
+    // gestos de espera: si Lía se queda quieta un rato, mira algo o se acomoda
+    if (c.grounded && sp < 0.1 && !c.busy && !c.shielding && !c.lookAt) this.idleT = (this.idleT || 0) + dt; else this.idleT = 0;
+    if (this.idleT > 7 && !this.b.busy) {
+      this.idleT = -Math.random() * 4;
+      this.b.play(Math.random() < 0.5 ? 'Use_Item' : 'Interact', { speed: 0.9, fadeIn: 0.35, fadeOut: 0.45, strength: 0.65 });
+    }
 
     // eventos de salto / aterrizaje
     if (c.landed) {
@@ -225,7 +249,9 @@ export class HeroModelAnimator {
     }
     if (c.jumped && !this.b.busy) this.b.play('Jump_Start', { speed: 2.4, start: 0.3, fadeIn: 0.02, fadeOut: 0.1, strength: 0.8 });
 
+    restorePose(this.ch);
     this.ch.mixer.update(0.0001); // aplica los pesos y tiempos fijados a mano
+    savePose(this.ch);
 
     // derrape
     const inLen = Math.hypot(c.input.x, c.input.z);
@@ -279,6 +305,12 @@ export class HeroModelAnimator {
   }
 }
 
+// La mezcladora de Three.js solo escribe un hueso cuando su valor animado cambia. Como la cabeza
+// y el pecho se giran a mano después, hay que devolverlos a la pose animada antes de cada mezcla:
+// si no, el giro se acumula fotograma a fotograma y la cabeza da vueltas o se cae.
+export function restorePose(ch) { for (const b of [ch.bones.head, ch.bones.chest]) if (b && b.userData.baseQ) b.quaternion.copy(b.userData.baseQ); }
+export function savePose(ch) { for (const b of [ch.bones.head, ch.bones.chest]) if (b) (b.userData.baseQ || (b.userData.baseQ = new THREE.Quaternion())).copy(b.quaternion); }
+
 // Gira un hueso en el espacio del mundo (yaw sobre el eje vertical, pitch sobre el eje lateral del personaje)
 function turnBone(bone, yaw, pitch, q, q2) {
   if (!bone || (Math.abs(yaw) < 1e-4 && Math.abs(pitch) < 1e-4)) return;
@@ -318,6 +350,10 @@ export class NpcModelAnimator {
     this.yaw += angDiff(this.talking ? toPlayer : this.baseYaw, this.yaw) * damp(this.talking ? 6 : 1.5, dt);
     ch.root.rotation.y = this.yaw;
 
+    // saludo cuando Lía se acerca por primera vez en un rato
+    this.greetCd = Math.max(0, (this.greetCd || 0) - dt);
+    if (!this.talking && dist < 4.5 && !this.near && this.greetCd <= 0 && !this.b.busy) { this.b.play(this.lively ? 'Cheer' : 'Interact', { speed: 1.15, fadeIn: 0.2, fadeOut: 0.35, strength: 0.75 }); this.greetCd = 20; }
+    this.near = dist < 6;
     if (this.talking && !this.wasTalking) { this.b.play(this.lively ? 'Cheer' : 'Interact', { speed: 1.1, fadeIn: 0.2, fadeOut: 0.35, strength: 0.9 }); this.gestT = 3 + Math.random() * 2; }
     if (this.talking) {
       this.gestT -= dt;
@@ -327,7 +363,9 @@ export class NpcModelAnimator {
 
     ch.actions.Idle.time = (this.t * (this.lively ? 1.25 : 0.85)) % ch.actions.Idle.getClip().duration;
     this.b.apply(dt, { Idle: 1 }, 8);
+    restorePose(ch);
     ch.mixer.update(0.0001);
+    savePose(ch);
 
     let tyaw = 0, tpitch = 0;
     if (dist < 7) {

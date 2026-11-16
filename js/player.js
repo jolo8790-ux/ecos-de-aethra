@@ -343,7 +343,7 @@ export class Player {
       vel: this.vel, grounded: this.grounded, facing: this.facing, jumps: this.jumps,
       input: { x: this._wx || 0, z: this._wz || 0 }, lookAt: this.attack ? null : this.lookAt,
       landed: this._landed, landSpeed: this._landSpeed, doubleJumped: this._dj, jumped: this._jumped,
-      busy: !!(this.attack || this.dodge || this.grapple), gliding: this.gliding, shielding: this.shielding,
+      busy: !!(this.attack || this.dodge || this.grapple), gliding: this.gliding, shielding: this.shielding, grappling: !!this.grapple, canFight: this.canFight,
     });
     if (ev.footstep && !this.attack) {
       this.audio.play(ev.run ? 'stepRun' : 'step');

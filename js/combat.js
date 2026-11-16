@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createCharacter } from './characters.js';
+import { createCharacter, restorePose, savePose } from './characters.js';
 
 // Combate: criaturas de cristal, proyectiles, curaciones y el jefe Raíz Madre.
 // Todas las criaturas avisan antes de atacar (brillo rojo y temblor) para que el jugador pueda esquivar.
@@ -929,7 +929,7 @@ class Vaelor {
       this.w[n] = (this.w[n] || 0) + (want - (this.w[n] || 0)) * damp(10, dt);
       A[n].setEffectiveWeight(this.w[n]);
     }
-    this.ch.mixer.update(0.0001);
+    restorePose(this.ch); this.ch.mixer.update(0.0001); savePose(this.ch);
     if (this.cape) this.cape.rotation.x = 0.12 + Math.sin(this.t * 2.3) * 0.06 + (moving ? 0.2 : 0);
   }
   _place() {
