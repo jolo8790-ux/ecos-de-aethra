@@ -40,11 +40,11 @@ for a in cfg['assets']:
         if len(mesh.faces) > a['faces']:   # menos caras: archivo pequeño y estilo low-poly
             mesh = mesh.simplify_quadric_decimation(face_count=a['faces'])
         mesh.export(f'{out}/raw/{i}_shape.obj')
-        res = paint(mesh_path=f'{out}/raw/{i}_shape.obj', image_path=f'{out}/raw/{i}_rgba.png',
-                    output_mesh_path=f'{out}/raw/{i}_tex.obj', use_remesh=False, save_glb=True)
-        g = f'{out}/raw/{i}_tex.glb'
-        if os.path.exists(g): shutil.copy(g, f'{out}/glb/{i}.glb')
-        else: trimesh.load(f'{out}/raw/{i}_tex.obj').export(f'{out}/glb/{i}.glb')
+        paint(mesh_path=f'{out}/raw/{i}_shape.obj', image_path=f'{out}/raw/{i}_rgba.png',
+              output_mesh_path=f'{out}/raw/{i}_tex.obj', use_remesh=False, save_glb=False)
+        # OBJ con su textura -> GLB (sin Blender)
+        tm = trimesh.load(f'{out}/raw/{i}_tex.obj', force='mesh', process=False)
+        tm.export(f'{out}/glb/{i}.glb')
         print(f'OK {i} {time.time()-t0:.0f}s caras={len(mesh.faces)} -> {os.path.getsize(f"{out}/glb/{i}.glb")//1024} KB', flush=True)
     except Exception:
         open(f'{out}/log/{i}.txt', 'w').write(traceback.format_exc())

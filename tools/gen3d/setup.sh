@@ -17,7 +17,9 @@ cd Hunyuan3D-2.1
 # sin la demo web, Blender ni deepspeed (no hacen falta para generar)
 grep -vE '^(bpy|gradio|fastapi|uvicorn|deepspeed|tb_nightly|pythreejs|--extra-index-url)' requirements.txt > /tmp/req.txt
 uv pip install -q -r /tmp/req.txt
-uv pip install -q sentencepiece protobuf fast_simplification setuptools wheel bpy==4.0.0
+uv pip install -q sentencepiece protobuf fast_simplification setuptools wheel
+# Blender (bpy) solo se usa para convertir a GLB; lo sustituye trimesh. Módulo vacío para que el import no falle.
+python -c "import bpy" 2>/dev/null || echo "# sustituto vacío de Blender" > $(python -c "import site;print(site.getsitepackages()[0])")/bpy.py
 echo "== dependencias listas"
 (cd hy3dpaint/custom_rasterizer && uv pip install -q -e . --no-build-isolation)
 echo "== rasterizador compilado"
