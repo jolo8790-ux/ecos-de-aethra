@@ -17,7 +17,7 @@ cd Hunyuan3D-2.1
 # sin la demo web, Blender ni deepspeed (no hacen falta para generar)
 grep -vE '^(bpy|gradio|fastapi|uvicorn|deepspeed|tb_nightly|pythreejs|--extra-index-url)' requirements.txt > /tmp/req.txt
 uv pip install -q -r /tmp/req.txt
-uv pip install -q sentencepiece protobuf fast_simplification setuptools wheel
+uv pip install -q sentencepiece protobuf fast_simplification setuptools wheel bpy==4.0.0
 echo "== dependencias listas"
 (cd hy3dpaint/custom_rasterizer && uv pip install -q -e . --no-build-isolation)
 echo "== rasterizador compilado"
