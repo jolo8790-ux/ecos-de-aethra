@@ -19,7 +19,7 @@ grep -vE '^(bpy|gradio|fastapi|uvicorn|deepspeed|tb_nightly|pythreejs|--extra-in
 uv pip install -q -r /tmp/req.txt
 uv pip install -q sentencepiece protobuf fast_simplification setuptools wheel
 echo "== dependencias listas"
-(cd hy3dpaint/custom_rasterizer && pip install -q -e . --no-build-isolation)
+(cd hy3dpaint/custom_rasterizer && uv pip install -q -e . --no-build-isolation)
 echo "== rasterizador compilado"
 (cd hy3dpaint/DifferentiableRenderer && bash compile_mesh_painter.sh)
 echo "== mesh painter compilado"
