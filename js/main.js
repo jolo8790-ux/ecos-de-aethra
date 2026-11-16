@@ -10,9 +10,11 @@ import { loadCharacterLibrary } from './characters.js';
 import { newSave, loadSave, writeSave, loadSettings, writeSettings, exportCode, importCode } from './save.js';
 import puertoBruma from './zones/puerto_bruma.js';
 import bosqueColgante from './zones/bosque_colgante.js';
+import ruinasVidrio from './zones/ruinas_vidrio.js';
+import ciudadEngranajes from './zones/ciudad_engranajes.js';
 import { Combat } from './combat.js';
 
-const ZONES = { puerto_bruma: puertoBruma, bosque_colgante: bosqueColgante };
+const ZONES = { puerto_bruma: puertoBruma, bosque_colgante: bosqueColgante, ruinas_vidrio: ruinasVidrio, ciudad_engranajes: ciudadEngranajes };
 const $ = id => document.getElementById(id);
 
 // ---------- motor ----------
@@ -49,7 +51,9 @@ const fx = new FX(scene);
 const player = new Player(scene, physics, audio, fx);
 const cam = new FollowCamera(camera, physics);
 const combat = new Combat(scene, physics, fx, audio);
-let bossActive = false, deadT = 0, hintClang = false, lastHp = -1, endNext = null;
+combat.world = world;
+let hookTarget = null;
+let bossActive = false, deadT = 0, hintClang = false, hintStun = false, lastHp = -1, endNext = null;
 
 let settings = loadSettings();
 let save = null;
@@ -103,8 +107,9 @@ function loadZone(id, checkpointId) {
   const li = zone.light || {};
   hemi.color.setHex(li.hemiSky || 0xdff1ff); hemi.groundColor.setHex(li.hemiGround || 0x5c6a50); sun.color.setHex(li.sun || 0xfff1d6);
   world.build(zone, save);
+  player.updrafts = world.updrafts;
   combat.spawnZone(zone, save);
-  bossActive = false; $('bossbar').classList.add('hidden');
+  bossActive = false; hintClang = false; hintStun = false; $('bossbar').classList.add('hidden');
   applyAbilities(); player.hp = player.maxHp;
   respawn(checkpointId);
   updateHUD();
@@ -116,6 +121,9 @@ function applyAbilities() {
   if (!save) return;
   player.setFight(!!save.flags.baston);
   player.canAirDash = !!save.flags.impulso;
+  player.canGlide = !!save.flags.planeador;
+  player.canGrapple = !!save.flags.garfio;
+  $('tHook').classList.toggle('hidden', !(player.canGrapple && input.isTouch));
   player.maxHp = 4 + Math.floor(save.fragments.length / 5);
 }
 
@@ -337,11 +345,12 @@ function showEndCard({ kicker, title, stats, sub, next }) {
 }
 function showChapterEnd() {
   state = 'end'; document.body.classList.add('cine');
-  const total = zone.fragments.length;
+  const total = zone.fragments.length, ce = zone.chapterEnd || {};
+  const big = ['gran_fragmento_1', 'gran_fragmento_2', 'gran_fragmento_3', 'gran_fragmento_4', 'gran_fragmento_5'].filter(f => save.flags[f]).length;
   showEndCard({
-    kicker: 'Fin del capítulo 1', title: 'El Gran Fragmento',
-    stats: `Tiempo de juego: ${fmtTime(save.playTime)}<br>Fragmentos del Bosque Colgante: ${S.frags()}/${total}<br>Corazones: ${player.maxHp}`,
-    sub: 'El capítulo 2, las Ruinas de Vidrio, llega en la siguiente etapa del desarrollo.',
+    kicker: ce.kicker || 'Fin del capítulo', title: ce.title || zone.title,
+    stats: `Tiempo de juego: ${fmtTime(save.playTime)}<br>Fragmentos de ${zone.title.replace(/^(El|La|Las|Los) /, '')}: ${S.frags()}/${total}<br>Grandes fragmentos: ${big}/5 · Corazones: ${player.maxHp}`,
+    sub: ce.sub || '', next: ce.next,
   });
 }
 function leaveEnding(toTitle) {
@@ -384,6 +393,35 @@ function updateDeath(dt) {
     toast('Lía se levanta junto al farol');
   }
 }
+// Garfio: elige el anillo más cercano delante de la cámara y lo marca en pantalla.
+const _v = new THREE.Vector3();
+function updateGrapple() {
+  hookTarget = null;
+  const hint = $('hookHint');
+  if (!player.canGrapple || state !== 'play' || player.grapple) { hint.style.display = 'none'; return; }
+  const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw);
+  let best = Infinity;
+  for (const g of [...world.grapplePoints, ...combat.grapplePoints]) {
+    if (g.active === false) continue;
+    const dx = g.pos.x - player.pos.x, dy = g.pos.y - player.pos.y, dz = g.pos.z - player.pos.z;
+    const d = Math.hypot(dx, dy, dz), dh = Math.hypot(dx, dz);
+    if (d > 20 || d < 1.8) continue;
+    const facing = dh < 2 ? 1 : (dx * fx + dz * fz) / dh;
+    if (facing < 0.35) continue;
+    const score = d * (1.6 - facing);
+    if (score < best) { best = score; hookTarget = g; }
+  }
+  for (const g of world.grapplePoints) g.highlight = g === hookTarget;
+  if (hookTarget) {
+    _v.copy(hookTarget.pos).project(camera);
+    if (_v.z < 1) {
+      hint.style.display = 'block';
+      hint.style.left = `${(_v.x * 0.5 + 0.5) * innerWidth}px`; hint.style.top = `${(-_v.y * 0.5 + 0.5) * innerHeight}px`;
+      $('hookKey').textContent = input.usingGamepad ? 'RB' : input.isTouch ? 'GARFIO' : 'G';
+    } else hint.style.display = 'none';
+    if (input.pressed('grapple')) player.startGrapple(hookTarget);
+  } else hint.style.display = 'none';
+}
 function inBox(p, b) { return p.x >= b[0] && p.y >= b[1] && p.z >= b[2] && p.x <= b[3] && p.y <= b[4] && p.z <= b[5]; }
 function checkRegions() {
   if (state !== 'play') return;
@@ -398,15 +436,16 @@ combat.onBossDefeated = () => {
   bossActive = false;
   setTimeout(() => { startDialog(zone.story.bossDefeated, '', null, () => { zone.story.onBossDefeated && zone.story.onBossDefeated(S); player.gesture('Cheer', { speed: 1.2 }); }); }, 300);
 };
-combat.onBossClang = () => { if (!hintClang) { hintClang = true; toast('El tronco es demasiado duro. ¡Golpea los nudos brillantes de las raíces!'); } };
-combat.onBossPhase = () => toast('¡La Raíz Madre está furiosa!');
+combat.onBossClang = () => { if (!hintClang) { hintClang = true; toast({ bosque_colgante: 'El tronco es demasiado duro. ¡Golpea los nudos brillantes de las raíces!', ruinas_vidrio: 'Su caparazón es irrompible. Haz que choque contra un pilar.', ciudad_engranajes: 'El latón es demasiado duro. Espera a que se atasque tras el puñetazo.' }[zone.id] || 'Demasiado duro'); } };
+combat.onBossPhase = b => toast(`¡${(b && b.name) || 'El guardián'} está furioso!`);
+combat.onBossStun = () => { if (!hintStun) { hintStun = true; toast(zone.id === 'ruinas_vidrio' ? '¡Está aturdido! Golpea el cristal de su cola' : '¡Se quedó atascado! Lanza el garfio al anillo de su pecho'); } };
 function updateCombatHUD() {
   if (player.hp !== lastHp || player._lastMax !== player.maxHp) {
     lastHp = player.hp; player._lastMax = player.maxHp;
     $('hudHearts').innerHTML = '♥'.repeat(Math.max(0, player.hp)) + `<span class="e">${'♥'.repeat(Math.max(0, player.maxHp - player.hp))}</span>`;
   }
   const b = combat.boss;
-  const show = b && (b.state === 'intro' || b.state === 'fight' || b.state === 'dying');
+  const show = b && (b.state === 'intro' || b.fighting || b.state === 'dying');
   $('bossbar').classList.toggle('hidden', !show);
   if (show) { $('bossName').textContent = b.name; $('bossFill').style.width = `${Math.max(0, b.hp / b.maxHp) * 100}%`; }
 }
@@ -522,6 +561,7 @@ function simulate(dt) {
     if (state === 'play') combat.update(dt, player);
     handlePlayerEvents();
     checkRegions();
+    updateGrapple();
     if (state === 'dialog') updateDialog(dt); else updateInteractions();
     cam.update(dt, state === 'dialog' ? { look: { x: 0, y: 0 }, zoom: 0, move: { x: 0, y: 0 } } : input, player);
     const floor = world.water ? world.water.y + 0.3 : -20;
