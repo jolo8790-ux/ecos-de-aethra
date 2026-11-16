@@ -49,7 +49,7 @@ function bossSkin(id, fit, rotY, clip) {
 }
 const o_flashing = mt => mt.emissive.getHex() === 0xffffff && mt.emissiveMap === null;
 const hideMeshes = (group, keep = []) => group.children.forEach(o => { if (o.isMesh && !keep.includes(o)) o.visible = false; });
-const BROTE_MODELS = { brote: ['brote', 1.15], brote_vidrio: ['brote', 1.15, 0xffd9a0], brote_hielo: ['brote', 1.15, 0xd8f0ff], automata: ['automata', 1.35], sombra: ['sombra', 1.3] };
+const BROTE_MODELS = { brote: ['brote', 1.15], brote_vidrio: ['brote', 1.15, 0xffd9a0], brote_hielo: ['brote', 1.15, 0xd8f0ff], automata: ['automata', 1.35], sombra: ['sombra', 1.5] };
 const ESPORA_MODELS = { espora: ['espora', null], espora_vidrio: ['espora', 0xffd9a0], espora_hielo: ['espora', 0xd8f0ff], centinela: ['espora', 0x8a70b0] };
 
 // Destello blanco al recibir un golpe: cambia temporalmente los materiales.
@@ -662,7 +662,7 @@ class Coloso {
     const skin = bossSkin('coloso_cuerpo', { h: 8.6 }, Math.PI, [{ axis: 'x', keep: [0.25, 0.75] }]);
     if (skin) {
       hideMeshes(g); hideMeshes(this.torso, [this.core]);
-      skin.position.y = -4.1; this.torso.add(skin); this.skin = skin;
+      skin.position.y = -4.1; this.torso.add(skin); this.skin = skin; this.core.position.z = -2.0;
       const bronze = mat(0x8a6a3a, { metalness: 0.3, roughness: 0.6, flatShading: true }), dark = mat(0x3a332c, { roughness: 0.7, flatShading: true });
       this.arms.forEach(A => A.sh.children.forEach((o, i) => { if (o.isMesh) o.material = i % 2 ? dark : bronze; }));
     }
@@ -825,7 +825,7 @@ class Sierpe {
       hideMeshes(this.headG, [this.horn]);
       skin.position.set(0, -0.75, -0.1); this.headG.add(skin); this.skin = skin;
       this.horn.position.set(0, 1.05, 0.25);
-      scale.color.setHex(0x4f6f8f); belly.color.setHex(0xcfe8f5);
+      scale.color.setHex(0x6f97b8); belly.color.setHex(0xcfe8f5);
     }
     this._place(0);
   }
