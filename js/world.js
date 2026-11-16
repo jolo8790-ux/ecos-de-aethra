@@ -41,6 +41,10 @@ export class World {
     (z.ramps || []).forEach(r => this._ramp(r));
     (z.houses || []).forEach(h => this._house(h));
     (z.trees || []).forEach(t => this._tree(t));
+    (z.bigTrees || []).forEach(t => this._bigTree(t));
+    (z.mushrooms || []).forEach(m => this._mushroom(m));
+    (z.bridges || []).forEach(b => this._bridge(b));
+    if (z.id === 'bosque_colgante') this._fireflies(60);
     (z.rocks || []).forEach(r => this._rock(r));
     (z.fences || []).forEach(f => this._fence(f));
     (z.lighthouses || []).forEach(l => this._lighthouse(l));
@@ -146,6 +150,15 @@ export class World {
     const g = new THREE.Group(); g.position.set(x, y, z); this.root.add(g);
     const gold = mat(0xe8b94a, { metalness: 0.6, roughness: 0.3, emissive: 0x6a4a00, emissiveIntensity: 0.4 });
     const k = new THREE.Group(); k.position.y = 0.75; g.add(k);
+    if (model === 'bigshard') {
+      const gem = this._mesh(new THREE.OctahedronGeometry(0.5, 0), mat(0xbff8ff, { emissive: 0x3ac8ff, emissiveIntensity: 1.6, roughness: 0.1, flatShading: true }), 0, 0.6, 0, k);
+      gem.scale.y = 1.5;
+      for (let i = 0; i < 3; i++) { const r = this._mesh(new THREE.TorusGeometry(0.9 + i * 0.25, 0.03, 6, 32), mat(0xdffcff, { emissive: 0x6ad8ff, emissiveIntensity: 1 }), 0, 0.6, 0, k); r.rotation.x = 1 + i; r.castShadow = false; }
+      const pedestal = this._mesh(new THREE.CylinderGeometry(0.9, 1.1, 0.5, 10), mat(0x9a9a8a, { flatShading: true }), 0, 0.25, 0, g);
+      pedestal.castShadow = false;
+      this.physics.addBox(x, y + 0.25, z, 1.8, 0.5, 1.8);
+      k.position.y = 1.2;
+    }
     if (model === 'key') {
       this._mesh(new THREE.TorusGeometry(0.13, 0.035, 8, 16), gold, 0, 0.14, 0, k);
       this._mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.36, 8), gold, 0, -0.14, 0, k);
@@ -153,7 +166,8 @@ export class World {
       this._mesh(new THREE.BoxGeometry(0.07, 0.05, 0.03), gold, 0.04, -0.17, 0, k);
     }
     const glow = new THREE.PointLight(0xffd27a, 1.2, 4, 2); glow.position.y = 0.8; g.add(glow);
-    this.animated.push(t => { k.rotation.y = t * 1.6; k.position.y = 0.75 + Math.sin(t * 2.2) * 0.08; });
+    const baseY = k.position.y;
+    this.animated.push(t => { k.rotation.y = t * 1.6; k.position.y = baseY + Math.sin(t * 2.2) * 0.08; });
     this.interactables.push({ id, type: 'item', pos: new THREE.Vector3(x, y, z), radius: 1.5, verb, who: '', lines: [], mesh: g, when, headY: 0.8 });
   }
 
@@ -191,6 +205,87 @@ export class World {
       g.rotation.z = Math.sin(t * 0.7) * 0.02;
       prop.rotation.z += dt * a.spin;
       plank.visible = a.offset.lengthSq() < 0.01;
+    });
+  }
+
+  _bigTree({ x, z, y = -14, r = 2.4, h = 48 }) {
+    const g = new THREE.Group(); g.position.set(x, y, z); this.root.add(g);
+    const bark = mat(0x6a4a32, { flatShading: true });
+    const trunk = this._mesh(new THREE.CylinderGeometry(r * 0.8, r * 1.15, h, 10, 4), bark, 0, h / 2, 0, g);
+    trunk.receiveShadow = true;
+    for (let i = 0; i < 4; i++) { // raíces aéreas
+      const a = i * 1.57 + x;
+      const rt = this._mesh(new THREE.CylinderGeometry(0.25, 0.5, 6, 6), bark, Math.cos(a) * r * 1.2, 4, Math.sin(a) * r * 1.2, g);
+      rt.rotation.z = Math.cos(a) * 0.5; rt.rotation.x = -Math.sin(a) * 0.5;
+    }
+    const leaf = mat(0x3f8a4a, { flatShading: true }), leaf2 = mat(0x5aa85a, { flatShading: true });
+    [[0, h + 2, 0, 7], [5, h - 1, 2, 5], [-5, h, -2, 5.5], [1, h - 2, -5, 4.5], [-2, h - 3, 5, 4.5]].forEach(([a, b, c, rr], i) => {
+      const m = this._mesh(new THREE.IcosahedronGeometry(rr, 0), i % 2 ? leaf2 : leaf, a, b, c, g); m.castShadow = false;
+    });
+    const vine = mat(0x4f8a3a);
+    for (let i = 0; i < 6; i++) { // lianas colgando
+      const a = (i / 6) * Math.PI * 2 + z, len = 8 + (i % 3) * 5;
+      const v = this._mesh(new THREE.CylinderGeometry(0.05, 0.05, len, 4), vine, Math.cos(a) * 4.5, h - 3 - len / 2, Math.sin(a) * 4.5, g);
+      v.castShadow = false;
+      const ph = i + x;
+      this.animated.push(t => { v.rotation.z = Math.sin(t * 0.7 + ph) * 0.04; });
+    }
+    this.physics.addBox(x, y + h / 2, z, r * 1.7, h, r * 1.7);
+  }
+
+  _mushroom({ x, y = 0, z, s = 1, bounce = 0 }) {
+    const g = new THREE.Group(); g.position.set(x, y, z); this.root.add(g);
+    const capCol = bounce ? 0xf27ac8 : 0xc8643a;
+    this._mesh(new THREE.CylinderGeometry(0.25 * s, 0.35 * s, 1.1 * s, 10), mat(0xf2e6cf), 0, 0.55 * s, 0, g);
+    const cap = new THREE.Group(); cap.position.y = 1.0 * s; g.add(cap);
+    const c = this._mesh(new THREE.SphereGeometry(0.95 * s, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat(capCol, { emissive: bounce ? 0x6a1a5a : 0x000000, emissiveIntensity: 0.4 }), 0, 0, 0, cap);
+    c.scale.y = 0.55;
+    for (let i = 0; i < 6; i++) {
+      const a = i * 1.1, rr = 0.55 * s;
+      this._mesh(new THREE.SphereGeometry(0.11 * s, 6, 4), mat(0xfff4e6), Math.cos(a) * rr, 0.38 * s, Math.sin(a) * rr, cap).scale.y = 0.4;
+    }
+    const top = y + 1.0 * s + 0.5 * s;
+    const box = this.physics.addBox(x, top - 0.25 * s, z, 1.5 * s, 0.5 * s, 1.5 * s);
+    this.physics.addBox(x, y + 0.5 * s, z, 0.5 * s, 1.0 * s, 0.5 * s, { noCamera: true });
+    if (bounce) {
+      box.bounce = bounce;
+      let sq = 0;
+      box.onBounce = () => { sq = 1; };
+      this.animated.push((t, dt) => { sq = Math.max(0, sq - dt * 3); const k = Math.sin(sq * Math.PI * 3) * sq * 0.35; cap.scale.set(1 + k, 1 - k, 1 + k); });
+      const glow = new THREE.PointLight(0xff8ae0, 1.2, 6, 2); glow.position.y = 1.4 * s; g.add(glow);
+    }
+  }
+
+  _bridge({ x1, z1, x2, z2, y = 0, w = 2.2 }) {
+    const len = Math.hypot(x2 - x1, z2 - z1), ang = Math.atan2(x2 - x1, z2 - z1);
+    const g = new THREE.Group(); g.position.set((x1 + x2) / 2, y, (z1 + z2) / 2); g.rotation.y = ang; this.root.add(g);
+    const n = Math.floor(len / 0.5);
+    for (let i = 0; i < n; i++) {
+      const t = (i + 0.5) / n - 0.5;
+      const p = this._mesh(new THREE.BoxGeometry(w, 0.12, 0.42), mat(i % 2 ? C.wood : 0x8a5f36), 0, -0.06 - Math.sin((i / n) * Math.PI) * 0.12, t * len, g);
+      p.rotation.y = (Math.random() - 0.5) * 0.04;
+    }
+    [-1, 1].forEach(sd => {
+      for (let i = 0; i <= 4; i++) this._mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.0, 5), mat(C.woodDark), sd * (w / 2), 0.4, (i / 4 - 0.5) * len, g);
+      const rope = this._mesh(new THREE.CylinderGeometry(0.03, 0.03, len, 4), mat(0xc8b48a), sd * (w / 2), 0.85, 0, g);
+      rope.rotation.x = Math.PI / 2; rope.castShadow = false;
+    });
+    // colisión: tablero continuo (ligeramente más ancho) y barandas bajas
+    const cx = (x1 + x2) / 2, cz = (z1 + z2) / 2;
+    const alongX = Math.abs(x2 - x1) > Math.abs(z2 - z1);
+    this.physics.addBox(cx, y - 0.25, cz, alongX ? len : w, 0.5, alongX ? w : len);
+  }
+
+  _fireflies(n) {
+    const geo = new THREE.BufferGeometry(), pos = new Float32Array(n * 3), base = [];
+    for (let i = 0; i < n; i++) { const p = [(Math.random() - 0.5) * 30, Math.random() * 8 - 1, -Math.random() * 110 + 8]; base.push(p); pos.set(p, i * 3); }
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xfff6a0, size: 0.18, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }));
+    this.root.add(pts);
+    this.animated.push(t => {
+      for (let i = 0; i < n; i++) { const b = base[i]; pos[i * 3] = b[0] + Math.sin(t * 0.5 + i) * 1.2; pos[i * 3 + 1] = b[1] + Math.sin(t * 0.8 + i * 2) * 0.6; pos[i * 3 + 2] = b[2] + Math.cos(t * 0.4 + i) * 1.2; }
+      geo.attributes.position.needsUpdate = true;
+      pts.material.opacity = 0.6 + Math.sin(t * 3) * 0.3;
     });
   }
 
