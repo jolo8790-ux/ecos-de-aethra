@@ -1,0 +1,29 @@
+{
+  "style": "stylized low-poly 3D game asset, chunky cartoon proportions, hand-painted flat colors, clean simple shapes, single object centered, full object in view, three-quarter front view, plain pure white background, soft even lighting, no shadow, no text",
+  "assets": [
+    {"id": "coloso_cuerpo", "group": "jefes", "faces": 9000, "prompt": "giant steampunk brass golem body with legs but WITHOUT arms, armless, riveted brass plates, dark iron joints, round shoulder sockets, glowing cyan crystal core in the chest, small head with a glowing yellow visor"},
+    {"id": "coloso_brazo", "group": "jefes", "faces": 3000, "prompt": "one single giant robot arm hanging straight down, brass upper arm, iron forearm, huge blocky iron fist at the bottom, riveted plates"},
+    {"id": "escorpion_cuerpo", "group": "jefes", "faces": 7000, "prompt": "giant scorpion made of translucent amber glass crystal, faceted golden carapace, two big claws in front, six legs, WITHOUT tail, glowing cyan eyes"},
+    {"id": "sierpe_cabeza", "group": "jefes", "faces": 5000, "prompt": "head of an ice dragon serpent seen from the side, frosty pale blue scales, one big crystal horn on top, small spikes, glowing white eyes, open jaw"},
+    {"id": "sierpe_segmento", "group": "jefes", "faces": 1500, "prompt": "a single round body segment of an ice serpent, short scaled cylinder, frosty pale blue scales, two small ice spikes on top"},
+    {"id": "raiz_madre", "group": "jefes", "faces": 9000, "prompt": "giant ancient tree stump creature with a grumpy face carved in the bark, two glowing yellow eyes, thick twisted roots, green leafy crown with teal crystals growing on top"},
+    {"id": "brote", "group": "enemigos", "faces": 2500, "prompt": "small cute rock creature with teal crystal spikes growing on its back, two stubby legs, big glowing eyes"},
+    {"id": "espora", "group": "enemigos", "faces": 2500, "prompt": "crystal flower turret plant, five pointed lavender crystal petals around a glowing pink orb, short green stem, small leaves"},
+    {"id": "automata", "group": "enemigos", "faces": 2500, "prompt": "small clockwork brass beetle robot, round brass shell, a gear on its side, four short iron legs, glowing orange eyes"},
+    {"id": "sombra", "group": "enemigos", "faces": 2500, "prompt": "small creature made of dark purple smoke and rock, glowing violet crystal spikes on its back, two glowing eyes"},
+    {"id": "casa", "group": "decorados", "faces": 4000, "prompt": "small cozy fantasy cottage, cream plaster walls, red tiled gable roof, wooden door, two blue windows, stone base"},
+    {"id": "arbol", "group": "decorados", "faces": 2500, "prompt": "round leafy tree, chunky low-poly green foliage clusters, short brown trunk"},
+    {"id": "pino_nevado", "group": "decorados", "faces": 2000, "prompt": "pine tree with snow on its branches, three stacked dark green cone layers"},
+    {"id": "roca", "group": "decorados", "faces": 1200, "prompt": "mossy grey boulder rock"},
+    {"id": "columna_ruina", "group": "decorados", "faces": 2000, "prompt": "broken ancient sandstone column ruin, cracked top, square base"},
+    {"id": "arco_ruina", "group": "decorados", "faces": 3000, "prompt": "ancient sandstone archway ruin, two square pillars and a lintel, slightly cracked"},
+    {"id": "torre", "group": "decorados", "faces": 4000, "prompt": "tall steampunk stone tower, brass bands, small glowing yellow windows, purple pointed roof"},
+    {"id": "engranaje", "group": "decorados", "faces": 2500, "prompt": "large brass cog gear wheel with a dark iron hub, flat front view"},
+    {"id": "farol", "group": "decorados", "faces": 1500, "prompt": "iron street lantern on a thin post, warm yellow glass"},
+    {"id": "carpa", "group": "decorados", "faces": 2000, "prompt": "explorer canvas tent, orange fabric, wooden poles, open entrance"},
+    {"id": "cristales", "group": "decorados", "faces": 1500, "prompt": "cluster of glowing cyan crystals growing from a small rock"},
+    {"id": "obelisco", "group": "decorados", "faces": 1500, "prompt": "dark stone obelisk with glowing purple runes and a gold pyramid tip"},
+    {"id": "seta", "group": "decorados", "faces": 2000, "prompt": "giant pink mushroom with white spots, cream stem"},
+    {"id": "dirigible", "group": "decorados", "faces": 6000, "prompt": "small cartoon airship, cream balloon with red stripes, wooden gondola boat hanging below with ropes, brass propeller at the back"}
+  ]
+}
