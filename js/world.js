@@ -357,7 +357,7 @@ export class World {
   }
 
   _crystalCluster({ x, z, y = 0, s = 1, color = 0x9ff0ff }) {
-    const cm = this._model('cristales', { h: 2.5 * s }, x, y, z, { rotY: (x * 2 + z) % 6.28 });
+    const cm = this._model('cristales', { w: 2.4 * s }, x, y, z, { rotY: (x * 2 + z) % 6.28 });
     if (cm) {
       cm.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.emissive = new THREE.Color(color); o.material.emissiveIntensity = 0.18; o.material.emissiveMap = o.material.map; } });
       this.physics.addBox(x, y + 0.6 * s, z, 0.9 * s, 1.2 * s, 0.9 * s, { noCamera: true }); return;
