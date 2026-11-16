@@ -55,6 +55,9 @@
   #tAct { right: 122px; bottom: 60px; width: 62px; height: 62px; background: rgba(255,220,127,.35); }
   #tAtk { right: 30px; bottom: 136px; width: 66px; height: 66px; background: rgba(255,140,120,.35); }
   #tDodge { right: 122px; bottom: 140px; width: 56px; height: 56px; background: rgba(190,160,255,.35); font-size: 11px; }
+  #tHook { right: 200px; bottom: 40px; width: 58px; height: 58px; background: rgba(255,226,122,.35); font-size: 11px; }
+  #hookHint { position: fixed; pointer-events: none; z-index: 2; transform: translate(-50%, -50%); width: 46px; height: 46px; border: 3px solid #ffe27a; border-radius: 50%; box-shadow: 0 0 12px #ffe27a; display: none; }
+  #hookHint b { position: absolute; top: 46px; left: 50%; transform: translateX(-50%); background: #fff; color: #10213a; border-radius: 6px; padding: 0 6px; font-size: 13px; white-space: nowrap; }
   #tPause { top: 12px; right: 14px; width: 44px; height: 44px; border-radius: 12px; background: rgba(10,25,45,.5); font-size: 18px; }
   #objective { position: fixed; top: 14px; right: 16px; max-width: min(380px, 60vw); background: rgba(10,25,45,.55); border-left: 3px solid #ffd27a; padding: 8px 14px; border-radius: 10px; pointer-events: none; z-index: 2; backdrop-filter: blur(4px); transition: opacity .4s; }
   #objective .lbl { font-size: 11px; letter-spacing: 3px; opacity: .7; text-transform: uppercase; }
@@ -115,6 +118,7 @@
 <div id="fade"></div>
 <div id="zoneBanner"><div class="t1" id="zbT1"></div><div class="t2" id="zbT2"></div></div>
 <div id="prompt" class="hidden"></div>
+<div id="hookHint"><b id="hookKey">G</b></div>
 <div id="toast"></div>
 <div id="debug"></div>
 <div id="dialog" class="hidden"><div class="who" id="dWho"></div><div class="text" id="dText"></div><div class="next" id="dNext">E / clic para continuar</div></div>
@@ -125,12 +129,13 @@
   <div class="tbtn" id="tAct">USAR</div>
   <div class="tbtn" id="tAtk">GOLPE</div>
   <div class="tbtn" id="tDodge">ESQUIVA</div>
+  <div class="tbtn hidden" id="tHook">GARFIO</div>
   <div class="tbtn" id="tPause">❚❚</div>
 </div>
 
 <div class="overlay" id="title">
   <h1>Ecos de Aethra</h1>
-  <p class="sub">Versión de desarrollo · Etapa 3: capítulo 1</p>
+  <p class="sub">Versión de desarrollo · Etapa 4: capítulos 2 y 3</p>
   <p class="sub" id="loading" style="margin-bottom:12px">Cargando personajes…</p>
   <div class="menu">
     <button class="btn" id="bContinue">Continuar</button>
@@ -142,6 +147,8 @@
     <b>E</b><span>Hablar, leer, usar</span>
     <b>Clic / J</b><span>Golpear con el bastón (pulsa varias veces para el combo)</span>
     <b>Clic der. / K</b><span>Esquivar · en el aire: impulso (cuando lo consigas)</span>
+    <b>Mantener Espacio</b><span>Planear al caer (cuando tengas el planeador)</span>
+    <b>G / clic central</b><span>Garfio hacia el anillo marcado (cuando lo tengas)</span>
     <b>Ratón</b><span>Clic y arrastra para girar la cámara · rueda para acercar</span>
     <b>Esc / P</b><span>Pausa, ajustes y guardado</span>
     <b>Mando</b><span>También funciona con mando</span>

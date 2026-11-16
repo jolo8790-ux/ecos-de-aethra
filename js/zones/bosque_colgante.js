@@ -92,6 +92,11 @@ export default {
     { id: 'alto', box: [-5, 5.5, -61, 5, 9, -53], flag: 'llego_alto' },
   ],
 
+  chapterEnd: {
+    kicker: 'Fin del capítulo 1', title: 'El Gran Fragmento',
+    next: { label: 'Continuar: Capítulo 2', zone: 'ruinas_vidrio', cp: 'llegada' },
+  },
+
   story: {
     intro: [
       L(NARR, 'El dirigible desciende entre árboles tan altos que sus copas se pierden en las nubes.'),
