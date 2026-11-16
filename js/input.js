@@ -26,12 +26,22 @@ export class Input {
     addEventListener('blur', () => { this.keys = {}; });
 
     // ratón: arrastrar para girar
-    let drag = false, lx = 0, ly = 0;
-    canvas.addEventListener('mousedown', e => { drag = true; lx = e.clientX; ly = e.clientY; });
-    addEventListener('mouseup', () => drag = false);
+    // un clic sin arrastrar = atacar; arrastrar = girar la cámara; clic derecho = esquivar
+    let drag = false, lx = 0, ly = 0, moved = 0;
+    canvas.addEventListener('mousedown', e => {
+      if (e.button === 2) { this._pressed.add('dodge'); this.usingGamepad = false; return; }
+      drag = true; moved = 0; lx = e.clientX; ly = e.clientY;
+    });
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+    addEventListener('mouseup', e => {
+      if (drag && e.button === 0 && moved < 6) { this._pressed.add('attack'); }
+      drag = false;
+    });
     addEventListener('mousemove', e => {
       if (!drag) return;
-      this.look.x += (e.clientX - lx); this.look.y += (e.clientY - ly);
+      const dx = e.clientX - lx, dy = e.clientY - ly;
+      moved += Math.abs(dx) + Math.abs(dy);
+      this.look.x += dx; this.look.y += dy;
       lx = e.clientX; ly = e.clientY;
     });
     canvas.addEventListener('wheel', e => { this.zoom += Math.sign(e.deltaY); }, { passive: true });
@@ -51,7 +61,7 @@ export class Input {
     let joyId = null, cx = 0, cy = 0, camId = null, tx = 0, ty = 0;
     this._joy = { x: 0, y: 0 };
     const btn = (id, action) => document.getElementById(id).addEventListener('touchstart', e => { e.stopPropagation(); this._pressed.add(action); this._held.add(action); }, { passive: true });
-    btn('tJump', 'jump'); btn('tAct', 'interact'); btn('tPause', 'pause');
+    btn('tJump', 'jump'); btn('tAct', 'interact'); btn('tPause', 'pause'); btn('tAtk', 'attack'); btn('tDodge', 'dodge');
     document.getElementById('tJump').addEventListener('touchend', () => this._held.delete('jump'));
     addEventListener('touchstart', e => {
       for (const t of e.changedTouches) {
@@ -109,7 +119,7 @@ export class Input {
       this.look.x += rx * 14; this.look.y += ry * 10;
       const b = i => pad.buttons[i] && pad.buttons[i].pressed;
       const edge = (i, action) => { const now = b(i); if (now && !this._prevPad[i]) { this._pressed.add(action); this.usingGamepad = true; } this._prevPad[i] = now; };
-      edge(0, 'jump'); edge(2, 'interact'); edge(1, 'interact'); edge(9, 'pause');
+      edge(0, 'jump'); edge(2, 'attack'); edge(1, 'dodge'); edge(3, 'interact'); edge(9, 'pause');
       this._padJump = b(0);
     }
 
@@ -126,6 +136,6 @@ export class Input {
 }
 
 const KEYMAP = {
-  Space: 'jump', KeyE: 'interact', Enter: 'interact', KeyF: 'interact',
+  Space: 'jump', KeyE: 'interact', Enter: 'interact', KeyF: 'interact', KeyJ: 'attack', KeyK: 'dodge', KeyL: 'dodge',
   Escape: 'pause', KeyP: 'pause',
 };

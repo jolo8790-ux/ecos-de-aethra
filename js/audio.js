@@ -40,6 +40,20 @@ export class Audio {
       case 'checkpoint': [523, 784].forEach((f, i) => this.tone(f, 0.4, 'sine', 0.12, 0, i * 0.12)); break;
       case 'talk': this.tone(660 + Math.random() * 120, 0.04, 'square', 0.03); break;
       case 'open': this.tone(440, 0.08, 'sine', 0.08, 220); break;
+      case 'swing': this.noise(0.12, 0.07, 2600); this.tone(260, 0.1, 'sine', 0.04, 300); break;
+      case 'hit': this.tone(180, 0.12, 'square', 0.09, -90); this.noise(0.08, 0.1, 3000); break;
+      case 'crystal': [1400, 1900, 2500].forEach((f, i) => this.tone(f, 0.12, 'triangle', 0.05, 0, i * 0.02)); break;
+      case 'shatter': this.noise(0.35, 0.12, 5000); [1800, 1200, 2400, 900].forEach((f, i) => this.tone(f, 0.18, 'triangle', 0.05, -200, i * 0.04)); break;
+      case 'hurt': this.tone(330, 0.18, 'sawtooth', 0.08, -160); this.noise(0.1, 0.06, 900); break;
+      case 'dodge': this.noise(0.18, 0.06, 1500); break;
+      case 'dash': this.noise(0.22, 0.08, 3500); this.tone(500, 0.2, 'sine', 0.06, 500); break;
+      case 'bounce': this.tone(180, 0.25, 'sine', 0.12, 420); break;
+      case 'windup': this.tone(240, 0.5, 'sawtooth', 0.035, 260); break;
+      case 'shoot': this.tone(700, 0.18, 'triangle', 0.06, -300); break;
+      case 'heal': [660, 880, 1100].forEach((f, i) => this.tone(f, 0.18, 'sine', 0.08, 0, i * 0.06)); break;
+      case 'roar': this.noise(1.0, 0.16, 300); this.tone(70, 1.0, 'sawtooth', 0.12, -20); break;
+      case 'slam': this.noise(0.45, 0.2, 260); this.tone(55, 0.4, 'sine', 0.18, -20); break;
+      case 'rumble': this.noise(0.6, 0.08, 180); break;
       case 'splash': this.noise(0.5, 0.14, 1200); this.tone(200, 0.3, 'sine', 0.06, -120); break;
     }
   }
