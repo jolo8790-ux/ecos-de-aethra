@@ -53,6 +53,8 @@
   .tbtn { position: fixed; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; z-index: 5; border: 2px solid rgba(255,255,255,.5); }
   #tJump { right: 26px; bottom: 34px; width: 84px; height: 84px; background: rgba(127,216,255,.35); }
   #tAct { right: 122px; bottom: 60px; width: 62px; height: 62px; background: rgba(255,220,127,.35); }
+  #tAtk { right: 30px; bottom: 136px; width: 66px; height: 66px; background: rgba(255,140,120,.35); }
+  #tDodge { right: 122px; bottom: 140px; width: 56px; height: 56px; background: rgba(190,160,255,.35); font-size: 11px; }
   #tPause { top: 12px; right: 14px; width: 44px; height: 44px; border-radius: 12px; background: rgba(10,25,45,.5); font-size: 18px; }
   #objective { position: fixed; top: 14px; right: 16px; max-width: min(380px, 60vw); background: rgba(10,25,45,.55); border-left: 3px solid #ffd27a; padding: 8px 14px; border-radius: 10px; pointer-events: none; z-index: 2; backdrop-filter: blur(4px); transition: opacity .4s; }
   #objective .lbl { font-size: 11px; letter-spacing: 3px; opacity: .7; text-transform: uppercase; }
@@ -87,6 +89,16 @@
   body.cine #cinebars::before, body.cine #cinebars::after { height: 9vh; }
   body.cine #hud, body.cine #objective, body.cine #compass, body.cine #prompt, body.cine #touch { display: none !important; }
   #endcard .stats { margin: 18px 0 6px; font-size: 18px; line-height: 1.7; opacity: .9; }
+  #hudHearts { letter-spacing: 2px; color: #ff6b7a; }
+  #hudHearts .e { color: rgba(255,255,255,.25); }
+  #hudHearts.hit { animation: hit .4s; }
+  @keyframes hit { 0%,100% { transform: none; } 25% { transform: translateX(-5px); background: rgba(255,60,80,.6); } 75% { transform: translateX(5px); } }
+  #bossbar { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); width: min(560px, 80vw); z-index: 3; text-align: center; pointer-events: none; }
+  #bossbar .bname { font-weight: 700; font-size: 18px; letter-spacing: 2px; text-shadow: 0 2px 6px rgba(0,0,0,.6); margin-bottom: 4px; }
+  #bossbar .btrack { height: 14px; background: rgba(10,20,30,.7); border-radius: 8px; border: 2px solid rgba(255,255,255,.35); overflow: hidden; }
+  #bossbar .bfill { height: 100%; width: 100%; background: linear-gradient(90deg, #ff9a3a, #ffd36a); transition: width .3s; }
+  body.cine #bossbar { display: none; }
+  .touch #bossbar { bottom: auto; top: 110px; }
   #debug { position: fixed; bottom: 6px; left: 8px; font: 11px monospace; opacity: .6; pointer-events: none; z-index: 2; }
 </style>
 <script type="importmap">
@@ -94,7 +106,8 @@
 </script>
 </head>
 <body>
-<div id="hud" class="hidden"><div class="chip" id="hudFrag">◆ 0/0</div></div>
+<div id="hud" class="hidden"><div class="chip" id="hudHearts"></div><div class="chip" id="hudFrag">◆ 0/0</div></div>
+<div id="bossbar" class="hidden"><div class="bname" id="bossName"></div><div class="btrack"><div class="bfill" id="bossFill"></div></div></div>
 <div id="objective" class="hidden"><div class="lbl">Objetivo</div><div class="txt" id="objText"></div><div class="dist" id="objDist"></div></div>
 <div id="compass" class="hidden"><div class="needle" id="needle"></div><div class="pin"></div><div class="cd" id="compassDist"></div></div>
 <div id="vignette"></div>
@@ -110,12 +123,14 @@
   <div id="joy"><div id="joyKnob"></div></div>
   <div class="tbtn" id="tJump">SALTO</div>
   <div class="tbtn" id="tAct">USAR</div>
+  <div class="tbtn" id="tAtk">GOLPE</div>
+  <div class="tbtn" id="tDodge">ESQUIVA</div>
   <div class="tbtn" id="tPause">❚❚</div>
 </div>
 
 <div class="overlay" id="title">
   <h1>Ecos de Aethra</h1>
-  <p class="sub">Versión de desarrollo · Etapa 2: prólogo</p>
+  <p class="sub">Versión de desarrollo · Etapa 3: capítulo 1</p>
   <p class="sub" id="loading" style="margin-bottom:12px">Cargando personajes…</p>
   <div class="menu">
     <button class="btn" id="bContinue">Continuar</button>
@@ -125,6 +140,8 @@
     <b>W A S D</b><span>Moverse · Shift para caminar</span>
     <b>Espacio</b><span>Saltar · doble salto en el aire</span>
     <b>E</b><span>Hablar, leer, usar</span>
+    <b>Clic / J</b><span>Golpear con el bastón (pulsa varias veces para el combo)</span>
+    <b>Clic der. / K</b><span>Esquivar · en el aire: impulso (cuando lo consigas)</span>
     <b>Ratón</b><span>Clic y arrastra para girar la cámara · rueda para acercar</span>
     <b>Esc / P</b><span>Pausa, ajustes y guardado</span>
     <b>Mando</b><span>También funciona con mando</span>
@@ -160,12 +177,13 @@
 
 
 <div class="overlay hidden" id="endcard">
-  <p class="sub" style="letter-spacing:4px;text-transform:uppercase;margin-bottom:6px">Fin del prólogo</p>
-  <h1>Rumbo al Bosque Colgante</h1>
+  <p class="sub" id="endKicker" style="letter-spacing:4px;text-transform:uppercase;margin-bottom:6px">Fin del prólogo</p>
+  <h1 id="endTitle">Rumbo al Bosque Colgante</h1>
   <div class="stats" id="endStats"></div>
-  <p class="sub">El capítulo 1 llega en la etapa 3 del desarrollo.</p>
+  <p class="sub" id="endSub"></p>
   <div class="menu">
-    <button class="btn" id="bKeepExploring">Seguir explorando Puerto Bruma</button>
+    <button class="btn" id="bNextChapter">Continuar: Capítulo 1</button>
+    <button class="btn alt" id="bKeepExploring">Seguir explorando</button>
     <button class="btn alt" id="bEndTitle">Volver al título</button>
   </div>
 </div>
