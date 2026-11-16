@@ -13,7 +13,7 @@ Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes
 | 3. Combate y capítulo 1 | Bastón, esquiva, Bosque Colgante, Raíz Madre | Lista |
 | 4. Capítulos 2 y 3 | Planeador, garfio, Ruinas de Vidrio, Ciudad de Engranajes, Escorpión Prisma, Coloso | Lista |
 | 5. Capítulos 4 y 5 | Escudo, pulso de luz, Glaciar del Eco, Ciudadela de la Orden, Sierpe de Escarcha, Vaelor, 2 finales | Lista |
-| 6. Arte y sonido | Modelos, música, decorados con Budget3D | Pendiente |
+| 6. Arte | 16 modelos 3D generados (jefes, enemigos, decorados) con Hunyuan3D 2.1 | Lista (falta música) |
 | 7. Pruebas y versión final | Equilibrio, errores, publicación | Pendiente |
 
 ## Cómo jugar en tu computadora
@@ -59,6 +59,8 @@ js/rig.js               personaje de respaldo hecho con formas (si los modelos n
 js/fx.js                partículas: polvo, destellos
 js/combat.js            enemigos, proyectiles, curaciones y jefes (Raíz Madre, Escorpión Prisma, Coloso, Sierpe, Vaelor)
 assets/characters/      modelos y animaciones (.glb codificados en .js)
+js/props.js             carga los modelos generados y los encaja en cada pieza (con respaldo de formas simples)
+assets/props/           modelos generados (.glb codificados en .js); ver tools/gen3d/
 tools/build_assets.mjs  reconstruye los modelos desde el paquete KayKit original
 js/zones/*.js           datos de cada zona (plataformas, personajes, diálogos)
 prototipos/             prototipos anteriores (Cristales del Cielo)
@@ -69,3 +71,5 @@ Para añadir una zona nueva basta con crear un archivo en `js/zones/` con sus da
 ## Créditos
 
 Personajes y animaciones: [KayKit Adventurers Character Pack](https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0) de Kay Lousberg ([kaylousberg.com](https://www.kaylousberg.com)), licencia CC0.
+
+Modelos de jefes, enemigos y decorados: generados para este juego con [Hunyuan3D 2.1](https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1) (Tencent) a partir de imágenes de SDXL; ver `tools/gen3d/`.
