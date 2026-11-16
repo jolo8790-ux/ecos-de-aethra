@@ -22,18 +22,21 @@ export class World {
     this.interactables = []; // {id,type,pos,radius,mesh,data}
     this.checkpoints = {};   // id -> {pos, facing}
     this.water = null; this.airships = {};
+    this.updrafts = []; this.grapplePoints = []; this.pillars = []; this.movers = [];
     this.playerPos = new THREE.Vector3();
   }
 
   clear() {
     this.root.clear(); this.physics.clear();
     this.animated = []; this.interactables = []; this.checkpoints = {}; this.water = null; this.airships = {};
+    this.updrafts = []; this.grapplePoints = []; this.pillars = []; this.movers = [];
   }
 
   build(zone, save) {
     this.clear();
     this.zone = zone;
     const z = zone;
+    this.pal = { top: C.grass, side: C.dirt, ...(z.palette || {}) };
     if (z.water) this._water(z.water);
     (z.islands || []).forEach(i => this._island(i));
     (z.boxes || []).forEach(b => this._box(b));
@@ -44,6 +47,16 @@ export class World {
     (z.bigTrees || []).forEach(t => this._bigTree(t));
     (z.mushrooms || []).forEach(m => this._mushroom(m));
     (z.bridges || []).forEach(b => this._bridge(b));
+    (z.movers || []).forEach(m => this._mover(m));
+    (z.updrafts || []).forEach(u => this._updraft(u));
+    (z.grapples || []).forEach(g => this._grapplePoint(g));
+    (z.pillars || []).forEach(p => this._pillar(p));
+    (z.arches || []).forEach(a => this._arch(a));
+    (z.columns || []).forEach(c => this._column(c));
+    (z.crystals || []).forEach(c => this._crystalCluster(c));
+    (z.tents || []).forEach(t => this._tent(t));
+    (z.gears || []).forEach(g => this._gear(g));
+    (z.towers || []).forEach(t => this._tower(t));
     if (z.id === 'bosque_colgante') this._fireflies(60);
     (z.rocks || []).forEach(r => this._rock(r));
     (z.fences || []).forEach(f => this._fence(f));
@@ -67,11 +80,12 @@ export class World {
   }
 
   _island({ x, z, w, d, top = 0, depth = 3, rock = true }) {
-    this._mesh(new THREE.BoxGeometry(w, depth, d), mat(C.dirt), x, top - depth / 2 - 0.2, z);
-    this._mesh(new THREE.BoxGeometry(w + 0.16, 0.4, d + 0.16), mat(C.grass), x, top - 0.2, z);
+    const pal = this.pal || { top: C.grass, side: C.dirt };
+    this._mesh(new THREE.BoxGeometry(w, depth, d), mat(pal.side), x, top - depth / 2 - 0.2, z);
+    this._mesh(new THREE.BoxGeometry(w + 0.16, 0.4, d + 0.16), mat(pal.top), x, top - 0.2, z);
     if (rock) {
       const r = Math.min(w, d);
-      const cone = this._mesh(new THREE.ConeGeometry(r * 0.48, r * 0.75, 7), mat(C.dirt), x, top - depth - r * 0.37, z);
+      const cone = this._mesh(new THREE.ConeGeometry(r * 0.48, r * 0.75, 7), mat(pal.side), x, top - depth - r * 0.37, z);
       cone.rotation.x = Math.PI; cone.castShadow = false;
     }
     this.physics.addBox(x, top - depth / 2, z, w, depth, d);
@@ -135,6 +149,12 @@ export class World {
 
   // Aplica las condiciones de la historia: muestra u oculta lo que depende del progreso.
   applyConditions(S) {
+    for (const u of [...this.updrafts, ...this.grapplePoints]) {
+      if (!u.when) continue;
+      const on = !!u.when(S);
+      if (on === u.active) continue;
+      u.active = on; if (u.mesh) u.mesh.visible = on;
+    }
     for (const it of this.interactables) {
       if (!it.when) continue;
       const on = !!it.when(S);
@@ -158,6 +178,18 @@ export class World {
       pedestal.castShadow = false;
       this.physics.addBox(x, y + 0.25, z, 1.8, 0.5, 1.8);
       k.position.y = 1.2;
+    }
+    if (model === 'glider') {
+      const cloth = mat(0xf2e6c8, { side: THREE.DoubleSide });
+      const sh = new THREE.Shape(); sh.moveTo(-0.7, 0); sh.lineTo(0.7, 0); sh.lineTo(0, -0.5); sh.lineTo(-0.7, 0);
+      const sail = this._mesh(new THREE.ShapeGeometry(sh), cloth, 0, 0, 0, k); sail.rotation.x = 0.4;
+      this._mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.5, 6), mat(C.woodDark), 0, 0.02, 0, k).rotation.z = Math.PI / 2;
+    }
+    if (model === 'hook') {
+      const metal = mat(0xb8b8c8, { metalness: 0.7, roughness: 0.3 });
+      this._mesh(new THREE.TorusGeometry(0.18, 0.04, 8, 16, Math.PI * 1.3), metal, 0, -0.1, 0, k);
+      this._mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.45, 8), metal, 0, 0.2, 0, k);
+      this._mesh(new THREE.TorusGeometry(0.12, 0.03, 6, 12), gold, 0, 0.5, 0, k);
     }
     if (model === 'key') {
       this._mesh(new THREE.TorusGeometry(0.13, 0.035, 8, 16), gold, 0, 0.14, 0, k);
@@ -206,6 +238,125 @@ export class World {
       prop.rotation.z += dt * a.spin;
       plank.visible = a.offset.lengthSq() < 0.01;
     });
+  }
+
+  // ---------- piezas de los capítulos 2 y 3 ----------
+  _mover({ x, y, z, w = 3, d = 3, h = 0.6, axis = 'z', range = 5, speed = 0.6, phase = 0, color = 0xb08a4a }) {
+    const g = new THREE.Group(); this.root.add(g);
+    this._mesh(new THREE.BoxGeometry(w, h, d), mat(color, { metalness: 0.4, roughness: 0.5 }), 0, -h / 2, 0, g);
+    [-1, 1].forEach(sx => [-1, 1].forEach(sz => this._mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.08, 10), mat(0x6a4a2a, { metalness: 0.6 }), sx * (w / 2 - 0.3), 0.03, sz * (d / 2 - 0.3), g)));
+    const box = this.physics.addBox(x, y - h / 2, z, w, h, d);
+    box.delta = new THREE.Vector3();
+    const base = new THREE.Vector3(x, y, z), prev = base.clone();
+    const m = { box, g, base };
+    this.movers.push(m);
+    this.animated.push((t) => {
+      const off = Math.sin(t * speed + phase) * range;
+      const p = base.clone(); p[axis] += off;
+      box.delta.copy(p).sub(prev); prev.copy(p);
+      box.minX = p.x - w / 2; box.maxX = p.x + w / 2; box.minZ = p.z - d / 2; box.maxZ = p.z + d / 2; box.minY = p.y - h; box.maxY = p.y;
+      g.position.copy(p);
+    });
+  }
+
+  _updraft({ x, z, y0, y1, r = 2.4, when }) {
+    const g = new THREE.Group(); g.position.set(x, y0, z); this.root.add(g);
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.8, y1 - y0, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.08, side: THREE.DoubleSide, depthWrite: false }));
+    col.position.y = (y1 - y0) / 2; g.add(col);
+    const n = 40, geo = new THREE.BufferGeometry(), pos = new Float32Array(n * 3), seeds = [];
+    for (let i = 0; i < n; i++) seeds.push([Math.random() * Math.PI * 2, Math.random() * r * 0.9, Math.random()]);
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.15, transparent: true, opacity: 0.8, depthWrite: false }));
+    g.add(pts);
+    const H = y1 - y0;
+    this.animated.push(t => {
+      for (let i = 0; i < n; i++) { const [a, rr, o] = seeds[i]; const k = (o + t * 0.35) % 1; pos[i * 3] = Math.cos(a + t) * rr; pos[i * 3 + 1] = k * H; pos[i * 3 + 2] = Math.sin(a + t) * rr; }
+      geo.attributes.position.needsUpdate = true;
+    });
+    this.updrafts.push({ x, z, y0, y1, r, when, mesh: g });
+  }
+
+  _grapplePoint({ x, y, z, when, land = false }) {
+    const g = new THREE.Group(); g.position.set(x, y, z); this.root.add(g);
+    const ringMat = new THREE.MeshStandardMaterial({ color: 0xffe27a, emissive: 0xffb02a, emissiveIntensity: 0.9, metalness: 0.5, roughness: 0.3 });
+    const ring = this._mesh(new THREE.TorusGeometry(0.42, 0.08, 10, 24), ringMat, 0, 0, 0, g);
+    this._mesh(new THREE.SphereGeometry(0.14, 10, 8), mat(0x6a4a2a, { metalness: 0.6 }), 0, 0.5, 0, g);
+    const glow = new THREE.PointLight(0xffd27a, 1, 5, 2); g.add(glow);
+    const gp = { pos: new THREE.Vector3(x, y, z), mesh: g, when, land, ringMat };
+    this.animated.push(t => { ring.rotation.y = t * 1.2; ringMat.emissiveIntensity = gp.highlight ? 2.2 + Math.sin(t * 12) * 0.5 : 0.9; });
+    this.grapplePoints.push(gp);
+  }
+
+  _pillar({ x, z, y = 0, h = 4.5, r = 0.75 }) {
+    const g = new THREE.Group(); g.position.set(x, y, z); this.root.add(g);
+    const glass = new THREE.MeshStandardMaterial({ color: 0xbff0ff, emissive: 0x2a8ab0, emissiveIntensity: 0.35, transparent: true, opacity: 0.8, roughness: 0.05, flatShading: true });
+    this._mesh(new THREE.CylinderGeometry(r * 0.8, r, h, 6), glass, 0, h / 2, 0, g);
+    this._mesh(new THREE.ConeGeometry(r * 0.8, 1, 6), glass, 0, h + 0.5, 0, g);
+    this._mesh(new THREE.CylinderGeometry(r * 1.3, r * 1.4, 0.4, 8), mat(0xc8a878, { flatShading: true }), 0, 0.2, 0, g);
+    const box = this.physics.addBox(x, y + h / 2, z, r * 1.6, h, r * 1.6);
+    const p = { pos: new THREE.Vector3(x, y, z), r: r * 0.9 + 0.2, box, mesh: g, alive: true };
+    p.break = () => { if (!p.alive) return; p.alive = false; box.off = true; this.root.remove(g); };
+    this.pillars.push(p);
+  }
+
+  _arch({ x, z, y = 0, rot = 0, w = 5, h = 5 }) {
+    const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rot; this.root.add(g);
+    const stone = mat(0xd8b88a, { flatShading: true });
+    [-1, 1].forEach(s => this._mesh(new THREE.BoxGeometry(0.9, h, 0.9), stone, s * w / 2, h / 2, 0, g));
+    this._mesh(new THREE.BoxGeometry(w + 1.2, 0.8, 1.0), stone, 0, h + 0.4, 0, g);
+    [-1, 1].forEach(s => {
+      const c = Math.cos(rot), sn = Math.sin(rot);
+      this.physics.addBox(x + c * s * w / 2, y + h / 2, z - sn * s * w / 2, 0.9, h, 0.9);
+    });
+  }
+
+  _column({ x, z, y = 0, h = 3, broken = false }) {
+    const stone = mat(0xd8b88a, { flatShading: true });
+    const c = this._mesh(new THREE.CylinderGeometry(0.45, 0.5, h, 8), stone, x, y + h / 2, z);
+    if (broken) c.rotation.z = 0.08;
+    this._mesh(new THREE.BoxGeometry(1.2, 0.3, 1.2), stone, x, y + 0.15, z);
+    this.physics.addBox(x, y + h / 2, z, 0.9, h, 0.9, { noCamera: true });
+  }
+
+  _crystalCluster({ x, z, y = 0, s = 1, color = 0x9ff0ff }) {
+    const m = mat(color, { emissive: color, emissiveIntensity: 0.25, transparent: true, opacity: 0.85, flatShading: true, roughness: 0.1 });
+    [[0, 1.2, 0, 0.35, 2.4, 0], [0.4, 0.7, 0.1, 0.22, 1.4, -0.4], [-0.35, 0.6, 0.2, 0.2, 1.2, 0.5], [0.1, 0.5, -0.35, 0.18, 1.0, 0.3]].forEach(([a, b, c, r, h, rz]) => {
+      const o = this._mesh(new THREE.ConeGeometry(r * s, h * s, 6), m, x + a * s, y + b * s, z + c * s); o.rotation.z = rz;
+    });
+    this.physics.addBox(x, y + 0.6 * s, z, 0.9 * s, 1.2 * s, 0.9 * s, { noCamera: true });
+  }
+
+  _tent({ x, z, y = 0, rot = 0 }) {
+    const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rot; this.root.add(g);
+    const cloth = mat(0xc87a4a, { flatShading: true });
+    const tent = this._mesh(new THREE.ConeGeometry(1.8, 2.2, 4), cloth, 0, 1.1, 0, g); tent.rotation.y = Math.PI / 4;
+    this._mesh(new THREE.BoxGeometry(0.7, 1.2, 0.05), mat(0x3a2a1a), 0, 0.6, 1.25, g);
+    this._mesh(new THREE.BoxGeometry(0.8, 0.5, 0.6), mat(C.wood), 2.2, 0.25, 0.5, g); // caja de mapas
+    this.physics.addBox(x, y + 1, z, 2.4, 2, 2.4);
+  }
+
+  _gear({ x, y, z, r = 2, axis = 'z', speed = 0.5, color = 0xb08a4a }) {
+    const g = new THREE.Group(); g.position.set(x, y, z); this.root.add(g);
+    const brass = mat(color, { metalness: 0.6, roughness: 0.35, flatShading: true });
+    const wheel = new THREE.Group(); g.add(wheel);
+    this._mesh(new THREE.CylinderGeometry(r, r, 0.4, 24), brass, 0, 0, 0, wheel);
+    this._mesh(new THREE.CylinderGeometry(r * 0.3, r * 0.3, 0.6, 12), mat(0x5a4a3a, { metalness: 0.6 }), 0, 0, 0, wheel);
+    const teeth = Math.round(r * 7);
+    for (let i = 0; i < teeth; i++) { const a = (i / teeth) * Math.PI * 2; const t = this._mesh(new THREE.BoxGeometry(0.35, 0.4, 0.35), brass, Math.cos(a) * (r + 0.12), 0, Math.sin(a) * (r + 0.12), wheel); t.rotation.y = -a; }
+    if (axis === 'z') wheel.rotation.x = Math.PI / 2; else if (axis === 'x') wheel.rotation.z = Math.PI / 2;
+    const spin = new THREE.Group(); g.add(spin); spin.add(wheel);
+    this.animated.push((t, dt) => { if (axis === 'z') spin.rotation.z += speed * dt; else if (axis === 'x') spin.rotation.x += speed * dt; else spin.rotation.y += speed * dt; });
+  }
+
+  _tower({ x, z, y = -14, h = 30, w = 4, color = 0x7a6a5a }) {
+    const g = new THREE.Group(); g.position.set(x, y, z); this.root.add(g);
+    const stone = mat(color, { flatShading: true }), brass = mat(0xb08a4a, { metalness: 0.5, roughness: 0.4 });
+    this._mesh(new THREE.BoxGeometry(w, h, w), stone, 0, h / 2, 0, g);
+    for (let i = 1; i < 5; i++) this._mesh(new THREE.BoxGeometry(w + 0.3, 0.4, w + 0.3), brass, 0, (h / 5) * i, 0, g);
+    this._mesh(new THREE.ConeGeometry(w * 0.85, w * 1.1, 4), mat(0x4a3a6a, { flatShading: true }), 0, h + w * 0.55, 0, g).rotation.y = Math.PI / 4;
+    const win = mat(0xffd27a, { emissive: 0xffa040, emissiveIntensity: 1.2 });
+    for (let i = 0; i < 6; i++) this._mesh(new THREE.BoxGeometry(0.5, 0.8, 0.1), win, (i % 2 ? 1 : -1) * w * 0.25, h * 0.4 + i * 2.5, w / 2 + 0.05, g).castShadow = false;
+    this.physics.addBox(x, y + h / 2, z, w, h, w);
   }
 
   _bigTree({ x, z, y = -14, r = 2.4, h = 48 }) {
@@ -412,7 +563,7 @@ export class World {
   _clouds(seed) {
     let s = seed * 9973;
     const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
-    const cm = mat(0xffffff, { roughness: 1, transparent: true, opacity: 0.9 });
+    const cm = mat(0xffffff, { roughness: 1, transparent: true, opacity: 0.9, emissive: (this.zone && this.zone.sky.bottom) || 0xffffff, emissiveIntensity: 0.45 });
     for (let i = 0; i < 26; i++) {
       const c = new THREE.Group();
       const n = 3 + Math.floor(rnd() * 4);
