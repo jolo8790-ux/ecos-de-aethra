@@ -98,6 +98,7 @@ export function createCharacter(lib, lookName) {
     model.add(hat); hat.position.set(0, 1.64, -0.02); hat.rotation.x = -0.08; hat.scale.setScalar(1.3);
     model.updateMatrixWorld(true);
     bones.head.attach(hat);
+    hat.position.set(0, 0.78, -0.02); hat.rotation.set(-0.12, 0, 0); hat.scale.setScalar(1.75); // ajustado mirándolo en una GPU real: encima del pelo, sin tapar los ojos
   }
 
   const mixer = new THREE.AnimationMixer(model);
