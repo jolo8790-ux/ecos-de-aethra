@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { buildHumanoid, NpcAnimator } from './rig.js';
 import { createCharacter, NpcModelAnimator, LOOKS } from './characters.js';
+import { prop } from './props.js';
 
 // Construye una zona a partir de sus datos (js/zones/*.js): mallas + colisiones + objetos interactivos.
 
@@ -89,6 +90,14 @@ export class World {
   // ---------- piezas ----------
   _mesh(geo, material, x, y, z, parent = this.root) {
     const m = new THREE.Mesh(geo, material); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m;
+  }
+
+  // Modelo 3D generado (assets/props); devuelve null si no está y el builder usa sus primitivas.
+  _model(id, fit, x, y, z, { rotY = 0, parent = this.root, tint } = {}) {
+    const m = prop(id, fit, { tint });
+    if (!m) return null;
+    m.position.set(x, y, z); m.rotation.y = rotY; parent.add(m);
+    return m;
   }
 
   _island({ x, z, w, d, top = 0, depth = 3, rock = true }) {
@@ -325,8 +334,10 @@ export class World {
   _arch({ x, z, y = 0, rot = 0, w = 5, h = 5 }) {
     const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rot; this.root.add(g);
     const stone = mat(0xd8b88a, { flatShading: true });
-    [-1, 1].forEach(s => this._mesh(new THREE.BoxGeometry(0.9, h, 0.9), stone, s * w / 2, h / 2, 0, g));
-    this._mesh(new THREE.BoxGeometry(w + 1.2, 0.8, 1.0), stone, 0, h + 0.4, 0, g);
+    if (!this._model('arco_ruina', { x: w + 1.4, y: h + 0.9, z: 1.4 }, 0, 0, 0, { parent: g })) {
+      [-1, 1].forEach(s => this._mesh(new THREE.BoxGeometry(0.9, h, 0.9), stone, s * w / 2, h / 2, 0, g));
+      this._mesh(new THREE.BoxGeometry(w + 1.2, 0.8, 1.0), stone, 0, h + 0.4, 0, g);
+    }
     [-1, 1].forEach(s => {
       const c = Math.cos(rot), sn = Math.sin(rot);
       this.physics.addBox(x + c * s * w / 2, y + h / 2, z - sn * s * w / 2, 0.9, h, 0.9);
@@ -334,6 +345,7 @@ export class World {
   }
 
   _column({ x, z, y = 0, h = 3, broken = false }) {
+    if (this._model('columna_ruina', { x: 1.3, y: h + 0.2, z: 1.3 }, x, y, z, { rotY: (x * 3 + z) % 6.28 })) { this.physics.addBox(x, y + h / 2, z, 0.9, h, 0.9, { noCamera: true }); return; }
     const stone = mat(0xd8b88a, { flatShading: true });
     const c = this._mesh(new THREE.CylinderGeometry(0.45, 0.5, h, 8), stone, x, y + h / 2, z);
     if (broken) c.rotation.z = 0.08;
@@ -342,6 +354,11 @@ export class World {
   }
 
   _crystalCluster({ x, z, y = 0, s = 1, color = 0x9ff0ff }) {
+    const cm = this._model('cristales', { h: 2.5 * s }, x, y, z, { rotY: (x * 2 + z) % 6.28 });
+    if (cm) {
+      cm.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.emissive = new THREE.Color(color); o.material.emissiveIntensity = 0.18; o.material.emissiveMap = o.material.map; } });
+      this.physics.addBox(x, y + 0.6 * s, z, 0.9 * s, 1.2 * s, 0.9 * s, { noCamera: true }); return;
+    }
     const m = mat(color, { emissive: color, emissiveIntensity: 0.25, transparent: true, opacity: 0.85, flatShading: true, roughness: 0.1 });
     [[0, 1.2, 0, 0.35, 2.4, 0], [0.4, 0.7, 0.1, 0.22, 1.4, -0.4], [-0.35, 0.6, 0.2, 0.2, 1.2, 0.5], [0.1, 0.5, -0.35, 0.18, 1.0, 0.3]].forEach(([a, b, c, r, h, rz]) => {
       const o = this._mesh(new THREE.ConeGeometry(r * s, h * s, 6), m, x + a * s, y + b * s, z + c * s); o.rotation.z = rz;
@@ -352,6 +369,7 @@ export class World {
   _tent({ x, z, y = 0, rot = 0 }) {
     const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rot; this.root.add(g);
     const cloth = mat(0xc87a4a, { flatShading: true });
+    if (this._model('carpa', { w: 3.4 }, 0, 0, 0, { parent: g })) { this.physics.addBox(x, y + 1, z, 2.4, 2, 2.4); return; }
     const tent = this._mesh(new THREE.ConeGeometry(1.8, 2.2, 4), cloth, 0, 1.1, 0, g); tent.rotation.y = Math.PI / 4;
     this._mesh(new THREE.BoxGeometry(0.7, 1.2, 0.05), mat(0x3a2a1a), 0, 0.6, 1.25, g);
     this._mesh(new THREE.BoxGeometry(0.8, 0.5, 0.6), mat(C.wood), 2.2, 0.25, 0.5, g); // caja de mapas
@@ -374,6 +392,7 @@ export class World {
   _tower({ x, z, y = -14, h = 30, w = 4, color = 0x7a6a5a }) {
     const g = new THREE.Group(); g.position.set(x, y, z); this.root.add(g);
     const stone = mat(color, { flatShading: true }), brass = mat(0xb08a4a, { metalness: 0.5, roughness: 0.4 });
+    if (this._model('torre', { x: w * 1.25, y: h + w * 1.1, z: w * 1.25 }, 0, 0, 0, { parent: g, rotY: (x + z) % 6.28 })) { this.physics.addBox(x, y + h / 2, z, w, h, w); return; }
     this._mesh(new THREE.BoxGeometry(w, h, w), stone, 0, h / 2, 0, g);
     for (let i = 1; i < 5; i++) this._mesh(new THREE.BoxGeometry(w + 0.3, 0.4, w + 0.3), brass, 0, (h / 5) * i, 0, g);
     this._mesh(new THREE.ConeGeometry(w * 0.85, w * 1.1, 4), mat(0x4a3a6a, { flatShading: true }), 0, h + w * 0.55, 0, g).rotation.y = Math.PI / 4;
@@ -446,6 +465,7 @@ export class World {
 
   _pine({ x, z, y = 0, s = 1 }) {
     const g = new THREE.Group(); g.position.set(x, y, z); g.scale.setScalar(s); this.root.add(g);
+    if (this._model('pino_nevado', { h: 4.2 }, 0, 0, 0, { parent: g, rotY: (x * 5 + z) % 6.28 })) { this.physics.addBox(x, y + 1 * s, z, 0.5 * s, 2 * s, 0.5 * s, { noCamera: true }); return; }
     this._mesh(new THREE.CylinderGeometry(0.15, 0.22, 1.2, 6), mat(0x5a4030), 0, 0.6, 0, g);
     [[1.3, 1.6, 1.6], [1.0, 1.4, 2.5], [0.7, 1.2, 3.3]].forEach(([r, h, yy]) => {
       this._mesh(new THREE.ConeGeometry(r, h, 7), mat(0x3a6a5a, { flatShading: true }), 0, yy, 0, g);
@@ -471,6 +491,7 @@ export class World {
   }
   _obelisk({ x, y = 0, z, h = 7 }) {
     const g = new THREE.Group(); g.position.set(x, y, z); this.root.add(g);
+    if (this._model('obelisco', { x: 1.6, y: h + 1.2, z: 1.6 }, 0, 0, 0, { parent: g })) { this.physics.addBox(x, y + h / 2, z, 1.2, h, 1.2); return; }
     this._mesh(new THREE.BoxGeometry(1.2, h, 1.2), mat(0x2a2235, { flatShading: true }), 0, h / 2, 0, g);
     this._mesh(new THREE.ConeGeometry(0.85, 1.2, 4), mat(0xd4a24c, { metalness: 0.6 }), 0, h + 0.6, 0, g).rotation.y = Math.PI / 4;
     const rune = mat(0xb07aff, { emissive: 0x8a3aff, emissiveIntensity: 1.2 });
@@ -514,6 +535,11 @@ export class World {
   _mushroom({ x, y = 0, z, s = 1, bounce = 0 }) {
     const g = new THREE.Group(); g.position.set(x, y, z); this.root.add(g);
     const capCol = bounce ? 0xf27ac8 : 0xc8643a;
+    if (!bounce && this._model('seta', { h: 1.7 * s }, 0, 0, 0, { parent: g, rotY: (x + z) % 6.28 })) {
+      this.physics.addBox(x, y + 1.25 * s, z, 1.5 * s, 0.5 * s, 1.5 * s);
+      this.physics.addBox(x, y + 0.5 * s, z, 0.5 * s, 1.0 * s, 0.5 * s, { noCamera: true });
+      return;
+    }
     this._mesh(new THREE.CylinderGeometry(0.25 * s, 0.35 * s, 1.1 * s, 10), mat(0xf2e6cf), 0, 0.55 * s, 0, g);
     const cap = new THREE.Group(); cap.position.y = 1.0 * s; g.add(cap);
     const c = this._mesh(new THREE.SphereGeometry(0.95 * s, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat(capCol, { emissive: bounce ? 0x6a1a5a : 0x000000, emissiveIntensity: 0.4 }), 0, 0, 0, cap);
@@ -569,6 +595,11 @@ export class World {
 
   _tree({ x, z, y = 0, s = 1 }) {
     const g = new THREE.Group(); g.position.set(x, y, z); g.scale.setScalar(s); this.root.add(g);
+    if (this._model('arbol', { h: 3.6 }, 0, 0, 0, { parent: g, rotY: (x * 7 + z * 3) % 6.28 })) {
+      this.physics.addBox(x, y + 0.8 * s, z, 0.5 * s, 1.6 * s, 0.5 * s, { noCamera: true });
+      const ph = Math.random() * 6; this.animated.push(t => { g.rotation.z = Math.sin(t * 1.3 + ph) * 0.015; });
+      return;
+    }
     this._mesh(new THREE.CylinderGeometry(0.18, 0.26, 1.6, 7), mat(C.woodDark), 0, 0.8, 0, g);
     [[0, 2.1, 0, 1.1], [0.5, 1.7, 0.2, 0.75], [-0.45, 1.8, -0.2, 0.8], [0, 2.8, 0, 0.7]].forEach(([a, b, c, r]) =>
       this._mesh(new THREE.IcosahedronGeometry(r, 0), mat(C.grassDark, { flatShading: true }), a, b, c, g));
@@ -578,6 +609,7 @@ export class World {
   }
 
   _rock({ x, z, y = 0, s = 1 }) {
+    if (this._model('roca', { w: 1.5 * s }, x, y - 0.05 * s, z, { rotY: (x + z) % 6.28 })) { this.physics.addBox(x, y + 0.45 * s, z, 1.1 * s, 0.9 * s, 1.1 * s); return; }
     const r = this._mesh(new THREE.DodecahedronGeometry(0.7 * s, 0), mat(C.rock, { flatShading: true }), x, y + 0.35 * s, z);
     r.rotation.set(x, z, 0); r.scale.y = 0.75;
     this.physics.addBox(x, y + 0.45 * s, z, 1.1 * s, 0.9 * s, 1.1 * s);

@@ -7,6 +7,7 @@ import { World } from './world.js';
 import { Audio } from './audio.js';
 import { FX } from './fx.js';
 import { loadCharacterLibrary } from './characters.js';
+import { loadProps } from './props.js';
 import { newSave, loadSave, writeSave, loadSettings, writeSettings, exportCode, importCode } from './save.js';
 import puertoBruma from './zones/puerto_bruma.js';
 import bosqueColgante from './zones/bosque_colgante.js';
@@ -99,10 +100,14 @@ applySettings();
 // ---------- carga de personajes animados ----------
 let charsReady = false;
 $('bContinue').disabled = $('bNew').disabled = true;
-loadCharacterLibrary(p => { $('loading').textContent = `Cargando personajes… ${Math.round(p * 100)}%`; })
-  .then(lib => { player.useModel(lib); world.chars = lib; combat.chars = lib; })
-  .catch(e => { console.warn('No se pudieron cargar los personajes animados; se usan los de formas simples.', e); })
-  .finally(() => { charsReady = true; $('loading').classList.add('hidden'); $('bContinue').disabled = $('bNew').disabled = false; });
+let pChars = 0, pProps = 0;
+const showLoad = () => { $('loading').textContent = `Cargando personajes y escenarios… ${Math.round((pChars * 0.4 + pProps * 0.6) * 100)}%`; };
+Promise.all([
+  loadCharacterLibrary(p => { pChars = p; showLoad(); })
+    .then(lib => { player.useModel(lib); world.chars = lib; combat.chars = lib; })
+    .catch(e => { console.warn('No se pudieron cargar los personajes animados; se usan los de formas simples.', e); }),
+  loadProps(p => { pProps = p; showLoad(); }).catch(e => console.warn('Sin modelos de escenario', e)),
+]).finally(() => { charsReady = true; $('loading').classList.add('hidden'); $('bContinue').disabled = $('bNew').disabled = false; });
 
 // ---------- zonas ----------
 function loadZone(id, checkpointId) {

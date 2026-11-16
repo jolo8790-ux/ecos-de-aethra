@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { createCharacter, restorePose, savePose } from './characters.js';
+import { prop, clipModel } from './props.js';
 
 // Combate: criaturas de cristal, proyectiles, curaciones y el jefe Raíz Madre.
 // Todas las criaturas avisan antes de atacar (brillo rojo y temblor) para que el jugador pueda esquivar.
@@ -13,10 +14,54 @@ const WHITE = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
 function mesh(geo, m, parent, x = 0, y = 0, z = 0) { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; parent.add(o); return o; }
 
+// Modelo generado con un material propio que puede brillar (el brillo usa la propia textura).
+function glowModel(id, fit, tint, emissive, rotY = Math.PI) {
+  const m = prop(id, fit, { rotY });
+  if (!m) return null;
+  let gm = null;
+  m.traverse(o => {
+    if (!o.isMesh) return;
+    if (!gm) {
+      gm = o.material.clone();
+      if (tint) gm.color.multiply(new THREE.Color(tint));
+      gm.emissive = new THREE.Color(emissive); gm.emissiveMap = gm.map; gm.emissiveIntensity = 0.15;
+    }
+    o.material = gm; o.userData.glowFlash = true;
+  });
+  m.userData.mat = gm;
+  return m;
+}
+// Piel de jefe: modelo generado que sustituye a las piezas sencillas; brilla con el color de los ojos del jefe.
+function bossSkin(id, fit, rotY, clip) {
+  const m = prop(id, fit, { rotY });
+  if (!m) return null;
+  if (clip) clipModel(m, clip);
+  const mats = [];
+  m.traverse(o => {
+    if (!o.isMesh) return;
+    if (!clip) o.material = o.material.clone();
+    o.material.emissive = new THREE.Color(0); o.material.emissiveMap = o.material.map; o.material.emissiveIntensity = 0;
+    o.userData.glowFlash = true; mats.push(o.material);
+  });
+  m.userData.mats = mats;
+  m.userData.glow = (color, k) => { for (const mt of mats) { if (o_flashing(mt)) continue; mt.emissive.copy(color); mt.emissiveIntensity = k; } };
+  return m;
+}
+const o_flashing = mt => mt.emissive.getHex() === 0xffffff && mt.emissiveMap === null;
+const hideMeshes = (group, keep = []) => group.children.forEach(o => { if (o.isMesh && !keep.includes(o)) o.visible = false; });
+const BROTE_MODELS = { brote: ['brote', 1.15], brote_vidrio: ['brote', 1.15, 0xffd9a0], brote_hielo: ['brote', 1.15, 0xd8f0ff], automata: ['automata', 1.35], sombra: ['sombra', 1.3] };
+const ESPORA_MODELS = { espora: ['espora', null], espora_vidrio: ['espora', 0xffd9a0], espora_hielo: ['espora', 0xd8f0ff], centinela: ['espora', 0x8a70b0] };
+
 // Destello blanco al recibir un golpe: cambia temporalmente los materiales.
 function setFlash(group, on) {
   group.traverse(o => {
     if (!o.isMesh || o.userData.noFlash) return;
+    if (o.userData.glowFlash) { // modelos generados: destello con el brillo propio (no cambia el material ni su recorte)
+      const m = o.material;
+      if (on) { if (!o.userData.flashSave) o.userData.flashSave = [m.emissive.getHex(), m.emissiveIntensity, m.emissiveMap]; m.emissive.setHex(0xffffff); m.emissiveIntensity = 0.9; m.emissiveMap = null; m.needsUpdate = true; }
+      else if (o.userData.flashSave) { const [c, i, map] = o.userData.flashSave; m.emissive.setHex(c); m.emissiveIntensity = i; m.emissiveMap = map; m.needsUpdate = true; o.userData.flashSave = null; }
+      return;
+    }
     if (on) { if (!o.userData.mat) o.userData.mat = o.material; o.material = WHITE; }
     else if (o.userData.mat) { o.material = o.userData.mat; }
   });
@@ -101,6 +146,17 @@ class Brote extends Enemy {
     const L = BROTE_LOOKS[type] || BROTE_LOOKS.brote;
     this.hp = L.hp; this.color = L.crystal; this.cd = 1; this.baseEmissive = L.emissive;
     const g = this.body = new THREE.Group(); this.group.add(g);
+    const BM = BROTE_MODELS[type], model = BM && glowModel(BM[0], { h: BM[1] }, BM[2], L.emissive);
+    if (model) {
+      g.add(model); this.crystalMat = model.userData.mat; this.glowK = 0.12;
+      this.mark = mesh(new THREE.ConeGeometry(0.12, 0.35, 4), new THREE.MeshBasicMaterial({ color: 0xff5a4a }), this.group, 0, 1.7, 0);
+      this.mark.rotation.x = Math.PI; this.mark.visible = false; this.mark.userData.noFlash = true;
+      if (L.aura) {
+        this.aura = mesh(new THREE.SphereGeometry(1.0, 16, 12), new THREE.MeshStandardMaterial({ color: 0x5a2aa8, emissive: 0x3a0a6a, emissiveIntensity: 0.8, transparent: true, opacity: 0.35, depthWrite: false }), this.group, 0, 0.6, 0);
+        this.aura.userData.noFlash = true; this.aura.castShadow = false;
+      }
+      return;
+    }
     if (L.metal) {
       mesh(new THREE.BoxGeometry(0.8, 0.6, 0.7), mat(L.rock, { metalness: 0.6, roughness: 0.4 }), g, 0, 0.45, 0);
       const gear = mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.1, 10), mat(0xd4a24c, { metalness: 0.7 }), g, 0, 0.5, 0.36); gear.rotation.x = Math.PI / 2; this.gear = gear;
@@ -181,7 +237,7 @@ class Brote extends Enemy {
     }
     this.stepPhysics(dt, this.state !== 'stagger');
     if (!this.alive) return;
-    this.crystalMat.emissiveIntensity += (glow - this.crystalMat.emissiveIntensity) * damp(10, dt);
+    this.crystalMat.emissiveIntensity += (glow * (this.glowK || 1) - this.crystalMat.emissiveIntensity) * damp(10, dt);
     this.crystalMat.emissive.setHex(this.state === 'windup' || this.state === 'lunge' ? 0xff3a2a : this.baseEmissive);
     if (this.gear) this.gear.rotation.y += dt * (this.state === 'chase' ? 8 : 2);
     this.group.position.set(this.pos.x + (Math.random() - 0.5) * shake, this.pos.y, this.pos.z + (Math.random() - 0.5) * shake);
@@ -199,6 +255,14 @@ class Espora extends Enemy {
     super(c, x, y, z);
     const L = this.look = ESPORA_LOOKS[type] || ESPORA_LOOKS.espora;
     this.hp = type === 'torreta' ? 3 : 2; this.color = L.core; this.cd = 1.5 + Math.random();
+    const EM = ESPORA_MODELS[type], model = EM && glowModel('espora', { h: 1.7 }, EM[1], L.coreE);
+    if (model) {
+      this.head = new THREE.Group(); this.group.add(this.head); this.model = model; this.head.add(model);
+      this.coreMat = model.userData.mat; this.glowK = 0.12; this.petals = [];
+      this.radius = 0.7;
+      this.box = c.physics.addBox(x, y + 0.5, z, 0.6, 1.0, 0.6, { noCamera: true });
+      return;
+    }
     mesh(new THREE.CylinderGeometry(0.12, 0.18, 0.9, 7), mat(L.stem), this.group, 0, 0.45, 0);
     this.head = new THREE.Group(); this.head.position.y = 1.0; this.group.add(this.head);
     this.coreMat = new THREE.MeshStandardMaterial({ color: L.core, emissive: L.coreE, emissiveIntensity: 0.8, roughness: 0.3 });
@@ -230,10 +294,11 @@ class Espora extends Enemy {
       }
     }
     this.petals.forEach(p => { p.rotation.x = -0.4 - open * 0.9; });
-    this.coreMat.emissiveIntensity = 0.8 + open * 2.5;
+    this.coreMat.emissiveIntensity = (0.8 + open * 2.5) * (this.glowK || 1);
     this.coreMat.emissive.setHex(open > 0 ? 0xff3aa8 : this.look.coreE);
     this.group.position.copy(this.pos);
-    this.head.position.y = 1.0 + Math.sin(this.t * 2) * 0.04;
+    if (this.model) { const k = 1 + open * 0.12 + Math.sin(this.t * 2) * 0.02; this.model.scale.set(1 / Math.sqrt(k), k, 1 / Math.sqrt(k)); }
+    else this.head.position.y = 1.0 + Math.sin(this.t * 2) * 0.04;
     if (this.state === 'stagger') { this.stagger -= dt; if (this.stagger <= 0) this.state = 'idle'; }
   }
   hurt(dmg, from) { return super.hurt(dmg, from, 0); }
@@ -268,6 +333,8 @@ class RaizMadre {
     this.box = c.physics.addBox(x, y + 2.75, z, 4.6, 5.5, 4.6);
     this.radius = 2.8;
     g.scale.setScalar(1);
+    const skin = bossSkin('raiz_madre', { x: 7.2, y: 6.8, z: 7.2 }, 0);
+    if (skin) { hideMeshes(g); this.skinG = new THREE.Group(); this.skinG.add(skin); g.add(this.skinG); this.skin = skin; }
   }
   get alive() { return this.state !== 'dead'; }
   get fighting() { return !['sleep', 'intro', 'dying', 'dead'].includes(this.state); }
@@ -278,6 +345,7 @@ class RaizMadre {
     if (this.flash > 0 && (this.flash -= dt) <= 0) setFlash(this.group, false);
     const breathe = Math.sin(this.t * 1.5) * 0.04;
     this.trunk.scale.set(1 + breathe, 1 - breathe * 0.5, 1 + breathe);
+    if (this.skin) { this.skinG.scale.copy(this.trunk.scale); this.skin.userData.glow(this.eyeMat.emissive, Math.max(0, this.eyeMat.emissiveIntensity - 0.15) * 0.09 + (this.phase === 2 ? 0.04 : 0)); }
     if (this.state === 'sleep') { this.eyeMat.emissiveIntensity = 0.15; return; }
     if (this.state === 'intro') {
       this.st -= dt; this.eyeMat.emissiveIntensity = 3 * (1 - this.st / 2.2) + 0.15;
@@ -433,6 +501,14 @@ class Escorpion {
     const self = this;
     this.weak = { radius: 0.9, pos: new THREE.Vector3(), get hittable() { return self.state === 'stunned' && self.stunHits < 2; }, hit: () => self.wound() };
     this.weakPoints = [this.weak];
+    // modelo generado sin su cola (la cola y el aguijón se animan aparte: son el punto débil)
+    const skin = bossSkin('escorpion_cuerpo', { x: 3.6, y: 1.9, z: 5.0 }, Math.PI, [{ or: [{ axis: 'z', keep: [0.42, 1] }, { axis: 'y', keep: [0, 0.45] }] }]);
+    if (skin) {
+      hideMeshes(this.body, [...this.tail, this.sting]);
+      this.legs.forEach(L => L.leg.visible = false); this.claws.forEach(cg => cg.visible = false);
+      skin.position.set(0, 0, -0.6); this.body.add(skin); this.skin = skin;
+      this.tail.forEach(t => t.material = mat(0x7a5a3a, { flatShading: true, roughness: 0.6 }));
+    }
     this._place();
   }
   get alive() { return this.state !== 'dead'; }
@@ -440,6 +516,7 @@ class Escorpion {
   wake() { if (this.state === 'sleep') { this.state = 'intro'; this.st = 2; this.c.audio.play('roar'); this.c.shake(0.5, 1.5); } }
   _place() {
     this.group.position.copy(this.pos); this.group.rotation.y = this.facing;
+    if (this.skin) { this.skin.userData.glow(this.eyeMat.emissive, this.eyeMat.emissive.getHex() === 0xff3a2a ? 0.35 : 0.04); this.skin.position.y = Math.abs(Math.sin(this.t * 8)) * 0.04; }
     // cola: de levantada (curl 0) a apoyada en el suelo (curl 1)
     const raised = i => { const a = -1.2 + i * 0.55; return new THREE.Vector3(0, 2.0 + Math.sin(a) * 1.3, 1.9 - Math.cos(a) * 1.3 + 1.3); };
     const lowered = i => new THREE.Vector3(0, 0.55, 2.0 + i * 0.62);
@@ -581,6 +658,14 @@ class Coloso {
     this.weakPoints = [this.weak];
     this.tele = new THREE.Mesh(new THREE.CircleGeometry(2.4, 32), new THREE.MeshBasicMaterial({ color: 0xff4a2a, transparent: true, opacity: 0, depthWrite: false }));
     this.tele.rotation.x = -Math.PI / 2; c.root.add(this.tele);
+    // modelo generado (sin sus brazos: los brazos que golpean siguen siendo piezas animadas)
+    const skin = bossSkin('coloso_cuerpo', { h: 8.6 }, Math.PI, [{ axis: 'x', keep: [0.25, 0.75] }]);
+    if (skin) {
+      hideMeshes(g); hideMeshes(this.torso, [this.core]);
+      skin.position.y = -4.1; this.torso.add(skin); this.skin = skin;
+      const bronze = mat(0x8a6a3a, { metalness: 0.3, roughness: 0.6, flatShading: true }), dark = mat(0x3a332c, { roughness: 0.7, flatShading: true });
+      this.arms.forEach(A => A.sh.children.forEach((o, i) => { if (o.isMesh) o.material = i % 2 ? dark : bronze; }));
+    }
     this._place();
   }
   get grapplePoints() { return this.state === 'stuck' ? [this.gp] : []; }
@@ -593,6 +678,7 @@ class Coloso {
     this.group.updateMatrixWorld(true);
     this.core.getWorldPosition(this.weak.pos);
     this.gp.pos.copy(this.local(0, 7.6, -3.8)); this.gp.landAt.copy(this.local(0, 5.62, -2.45));
+    if (this.skin) this.skin.userData.glow(this.eyeMat.emissive, this.eyeMat.emissiveIntensity * 0.12);
     this.ring.position.copy(this.gp.pos); this.ring.rotation.y = this.facing;
   }
   update(dt, pl) {
@@ -733,6 +819,14 @@ class Sierpe {
     this.weak = { radius: 0.9, pos: new THREE.Vector3(), get hittable() { return self.state === 'downed' && self.downHits < 2; }, hit: () => self.wound() };
     this.weakPoints = [this.weak];
     for (let i = 0; i < 60; i++) this.trail.push(this.head.clone().add(new THREE.Vector3(0, 0, i * 0.25)));
+    // cabeza con modelo generado; el cuerno (punto débil) y el cuerpo siguen siendo piezas animadas
+    const skin = bossSkin('sierpe_cabeza', { h: 1.9 }, -Math.PI / 2);
+    if (skin) {
+      hideMeshes(this.headG, [this.horn]);
+      skin.position.set(0, -0.75, -0.1); this.headG.add(skin); this.skin = skin;
+      this.horn.position.set(0, 1.05, 0.25);
+      scale.color.setHex(0x4f6f8f); belly.color.setHex(0xcfe8f5);
+    }
     this._place(0);
   }
   get alive() { return this.state !== 'dead'; }
@@ -740,6 +834,7 @@ class Sierpe {
   wake() { if (this.state === 'sleep') { this.state = 'intro'; this.st = 2.4; this.c.audio.play('roar'); this.c.shake(0.5, 2); } }
   _orbitPoint(a, h = this.H) { return new THREE.Vector3(this.center.x + Math.cos(a) * this.R, this.center.y + h + Math.sin(a * 3) * 0.6, this.center.z + Math.sin(a) * this.R); }
   _place(dt) {
+    if (this.skin) this.skin.userData.glow(this.eyeMat.emissive, Math.max(0, this.eyeMat.emissiveIntensity - 1.5) * 0.08);
     // la cola sigue el rastro de la cabeza
     const last = this.trail[0];
     if (last.distanceTo(this.head) > 0.12) { this.trail.unshift(this.head.clone()); if (this.trail.length > 80) this.trail.pop(); }
