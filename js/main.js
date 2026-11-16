@@ -5,6 +5,7 @@ import { Player } from './player.js';
 import { FollowCamera } from './camera.js';
 import { World } from './world.js';
 import { Audio } from './audio.js';
+import { Music } from './music.js';
 import { FX } from './fx.js';
 import { loadCharacterLibrary } from './characters.js';
 import { loadProps } from './props.js';
@@ -71,6 +72,22 @@ const sky = new THREE.Mesh(new THREE.SphereGeometry(500, 24, 12), skyMat); scene
 const physics = new Physics();
 const input = new Input(renderer.domElement);
 const audio = new Audio();
+const music = new Music(audio);
+// Música de cada zona y de cada jefe; ambiente de fondo
+const ZONE_MUSIC = { puerto_bruma: 'puerto', bosque_colgante: 'bosque', ruinas_vidrio: 'ruinas', ciudad_engranajes: 'ciudad', glaciar_eco: 'glaciar', ciudadela_orden: 'ciudadela' };
+const BOSS_MUSIC = { bosque_colgante: 'boss_raiz', ruinas_vidrio: 'boss_escorpion', ciudad_engranajes: 'boss_coloso', glaciar_eco: 'boss_sierpe', ciudadela_orden: 'vaelor' };
+const ZONE_AMB = { puerto_bruma: 'sea', bosque_colgante: 'forest', ruinas_vidrio: 'desert', ciudad_engranajes: 'city', glaciar_eco: 'ice', ciudadela_orden: 'dark' };
+// los navegadores solo dejan sonar audio después de un gesto: el primero enciende todo
+const wakeAudio = () => { audio.unlock(); if (music.init() && state === 'title') music.play('title'); };
+addEventListener('pointerdown', wakeAudio); addEventListener('keydown', wakeAudio); addEventListener('touchstart', wakeAudio);
+let duckNow = 1;
+function updateMusic() {
+  const d = state === 'pause' ? 0.35 : state === 'dialog' ? 0.6 : 1;
+  if (d !== duckNow) { duckNow = d; music.duck(d); }
+  if (state !== 'play' && state !== 'dialog' || !zone) return;
+  const b = combat.boss, fighting = b && (b.state === 'intro' || b.fighting);
+  music.play(fighting ? (BOSS_MUSIC[zone.id] || 'boss') : ZONE_MUSIC[zone.id], { fade: fighting ? 0.8 : 2.5 });
+}
 const world = new World(scene, physics);
 const fx = new FX(scene);
 const player = new Player(scene, physics, audio, fx);
@@ -139,7 +156,7 @@ function loadZone(id, checkpointId) {
   scene.fog = new THREE.Fog(zone.sky.fog, zone.sky.fogNear, zone.sky.fogFar);
   const li = zone.light || {};
   hemi.color.setHex(li.hemiSky || 0xdff1ff); hemi.groundColor.setHex(li.hemiGround || 0x5c6a50); sun.color.setHex(li.sun || 0xfff1d6);
-  world.build(zone, save);
+  world.build(zone, save); music.ambient(ZONE_AMB[zone.id]);
   player.updrafts = world.updrafts;
   combat.spawnZone(zone, save);
   bossActive = false; hintClang = false; hintStun = false; hintAura = false; $('bossbar').classList.add('hidden');
@@ -376,7 +393,7 @@ function startFinale(kind) {
   const F = zone.finale[kind];
   cutscene = { t: 0, finale: true, kind, F, top0: skyMat.uniforms.top.value.clone(), bot0: skyMat.uniforms.bottom.value.clone(), fog0: scene.fog.color.clone() };
   player.frozen = true;
-  audio.play('unlock');
+  audio.play('unlock'); music.play('finale', { fade: 3 });
 }
 function updateFinale(dt) {
   const c = cutscene, F = c.F; c.t += dt;
@@ -443,6 +460,7 @@ function showEndCard({ kicker, title, stats, sub, next }) {
 }
 function showChapterEnd() {
   state = 'end'; document.body.classList.add('cine');
+  music.stinger('capitulo'); music.play('finale', { fade: 2.5 });
   const total = zone.fragments.length, ce = zone.chapterEnd || {};
   const big = ['gran_fragmento_1', 'gran_fragmento_2', 'gran_fragmento_3', 'gran_fragmento_4', 'gran_fragmento_5'].filter(f => save.flags[f]).length;
   showEndCard({
@@ -457,7 +475,7 @@ function leaveEnding(toTitle) {
   document.body.classList.remove('cine');
   $('endcard').classList.add('hidden');
   player.frozen = false;
-  if (toTitle) { writeSave(save); state = 'title'; showOverlay('title'); refreshTitle(); return; }
+  if (toTitle) { writeSave(save); state = 'title'; showOverlay('title'); refreshTitle(); music.play('title'); music.ambient(null); return; }
   if (zone.id === 'puerto_bruma') { player.teleport(0, 0.05, 31.5, 0); cam.snap(player); }
   state = 'play';
 }
@@ -487,7 +505,7 @@ function startDeath() {
   if (state === 'dead') return;
   state = 'dead'; deadT = 0;
   player.gesture('Death_A', { speed: 1.2, fadeIn: 0.05, fadeOut: 0.01 });
-  audio.play('hurt');
+  audio.play('hurt'); music.stinger('derrota');
 }
 function updateDeath(dt) {
   deadT += dt;
@@ -541,6 +559,7 @@ function checkRegions() {
   }
 }
 combat.onBossDefeated = () => {
+  music.stinger('victoria');
   bossActive = false;
   setTimeout(() => { startDialog(zone.story.bossDefeated, '', null, () => { zone.story.onBossDefeated && zone.story.onBossDefeated(S); player.gesture('Cheer', { speed: 1.2 }); }); }, 300);
 };
@@ -589,7 +608,7 @@ function refreshTitle() {
 refreshTitle();
 
 function startGame(s) {
-  audio.unlock();
+  audio.unlock(); music.init();
   save = s;
   writeSave(save);
   showOverlay(null);
@@ -613,7 +632,7 @@ $('bSettings').onclick = () => showPausePanel('settings');
 $('bSettingsBack').onclick = () => showPausePanel('main');
 $('bSaveMenu').onclick = () => { $('exportCode').value = exportCode(save); $('importCode').value = ''; $('saveMsg').textContent = ''; showPausePanel('save'); };
 $('bSaveBack').onclick = () => showPausePanel('main');
-$('bTitle').onclick = () => { writeSave(save); if (dialog) closeDialog(false); state = 'title'; $('objective').classList.add('hidden'); $('compass').classList.add('hidden'); marker.visible = false; showOverlay('title'); refreshTitle(); };
+$('bTitle').onclick = () => { writeSave(save); if (dialog) closeDialog(false); state = 'title'; music.play('title'); music.ambient(null); $('objective').classList.add('hidden'); $('compass').classList.add('hidden'); marker.visible = false; showOverlay('title'); refreshTitle(); };
 $('bCopy').onclick = async () => {
   try { await navigator.clipboard.writeText($('exportCode').value); $('saveMsg').textContent = 'Código copiado.'; }
   catch (e) { $('exportCode').select(); $('saveMsg').textContent = 'No se pudo copiar solo: selecciona el texto y cópialo a mano.'; }
@@ -627,13 +646,14 @@ $('bImport').onclick = () => {
 };
 
 function applySettings() {
-  cam.settings.sens = settings.sens; cam.settings.invert = settings.invert; audio.volume = settings.volume;
-  $('sSens').value = settings.sens; $('sInv').checked = settings.invert; $('sVol').value = settings.volume; $('sDbg').checked = settings.debug;
+  cam.settings.sens = settings.sens; cam.settings.invert = settings.invert; audio.volume = settings.volume; music.setVolume(settings.music ?? 0.6);
+  $('sSens').value = settings.sens; $('sInv').checked = settings.invert; $('sVol').value = settings.volume; $('sMus').value = settings.music ?? 0.6; $('sDbg').checked = settings.debug;
   $('debug').classList.toggle('hidden', !settings.debug);
 }
 $('sSens').oninput = e => { settings.sens = +e.target.value; writeSettings(settings); applySettings(); };
 $('sInv').onchange = e => { settings.invert = e.target.checked; writeSettings(settings); applySettings(); };
 $('sVol').oninput = e => { settings.volume = +e.target.value; writeSettings(settings); applySettings(); };
+$('sMus').oninput = e => { settings.music = +e.target.value; writeSettings(settings); applySettings(); };
 $('sDbg').onchange = e => { settings.debug = e.target.checked; writeSettings(settings); applySettings(); };
 
 // ---------- bucle ----------
@@ -660,6 +680,7 @@ let paused4test = false;
 function simulate(dt) {
   time += dt;
   input.poll();
+  updateMusic();
   if (input.pressed('pause') && (state === 'play' || state === 'dialog' || state === 'pause')) pause();
 
   if (state === 'play' || state === 'dialog') {
@@ -728,7 +749,7 @@ function titleScene() {
   skyMat.uniforms.top.value.setHex(zone.sky.top);
   skyMat.uniforms.bottom.value.setHex(zone.sky.bottom);
   scene.fog = new THREE.Fog(zone.sky.fog, zone.sky.fogNear, zone.sky.fogFar);
-  world.build(zone, save);
+  world.build(zone, save); music.ambient(ZONE_AMB[zone.id]);
   respawn(save.checkpoint);
 }
 
@@ -742,6 +763,7 @@ frame();
 // gancho para pruebas automáticas
 // step(n): avanza n pasos de 1/60 s sin depender de la velocidad de dibujo (para pruebas en máquinas lentas)
 window.__aethra = {
+  music,
   player, cam, world, input, get state() { return state; }, get save() { return save; }, startGame, newSave, loadZone,
   hold(on) { paused4test = on; }, S, combat, enterZone, choose, get zone() { return zone; }, get dialog() { return dialog; },
   step(n, press) {

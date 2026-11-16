@@ -13,7 +13,7 @@ Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes
 | 3. Combate y capítulo 1 | Bastón, esquiva, Bosque Colgante, Raíz Madre | Lista |
 | 4. Capítulos 2 y 3 | Planeador, garfio, Ruinas de Vidrio, Ciudad de Engranajes, Escorpión Prisma, Coloso | Lista |
 | 5. Capítulos 4 y 5 | Escudo, pulso de luz, Glaciar del Eco, Ciudadela de la Orden, Sierpe de Escarcha, Vaelor, 2 finales | Lista |
-| 6. Arte | 16 modelos 3D generados (jefes, enemigos, decorados) con Hunyuan3D 2.1 | Lista (falta música) |
+| 6. Arte y sonido | 16 modelos 3D generados con Hunyuan3D 2.1; música sintetizada para cada zona, jefe y final; ambiente | Lista |
 | 7. Pruebas y versión final | Equilibrio, errores, publicación | Pendiente |
 
 ## Cómo jugar en tu computadora
@@ -53,6 +53,8 @@ js/player.js            modelo y control de Lía
 js/camera.js            cámara en tercera persona que esquiva paredes
 js/world.js             construye una zona a partir de sus datos
 js/audio.js             efectos de sonido sintetizados
+js/music.js             secuenciador de música y ambiente (sin archivos de audio)
+js/songs.js             partituras: temas de zona, jefes, final y fanfarrias
 js/save.js              guardado local y código de exportación
 js/characters.js        personajes animados (modelos KayKit), mezcla de animaciones, mirada
 js/rig.js               personaje de respaldo hecho con formas (si los modelos no cargan)

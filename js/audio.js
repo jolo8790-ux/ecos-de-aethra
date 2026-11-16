@@ -16,7 +16,7 @@ export class Audio {
       if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), t0 + dur);
       g.gain.setValueAtTime(vol * this.volume, t0);
       g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      o.connect(g); g.connect(c.destination); o.start(t0); o.stop(t0 + dur + 0.02);
+      o.connect(g); g.connect(this.dest || c.destination); o.start(t0); o.stop(t0 + dur + 0.02);
     } catch (e) {}
   }
   noise(dur, vol = 0.08, freq = 800) {
@@ -26,7 +26,7 @@ export class Audio {
       for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
       const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
       f.type = 'lowpass'; f.frequency.value = freq; g.gain.value = vol * this.volume;
-      s.buffer = buf; s.connect(f); f.connect(g); g.connect(c.destination); s.start();
+      s.buffer = buf; s.connect(f); f.connect(g); g.connect(this.dest || c.destination); s.start();
     } catch (e) {}
   }
   play(name) {
