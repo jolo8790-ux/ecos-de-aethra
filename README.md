@@ -4,7 +4,7 @@ Aventura 3D con historia para el navegador, hecha con [Three.js](https://threejs
 
 Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes para reunir los fragmentos del Corazón de Aethra y decidir el destino de su mundo.
 
-## Estado: versión 1.1
+## Estado: versión 1.2
 
 | Etapa | Contenido | Estado |
 | --- | --- | --- |
@@ -13,7 +13,7 @@ Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes
 | 3. Combate y capítulo 1 | Bastón, esquiva, Bosque Colgante, Raíz Madre | Lista |
 | 4. Capítulos 2 y 3 | Planeador, garfio, Ruinas de Vidrio, Ciudad de Engranajes, Escorpión Prisma, Coloso | Lista |
 | 5. Capítulos 4 y 5 | Escudo, pulso de luz, Glaciar del Eco, Ciudadela de la Orden, Sierpe de Escarcha, Vaelor, 2 finales | Lista |
-| 6. Arte y sonido | 16 modelos 3D generados con Hunyuan3D 2.1; música sintetizada para cada zona, jefe y final; ambiente | Lista |
+| 6. Arte y sonido | 23 modelos 3D generados (2 tandas) con Hunyuan3D 2.1; música sintetizada para cada zona, jefe y final; ambiente | Lista |
 | 7. Pulido y versión final | Cámara que aclara el decorado, 3 dificultades, capítulos, créditos, memoria gráfica, recuperación de la GPU | Lista: versión 1.0 |
 | 8. Desafíos | Cristales del Cielo: el primer prototipo convertido en 5 niveles contrarreloj con medallas (3 originales + planeador + garfio) | Lista: versión 1.1 |
 
