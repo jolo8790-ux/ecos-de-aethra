@@ -10,9 +10,10 @@ export class FX {
       m.visible = false; scene.add(m);
       this.items.push({ m, vel: new THREE.Vector3(), life: 0, max: 1, size: 0.1, grow: 1, grav: 0 });
     }
-    this.next = 0;
+    this.next = 0; this.density = 1; // calidad gráfica baja: menos partículas
   }
-  _spawn(pos, vel, { life = 0.6, size = 0.12, grow = 2, color = 0xe9e2d4, opacity = 0.55, grav = -1 } = {}) {
+  _spawn(pos, vel, opts) { if (this.density < 1 && Math.random() > this.density) return; this._spawnNow(pos, vel, opts); }
+  _spawnNow(pos, vel, { life = 0.6, size = 0.12, grow = 2, color = 0xe9e2d4, opacity = 0.55, grav = -1 } = {}) {
     const p = this.items[this.next]; this.next = (this.next + 1) % this.items.length;
     p.m.position.copy(pos); p.vel.copy(vel); p.life = p.max = life; p.size = size; p.grow = grow; p.grav = grav; p.opacity = opacity;
     p.m.material.color.setHex(color); p.m.visible = true;

@@ -55,7 +55,7 @@ export class AutoNav {
       // saltar (doble salto) y planear
       let reach = dy > 3 ? 0 : dy > 1.6 ? 4.2 : 6.8;
       if (caps.glide && dy < 2.6) reach = Math.max(reach, Math.min(16, 4.8 + 1.5 * (Math.max(0, -dy) + 3.2) - Math.max(0, dy) * 1.5));
-      if (caps.dash && reach > 0) reach += 3; // impulso aéreo
+      if (caps.dash && reach > 0) reach += caps.glide ? 3 : 4.4; // impulso aéreo
       if (B.moving) reach *= 0.9;
       if (gap > 0.3 && gap <= reach) out.push({ to: B, kind: 'jump', cost: 3 + gap * 1.5, glide: gap > 6 || (caps.glide && dy < -1 && gap > 4.5) });
       else if (gap <= 0.3 && dy >= 0.5 && dy <= 2.7) out.push({ to: B, kind: 'jump', cost: 3 + dy, climb: true }); // trepar a un saliente pegado

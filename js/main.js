@@ -23,6 +23,7 @@ import glaciarEco from './zones/glaciar_eco.js';
 import ciudadelaOrden from './zones/ciudadela_orden.js';
 import ecoOlvidado from './zones/eco_olvidado.js';
 import { Combat, DIFF } from './combat.js';
+import { LOGROS, loadLogros, unlock, bump, addTo } from './logros.js';
 
 const ZONES_BASE = { puerto_bruma: puertoBruma, bosque_colgante: bosqueColgante, ruinas_vidrio: ruinasVidrio, ciudad_engranajes: ciudadEngranajes, glaciar_eco: glaciarEco, ciudadela_orden: ciudadelaOrden, eco_olvidado: ecoOlvidado };
 const ZONES = { ...ZONES_BASE }; for (const L of DESAFIOS) ZONES[L.id] = L;
@@ -50,6 +51,13 @@ const hemi = new THREE.HemisphereLight(0xdff1ff, 0x5c6a50, 0.9); scene.add(hemi)
 const sun = new THREE.DirectionalLight(0xfff1d6, 1.6);
 sun.castShadow = true; sun.shadow.mapSize.set(LOW_GPU ? 1024 : 2048, LOW_GPU ? 1024 : 2048);
 if (LOW_GPU) renderer.shadowMap.type = THREE.PCFShadowMap;
+const QUALITY = {
+  alta: { ratio: 2, shadows: true, soft: true, map: 2048, fx: 1 },
+  media: { ratio: 1, shadows: true, soft: false, map: 1024, fx: 1 },
+  baja: { ratio: 0.75, shadows: false, soft: false, map: 512, fx: 0.5 },
+};
+let qualityNow = '';
+const aq = { t: 0, n: 0, slow: 0 };
 
 // Si la tarjeta gráfica se reinicia (pasa en algunas integradas), el juego no se queda en blanco:
 // avisa, espera a que vuelva y, si no vuelve, ofrece recargar desde el último punto guardado.
@@ -257,6 +265,7 @@ function collectRelic(it) {
   player.gesture('Cheer', { speed: 1.2, fadeOut: 0.3 });
   const n = save.relics.length, before = player.maxHp;
   applyAbilities(); if (player.maxHp > before) player.hp = player.maxHp;
+  logro('primera_reliquia'); if (n >= RELIC_TOTAL) logro('todas_reliquias');
   toast(n === RELIC_TOTAL ? '¡Encontraste todas las Reliquias de Aethra!' : `Reliquia de Aethra (${n}/${RELIC_TOTAL})${player.maxHp > before ? ' · ¡un corazón más!' : ''}`);
   writeSave(save);
 }
@@ -270,6 +279,8 @@ function collectFragment(it) {
   updateHUD();
   const total = zone.fragments.length, got = zone.fragments.filter(f => save.fragments.includes(f.id)).length;
   toast(got === total ? '¡Encontraste todos los fragmentos de esta zona!' : `Fragmento encontrado (${got}/${total})`);
+  logro('primer_fragmento'); if (got === total) logro('zona_completa');
+  if (STORY_FRAGS.every(f => save.fragments.includes(f))) logro('todos_fragmentos');
   writeSave(save);
 }
 
@@ -424,6 +435,8 @@ function startEnding() {
 function startFinale(kind) {
   state = 'cutscene'; document.body.classList.add('cine');
   save.flags['final_' + kind] = true; save.flags.juego_completado = true; writeSave(save);
+  logro('un_final'); if (Object.keys(save.flags).filter(k => k.startsWith('final_')).length >= 2) logro('dos_finales');
+  if (settings.difficulty === 'dificil') logro('leyenda');
   const F = zone.finale[kind];
   cutscene = { t: 0, finale: true, kind, F, top0: skyMat.uniforms.top.value.clone(), bot0: skyMat.uniforms.bottom.value.clone(), fog0: scene.fog.color.clone() };
   player.frozen = true;
@@ -524,7 +537,7 @@ function handlePlayerEvents() {
   for (const ev of player.events) {
     if (ev.type === 'gustWarn') { fx.wind(player.pos, ev.dir.x, ev.dir.z); audio.play('glide'); input.rumble(120, 0.25); }
     if (ev.type === 'tired') toast('¡El planeador se cansó! Aterriza o busca una corriente de aire');
-    if (ev.type === 'hurt') { combat.shake(0.25, 0.25); input.rumble(220, 0.7); $('hudHearts').classList.remove('hit'); void $('hudHearts').offsetWidth; $('hudHearts').classList.add('hit'); }
+    if (ev.type === 'hurt') { if (bossActive) bossHurt = true; combat.shake(0.25, 0.25); input.rumble(220, 0.7); $('hudHearts').classList.remove('hit'); void $('hudHearts').offsetWidth; $('hudHearts').classList.add('hit'); }
     if (ev.type === 'dead') startDeath();
     if (ev.type === 'pulse') doPulse(ev.pos, ev.radius);
   }
@@ -592,15 +605,19 @@ function checkRegions() {
   const B = zone.boss;
   if (B && combat.boss && combat.boss.state === 'sleep' && inBox(player.pos, B.region)) {
     bossActive = true;
-    startDialog(zone.story.bossIntro, '', null, () => { combat.boss.wake(); });
+    startDialog(zone.story.bossIntro, '', null, () => { combat.boss.wake(); bossHurt = false; });
   }
 }
 combat.onBossDefeated = () => {
+  if (!bossHurt) logro('jefe_intacto');
+  if (zone.id === 'eco_olvidado') logro('eco_secreto');
+  else if (!isAutoMode() && addTo('guardianes', zone.id) >= 5) logro('cinco_guardianes');
   music.stinger('victoria');
   bossActive = false;
   setTimeout(() => { startDialog(zone.story.bossDefeated, '', null, () => { zone.story.onBossDefeated && zone.story.onBossDefeated(S); player.gesture('Cheer', { speed: 1.2 }); }); }, 300);
 };
 combat.onBossClang = () => { if (!hintClang) { hintClang = true; toast({ bosque_colgante: 'El tronco es demasiado duro. ¡Golpea los nudos brillantes de las raíces!', ruinas_vidrio: 'Su caparazón es irrompible. Haz que choque contra un pilar.', ciudad_engranajes: 'El latón es demasiado duro. Espera a que se atasque tras el puñetazo.', glaciar_eco: 'Está demasiado alto. Devuélvele un orbe de hielo con el escudo (mantén V).', ciudadela_orden: 'La barrera de sombra lo protege. Rómpela con el pulso de luz (Z) o devolviéndole un orbe con el escudo.' }[zone.id] || 'Demasiado duro'); } };
+combat.onKill = e => { if (e.constructor.name === 'Avispa' && !isAutoMode() && bump('avispas') >= 10) logro('cazavispas'); };
 combat.onBossPhase = b => toast((b && b.phaseMsg) || '¡El guardián está furioso!');
 combat.onLockHit = L => { world.openLock(L); if (L.flag) S.set(L.flag); audio.play('unlock'); fx.sparkle(L.pos, 30, 0xbff4ff); toast('¡La cerradura de hielo se rompe!'); };
 combat.onAuraClang = () => { if (!hintAura) { hintAura = true; toast(player.canPulse ? 'Un aura de sombra lo protege. ¡Usa el pulso de luz (Z)!' : 'Un aura de sombra lo protege.'); } };
@@ -632,6 +649,23 @@ function updateHUD() {
 }
 let toastT = 0;
 function toast(msg) { $('toast').textContent = msg; $('toast').style.opacity = 1; toastT = 2.4; }
+// ---------- logros ----------
+const isAutoMode = () => !!(player.diff && player.diff.auto);
+const achvQ = []; let achvT = 0, glideRun = 0, bossHurt = false;
+function logro(id) { const L = unlock(id, isAutoMode()); if (L) achvQ.push(L); }
+function logrosTick(dt) {
+  glideRun = player.gliding && !player.grounded ? glideRun + dt : 0;
+  if (glideRun >= 12) logro('ave');
+  if (achvT > 0 && (achvT -= dt) <= 0) $('achv').classList.remove('show');
+  if (achvT <= -0.5 && achvQ.length) {
+    const L = achvQ.shift(); achvT = 3.4;
+    $('achvIcon').textContent = L.icon; $('achvTitle').textContent = L.title; $('achvDesc').textContent = L.desc;
+    $('achv').classList.add('show'); audio.play('unlock');
+  }
+  if (achvT <= 0) achvT = Math.max(-1, achvT - dt);
+}
+const STORY_FRAGS = Object.entries(ZONES_BASE).flatMap(([, Z]) => (Z.fragments || []).map(f => f.id));
+
 let bannerT = 0;
 function banner(a, b) { $('zbT1').textContent = a; $('zbT2').textContent = b; $('zoneBanner').style.opacity = 1; bannerT = 2.8; }
 
@@ -858,7 +892,7 @@ function autoNavStep(dt, T, key) {
     if (e.kind === 'walk') { // andar hasta la otra superficie, por sus puntos de paso
       if (!nav.wp || nav.wpE !== e) { nav.wp = navAI.walkPoints(e, T); nav.wpE = e; nav.wpI = 0; }
       while (nav.wpI < nav.wp.length - 1 && Math.hypot(nav.wp[nav.wpI].x - here.x, nav.wp[nav.wpI].z - here.z) < 0.6) nav.wpI++;
-      const W = nav.wp[nav.wpI]; const nar = e.from.narrow || B.narrow; walkTo(W.x, W.z, dt, nar ? 0.6 : 1, nar);
+      const W = nav.wp[nav.wpI]; const nar = e.from.narrow || (B.narrow && Math.hypot(W.x - here.x, W.z - here.z) < 2.2); walkTo(W.x, W.z, dt, nar ? 0.6 : 1, nar); // en la escalera, sin rodeos
       if (onNode(B) && (!B.ramp || nav.wpI >= 1) && (!e.from.ramp || nav.wpI >= 1)) { nav.i++; nav.t = 0; auto.stats.edges++; auto.stats.kinds.walk = (auto.stats.kinds.walk || 0) + 1; }
       return true;
     }
@@ -1014,6 +1048,8 @@ function finishChallenge() {
   if (best) { rec[C.L.id] = { t: C.t }; try { localStorage.setItem(CH_KEY, JSON.stringify(rec)); } catch (e) {} }
   else if (isAuto && !prev) { rec[C.L.id] = { t: null }; try { localStorage.setItem(CH_KEY, JSON.stringify(rec)); } catch (e) {} } // desbloquea el siguiente, sin tiempo
   const m = isAuto ? null : medalFor(C.L, C.t), next = DESAFIOS[C.i + 1];
+  if (m === 'oro') logro('oro');
+  if (DESAFIOS.every(L => rec[L.id] && rec[L.id].t != null && medalFor(L, rec[L.id].t) === 'oro')) logro('todo_oro');
   state = 'end'; document.body.classList.add('cine'); player.frozen = true;
   music.stinger('victoria'); fx.sparkle(player.pos.clone().setY(player.pos.y + 1.2), 30, 0xc8b8ff);
   const [o, p, b] = C.L.medals;
@@ -1050,7 +1086,7 @@ function openCustom(from) {
 }
 function closeCustom(save = true) {
   if (save) {
-    settings.custom = cust.cfg; writeSettings(settings); // también es el aspecto por defecto de las partidas nuevas
+    settings.custom = cust.cfg; writeSettings(settings); logro('estilo'); // también es el aspecto por defecto de las partidas nuevas
     const sv = cust.from === 'title' ? loadSave() : (challenge ? null : window.__aethra && window.__aethra.save);
     if (sv) { sv.custom = cust.cfg; if (cust.from === 'title') writeSaveRaw(sv); else writeSave(sv); }
     player.useModel(charLib, customLook(cust.cfg)); player.setFight(player.canFight);
@@ -1110,9 +1146,10 @@ $('bCustomReset').onclick = () => { cust.cfg = { ...DEFAULT_CUSTOM }; buildCusto
 // ---------- capítulos y créditos ----------
 const CHAPTERS = [['puerto_bruma', 'Prólogo'], ['bosque_colgante', 'Capítulo 1'], ['ruinas_vidrio', 'Capítulo 2'], ['ciudad_engranajes', 'Capítulo 3'], ['glaciar_eco', 'Capítulo 4'], ['ciudadela_orden', 'Capítulo 5'], ['eco_olvidado', 'Capítulo extra']];
 function titlePanel(id) {
-  for (const p of ['chaptersPanel', 'creditsPanel', 'challengesPanel']) $(p).classList.toggle('hidden', p !== id);
+  for (const p of ['chaptersPanel', 'creditsPanel', 'challengesPanel', 'logrosPanel']) $(p).classList.toggle('hidden', p !== id);
   document.querySelector('#title .menu').classList.toggle('hidden', !!id);
   document.querySelector('#title .keys').classList.toggle('hidden', !!id);
+  $('slotRow').classList.toggle('hidden', !!id); // más sitio para el panel abierto
 }
 $('bChapters').onclick = () => {
   const sv = loadSave(), list = $('chapterList'); list.innerHTML = '';
@@ -1129,6 +1166,19 @@ $('bChapters').onclick = () => {
 };
 $('bChaptersBack').onclick = () => titlePanel(null);
 $('bCredits').onclick = () => titlePanel('creditsPanel');
+$('bLogros').onclick = () => {
+  const d = loadLogros(), list = $('logrosList'); list.innerHTML = '';
+  let n = 0;
+  for (const L of LOGROS) {
+    const got = !!d.got[L.id]; if (got) n++;
+    const el = document.createElement('div'); el.className = 'logro' + (got ? ' got' : '');
+    el.innerHTML = `<span class="li">${got ? L.icon : '🔒'}</span><span><b>${L.title}</b><small>${L.desc}</small></span>`;
+    list.appendChild(el);
+  }
+  $('logrosCount').textContent = `${n} de ${LOGROS.length} conseguidos${d.n.avispas ? ` · avispas vencidas: ${d.n.avispas}` : ''}`;
+  titlePanel('logrosPanel');
+};
+$('bLogrosBack').onclick = () => titlePanel(null);
 $('bCreditsBack').onclick = () => titlePanel(null);
 $('bNew').onclick = () => {
   if (loadSave() && !$('bNew').dataset.confirm) { $('bNew').dataset.confirm = '1'; $('bNew').textContent = '¿Borrar la partida actual? Pulsa otra vez'; return; }
@@ -1166,10 +1216,42 @@ function applySettings() {
   const dk = DIFF[settings.difficulty] ? settings.difficulty : 'normal'; player.diff = DIFF[dk]; combat.difficulty = dk; $('sDiff').value = dk; $('tDiff').value = dk;
   $('sSens').value = settings.sens; $('sInv').checked = settings.invert; $('sVol').value = settings.volume; $('sMus').value = settings.music ?? 0.6; $('sDbg').checked = settings.debug;
   $('debug').classList.toggle('hidden', !settings.debug);
+  $('sQual').value = settings.quality || 'auto'; applyQuality();
 }
 $('sSens').oninput = e => { settings.sens = +e.target.value; writeSettings(settings); applySettings(); };
 $('sInv').onchange = e => { settings.invert = e.target.checked; writeSettings(settings); applySettings(); };
 $('sVol').oninput = e => { settings.volume = +e.target.value; writeSettings(settings); applySettings(); };
+// ---------- calidad gráfica ----------
+// alta: resolución nítida y sombras suaves · media: resolución normal y sombras simples · baja: sin sombras, menos resolución y partículas
+
+function qualityLevel() { const q = settings.quality || 'auto'; return q === 'auto' ? (settings.autoQ || (LOW_GPU ? 'media' : 'alta')) : q; }
+function applyQuality() {
+  const k = qualityLevel(); if (k === qualityNow) return; qualityNow = k;
+  const Q = QUALITY[k];
+  renderer.setPixelRatio(Math.min(devicePixelRatio, Q.ratio)); renderer.setSize(innerWidth, innerHeight);
+  const typ = Q.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+  if (renderer.shadowMap.enabled !== Q.shadows || renderer.shadowMap.type !== typ) {
+    renderer.shadowMap.enabled = Q.shadows; renderer.shadowMap.type = typ;
+    scene.traverse(o => { const m = o.material; if (m) (Array.isArray(m) ? m : [m]).forEach(x => x.needsUpdate = true); });
+  }
+  if (sun.shadow.mapSize.x !== Q.map) { sun.shadow.mapSize.set(Q.map, Q.map); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+  fx.density = Q.fx;
+}
+// En «Automática», si el juego va lento un buen rato, baja un nivel (y lo recuerda para la próxima vez).
+
+function autoQualityTick(dt) {
+  if ((settings.quality || 'auto') !== 'auto' || state !== 'play' || document.hidden) { aq.t = aq.n = 0; return; }
+  aq.t += dt; aq.n++;
+  if (aq.t < 4) return;
+  const f = aq.n / aq.t; aq.t = aq.n = 0;
+  aq.slow = f < 28 ? aq.slow + 1 : 0;
+  if (aq.slow >= 2) {
+    const cur = qualityLevel(), down = cur === 'alta' ? 'media' : cur === 'media' ? 'baja' : null;
+    aq.slow = 0;
+    if (down) { settings.autoQ = down; writeSettings(settings); applyQuality(); toast(`Calidad gráfica ajustada a ${down} para que el juego vaya más fluido`); }
+  }
+}
+$('sQual').onchange = e => { settings.quality = e.target.value; if (e.target.value === 'auto') delete settings.autoQ; writeSettings(settings); applyQuality(); };
 const setDiff = e => { settings.difficulty = e.target.value; writeSettings(settings); applySettings(); };
 $('sDiff').onchange = setDiff; $('tDiff').onchange = setDiff;
 $('sMus').oninput = e => { settings.music = +e.target.value; writeSettings(settings); applySettings(); };
@@ -1258,8 +1340,11 @@ function simulate(dt) {
   sky.position.copy(camera.position);
 
   if (toastT > 0 && (toastT -= dt) <= 0) $('toast').style.opacity = 0;
+  logrosTick(dt);
+  updateGlideBar();
   if (bannerT > 0 && (bannerT -= dt) <= 0) $('zoneBanner').style.opacity = 0;
 
+  autoQualityTick(dt);
   if (settings.debug) {
     fpsAcc += dt; fpsN++;
     if (fpsAcc > 0.5) { fps = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; }
