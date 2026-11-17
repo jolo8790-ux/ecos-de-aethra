@@ -182,6 +182,22 @@ SONGS.eco = { ...SONGS.title, bpm: 68, transpose: -3, vol: 0.9, tracks: [
   { type: 'bass', inst: 'subbass', oct: 2, pattern: 'R - - - F - - -', vol: 0.35 },
   { type: 'mel', inst: 'bell', notes: TEMA, vol: 0.38, from: 4 },
 ] };
+// Forjas de Ignis: tambores de forja, cuerdas que empujan y un metal que brilla (mi frigio)
+SONGS.forja = {
+  bpm: 118, vol: 0.85, chords: ['Em', 'F', 'Em', 'Dm', 'Em', 'F', 'G', 'F'],
+  tracks: [
+    { type: 'pad', inst: 'pad', oct: 2, vol: 0.3 },
+    { type: 'bass', inst: 'bass', oct: 2, pattern: 'R . R R . R O . R . R R . F O .', vol: 0.45 },
+    { type: 'drum', inst: 'kick', pattern: 'X..x..x.X..x....', vol: 0.55 },
+    { type: 'drum', inst: 'toll', pattern: 'x...............', vol: 0.25 },
+    { type: 'drum', inst: 'clap', from: 2, pattern: '....x.......x...', vol: 0.35 },
+    { type: 'drum', inst: 'shaker', from: 2, pattern: '.x.x.x.x.x.x.x.x', vol: 0.25 },
+    { type: 'stab', inst: 'strings', oct: 4, from: 2, pattern: 'x..x..x.....x.x.', vol: 0.35 },
+    { type: 'mel', inst: 'brass', from: 4, vol: 0.45, notes: [
+      'E5 - F5 - G5 - - -', 'A5 - G5 - F5 - E5 -', 'E5 - - - B4 - E5 -', 'F5 - - - D5 - - -',
+      'E5 - F5 - G5 - B5 -', 'A5 - - - G5 - F5 -', 'G5 - F5 - E5 - D5 -', 'E5 - - - - - . .'] },
+  ],
+};
 SONGS.boss_eco = { ...SONGS.vaelor, transpose: 2, bpm: 132 };
 
 // Fanfarrias cortas. 'nota:duración en tiempos', '+' para acordes.

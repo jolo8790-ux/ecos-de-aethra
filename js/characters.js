@@ -60,6 +60,8 @@ export const LOOKS = {
   kael: { model: 'kael', scale: 1.04, recolor: [{ from: [70, 185], to: 275, sat: 0.9, light: 0.85 }] },
   marta: { model: 'marta', scale: 1.06, recolor: [{ from: [230, 320], to: 215, sat: 0.9, light: 0.9 }], hat: 'captain' },
   tomas: { model: 'tomas', scale: 0.78 },
+  // Brasa, la herrera de Ignis: la túnica de Marta en rojo fuego, sin sombrero
+  brasa: { model: 'marta', scale: 1.02, recolor: [{ from: [230, 320], to: 14, sat: 1, light: 0.95 }] },
   // el eco del abuelo Ilan: figura azul pálida
   ilan: { model: 'tomas', scale: 0.98, recolor: [{ from: [0, 360], minSat: 0, to: 200, setSat: 0.35, light: 1.25 }] },
   // Vaelor: armadura gris oscura con reflejos morados, capa granate y pelo oscuro; la piel no se toca

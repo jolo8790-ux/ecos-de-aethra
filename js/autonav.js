@@ -22,11 +22,11 @@ export class AutoNav {
   nodes(physics) {
     const out = [];
     for (const b of physics.boxes) {
-      if (b.off) continue;
+      if (b.off && !b.crumble) continue; // las rocas que se desploman vuelven: siguen contando
       const sw = Math.min(b.maxX - b.minX, b.maxZ - b.minZ), sl = Math.max(b.maxX - b.minX, b.maxZ - b.minZ);
       if (sw < 0.5 || sl < 1.2) continue;
       const narrow = sw < 1.2; // peldaños de escalera: solo se andan
-      out.push({ b, narrow, get minX() { return b.minX; }, get maxX() { return b.maxX; }, get minZ() { return b.minZ; }, get maxZ() { return b.maxZ; }, get top() { return b.maxY; }, moving: !!b.delta, bounce: b.bounce || 0 });
+      out.push({ b, narrow, get minX() { return b.minX; }, get maxX() { return b.maxX; }, get minZ() { return b.minZ; }, get maxZ() { return b.maxZ; }, get top() { return b.maxY; }, moving: !!b.delta, bounce: b.bounce || 0, crumble: !!b.crumble });
     }
     for (const r of physics.ramps) out.push({ ramp: r, minX: r.minX, maxX: r.maxX, minZ: r.minZ, maxZ: r.maxZ, top: Math.max(r.y0, r.y1), low: Math.min(r.y0, r.y1) });
     return out;

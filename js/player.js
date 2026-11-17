@@ -174,7 +174,7 @@ export class Player {
         this.dodge = { t: 0, dur: 0.26, iframes: 0.2, dx, dz, speed: 14, air: true };
         this.facing = Math.atan2(-dx, -dz); this.vel.y = Math.max(this.vel.y, 1.5);
         this.anim.gesture && this.anim.gesture('Dodge_Forward', { speed: 1.6, fadeIn: 0.03, fadeOut: 0.12 });
-        this.audio.play('dash'); this.fx && this.fx.ring(this.pos.clone().setY(this.pos.y + 0.8), 0xbff6ff);
+        this.audio.play('dash'); this.fx && this.fx.colorRing(this.pos.clone().setY(this.pos.y + 0.8), 0.75);
         this.events.push({ type: 'airdash' });
       }
     }
@@ -220,7 +220,7 @@ export class Player {
       } else if (this.jumps < 2) {
         this.vel.y = DOUBLE_JUMP_V; this.buffer = 0; this.jumps = 2;
         this.audio.play('djump'); this._dj = true;
-        if (this.fx) this.fx.ring(this.pos.clone().setY(this.pos.y + 0.2));
+        if (this.fx) this.fx.colorRing(this.pos.clone().setY(this.pos.y + 0.2), 0.5 + Math.random() * 0.1);
       }
     }
     if (this.vel.y > 0 && !input.held('jump') && this.jumps === 1 && !this.bounced) this.vel.y -= GRAVITY * 1.4 * dt; // soltar = salto más bajo

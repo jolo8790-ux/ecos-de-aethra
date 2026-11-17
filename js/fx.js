@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 // Partículas ligeras (polvo al correr, aterrizar y derrapar; destellos). Usa un grupo fijo de mallas reutilizadas.
 export class FX {
-  constructor(scene, max = 90) {
+  constructor(scene, max = 240) {
     this.items = [];
     const geo = new THREE.IcosahedronGeometry(1, 0);
     for (let i = 0; i < max; i++) {
@@ -13,10 +13,50 @@ export class FX {
     this.next = 0; this.density = 1; // calidad gráfica baja: menos partículas
   }
   _spawn(pos, vel, opts) { if (this.density < 1 && Math.random() > this.density) return; this._spawnNow(pos, vel, opts); }
-  _spawnNow(pos, vel, { life = 0.6, size = 0.12, grow = 2, color = 0xe9e2d4, opacity = 0.55, grav = -1 } = {}) {
+  _spawnNow(pos, vel, { life = 0.6, size = 0.12, grow = 2, color = 0xe9e2d4, opacity = 0.55, grav = -1, glow = false } = {}) {
     const p = this.items[this.next]; this.next = (this.next + 1) % this.items.length;
     p.m.position.copy(pos); p.vel.copy(vel); p.life = p.max = life; p.size = size; p.grow = grow; p.grav = grav; p.opacity = opacity;
-    p.m.material.color.setHex(color); p.m.visible = true;
+    if (typeof color === 'number') p.m.material.color.setHex(color); else p.m.material.color.copy(color);
+    const bl = glow ? THREE.AdditiveBlending : THREE.NormalBlending;
+    if (p.m.material.blending !== bl) { p.m.material.blending = bl; p.m.material.needsUpdate = true; }
+    p.m.visible = true;
+  }
+  // estallido de colores del arco iris (fragmentos, logros, portales)
+  rainbow(pos, n = 30, power = 1) {
+    for (let i = 0; i < n; i++) {
+      const c = new THREE.Color().setHSL(i / n, 1, 0.62);
+      const v = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.9 + 0.1, Math.random() - 0.5).normalize().multiplyScalar((3 + Math.random() * 3) * power);
+      this._spawn(pos, v, { life: 0.7 + Math.random() * 0.5, size: 0.07, grow: -0.5, color: c, opacity: 1, grav: -4, glow: true });
+    }
+  }
+  // anillo de colores (doble salto)
+  colorRing(pos, hue = 0.55) {
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2, c = new THREE.Color().setHSL((hue + i / 32) % 1, 1, 0.65);
+      this._spawn(pos, new THREE.Vector3(Math.cos(a) * 4, -0.3, Math.sin(a) * 4), { life: 0.35, size: 0.07, grow: 1, color: c, opacity: 0.9, grav: 0, glow: true });
+    }
+  }
+  // estela del impulso aéreo
+  trail(pos, hue) {
+    const c = new THREE.Color().setHSL(hue % 1, 1, 0.65);
+    this._spawn(new THREE.Vector3(pos.x + (Math.random() - 0.5) * 0.3, pos.y + 0.6 + Math.random() * 0.6, pos.z + (Math.random() - 0.5) * 0.3), new THREE.Vector3(0, 0.3, 0), { life: 0.45, size: 0.09, grow: -0.6, color: c, opacity: 0.9, grav: 0, glow: true });
+  }
+  // trozos de roca y brasas al desplomarse una plataforma
+  debris(pos) {
+    for (let i = 0; i < 18; i++) {
+      const v = new THREE.Vector3((Math.random() - 0.5) * 5, Math.random() * 2, (Math.random() - 0.5) * 5);
+      const ember = i % 3 === 0;
+      this._spawn(new THREE.Vector3(pos.x + (Math.random() - 0.5) * 2, pos.y - 0.3, pos.z + (Math.random() - 0.5) * 2), v,
+        { life: 0.9 + Math.random() * 0.5, size: ember ? 0.06 : 0.14, grow: -0.3, color: ember ? 0xff8a2a : 0x7a4a30, opacity: ember ? 1 : 0.9, grav: -14, glow: ember });
+    }
+  }
+  // llamarada (chorro de fuego, quemadura)
+  flare(pos) {
+    for (let i = 0; i < 16; i++) {
+      const c = new THREE.Color().setHSL(0.02 + Math.random() * 0.1, 1, 0.55 + Math.random() * 0.2);
+      this._spawn(new THREE.Vector3(pos.x, pos.y + 0.5, pos.z), new THREE.Vector3((Math.random() - 0.5) * 4, 3 + Math.random() * 5, (Math.random() - 0.5) * 4),
+        { life: 0.6 + Math.random() * 0.4, size: 0.1, grow: -0.4, color: c, opacity: 1, grav: -2, glow: true });
+    }
   }
   dust(pos, n = 6, power = 1, color = 0xe9e2d4) {
     for (let i = 0; i < n; i++) {

@@ -100,6 +100,7 @@ export default {
   chapterEnd: {
     kicker: 'Fin del capítulo extra', title: 'El eco que se queda',
     sub: 'Gracias por jugar Ecos de Aethra hasta el final.',
+    next: { label: 'Capítulo extra 2: Las Forjas de Ignis', zone: 'forja_ignis', cp: 'llegada' },
   },
 
   story: {

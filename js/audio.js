@@ -66,6 +66,9 @@ export class Audio {
       case 'unlock': [523, 659, 784, 1046].forEach((f, i) => this.tone(f, 0.3, 'triangle', 0.08, 0, i * 0.08)); break;
       case 'dark': this.tone(90, 0.8, 'sawtooth', 0.06, -30); this.noise(0.5, 0.05, 300); break;
       case 'ice': this.noise(0.3, 0.08, 6000); this.tone(2400, 0.2, 'triangle', 0.04, -1200); break;
+      case 'crack': this.noise(0.12, 0.08, 2200); this.tone(140, 0.12, 'square', 0.04, -40); break;
+      case 'crumble': this.noise(0.6, 0.16, 420); this.tone(70, 0.5, 'sine', 0.12, -30); break;
+      case 'fire': this.noise(0.7, 0.12, 700); this.tone(110, 0.5, 'sawtooth', 0.04, 60); break;
       case 'splash': this.noise(0.5, 0.14, 1200); this.tone(200, 0.3, 'sine', 0.06, -120); break;
     }
   }

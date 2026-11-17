@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { buildHumanoid, NpcAnimator } from './rig.js';
 import { createCharacter, NpcModelAnimator, LOOKS } from './characters.js';
 import { prop, freeGPU } from './props.js';
+import { Hazards } from './hazards.js';
 
 // Construye una zona a partir de sus datos (js/zones/*.js): mallas + colisiones + objetos interactivos.
 
@@ -42,7 +43,8 @@ export class World {
     this.zone = zone;
     const z = zone;
     this.pal = { top: C.grass, side: C.dirt, ...(z.palette || {}) };
-    if (z.water) this._water(z.water);
+    if (z.water && !z.lava) this._water(z.water);
+    this.hz = new Hazards(this); this.hz.build(z);
     (z.islands || []).forEach(i => this._island(i));
     (z.boxes || []).forEach(b => this._box(b));
     (z.stairs || []).forEach(s => this._stairs(s));
@@ -337,14 +339,14 @@ export class World {
     });
   }
 
-  _updraft({ x, z, y0, y1, r = 2.4, when }) {
+  _updraft({ x, z, y0, y1, r = 2.4, when, color = 0xffffff }) {
     const g = new THREE.Group(); g.position.set(x, y0, z); this.root.add(g);
-    const col = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.8, y1 - y0, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.08, side: THREE.DoubleSide, depthWrite: false }));
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.8, y1 - y0, 20, 1, true), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: color === 0xffffff ? 0.08 : 0.14, side: THREE.DoubleSide, depthWrite: false }));
     col.position.y = (y1 - y0) / 2; g.add(col);
     const n = 40, geo = new THREE.BufferGeometry(), pos = new Float32Array(n * 3), seeds = [];
     for (let i = 0; i < n; i++) seeds.push([Math.random() * Math.PI * 2, Math.random() * r * 0.9, Math.random()]);
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.15, transparent: true, opacity: 0.8, depthWrite: false }));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color, size: 0.15, transparent: true, opacity: 0.8, depthWrite: false, blending: color === 0xffffff ? THREE.NormalBlending : THREE.AdditiveBlending }));
     g.add(pts);
     const H = y1 - y0;
     this.animated.push(t => {

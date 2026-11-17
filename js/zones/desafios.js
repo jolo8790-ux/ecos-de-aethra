@@ -5,9 +5,10 @@
 
 // Plataforma del prototipo: [x, alto, z, ancho, fondo, movimiento?]
 function level({ id, name, sky, fog, plats, gems, enemies = [], air = [], portal, medals, abilities = {}, hidden, extra = {} }) {
-  const islands = [], movers = [], fragments = [], foes = [];
+  const islands = [...(extra.islands || [])], movers = [], fragments = [], foes = [], crumbles = [];
   plats.forEach(([x, top, z, w, d, mv]) => {
-    if (mv) movers.push({ x, y: top, z, w, d, h: 0.8, axis: mv.ax, range: mv.r, speed: mv.s, color: 0x8a7ad8 });
+    if (mv && mv.c) crumbles.push({ x, y: top, z, w, d }); // roca que se desploma
+    else if (mv) movers.push({ x, y: top, z, w, d, h: 0.8, axis: mv.ax, range: mv.r, speed: mv.s, color: 0x8a7ad8 });
     else islands.push({ x, z, w, d, top, depth: Math.min(w, d) > 5 ? 3 : 2 });
   });
   gems.forEach(([x, y, z], i) => fragments.push({ id: `${id}_g${i}`, x, y: y - 1, z }));
@@ -20,7 +21,7 @@ function level({ id, name, sky, fog, plats, gems, enemies = [], air = [], portal
     palette: extra.palette || { top: 0x7ccf6a, side: 0x8a6a4a },
     water: { y: -14, color: fog },
     start: { id: 'inicio', pos: [plats[0][0], plats[0][1], plats[0][2] + 2], facing: 0 },
-    islands, movers, fragments, enemies: foes,
+    islands, movers, crumbles, fragments, enemies: foes,
     portal: { x: portal[0], y: portal[1], z: portal[2] },
     medals, abilities,
     breakables: hidden ? [{ id: `${id}_reloj`, kind: 'cofre', x: hidden[0], y: hidden[1], z: hidden[2], loot: 'reloj' }, ...(extra.pots || [])] : [],
@@ -76,6 +77,41 @@ export const DESAFIOS = [
       more: {
         grapples: [{ x: 0, y: 8, z: -12 }, { x: 7, y: 12, z: -46 }, { x: 7, y: 19, z: -80 }],
         signs: [{ id: 'nota_d5', x: 3, z: 3, rot: -0.4, title: 'Desafío', lines: ['Apunta a los anillos dorados y lanza el garfio (G o clic central).'] }],
+      },
+    },
+  }),
+  level({
+    id: 'desafio_6', hidden: [5.2, 5, -43.2], name: 'El Puente que Cae', sky: 0x3a1a3a, fog: 0xff9a6a,
+    plats: [[0, 0, 0, 10, 10], [0, 0, -6.4, 2.6, 2.6, { c: 1 }], [0, 0, -9.3, 2.6, 2.6, { c: 1 }], [2.9, 0, -9.3, 2.6, 2.6, { c: 1 }], [2.9, 0, -12.2, 2.6, 2.6, { c: 1 }], [2.9, 0, -15.1, 2.6, 2.6, { c: 1 }],
+      [3, 1, -20, 4, 4], [0, 2, -24.5, 2.6, 2.6, { c: 1 }], [-3, 3, -28, 2.6, 2.6, { c: 1 }], [0, 4, -31.5, 2.6, 2.6, { c: 1 }], [3, 5, -35, 2.6, 2.6, { c: 1 }],
+      [3, 5, -41, 6, 6], [3, 5, -50, 4, 4], [-4, 6, -55, 4, 4], [-4, 6, -59.4, 2.6, 2.6, { c: 1 }], [-4, 6, -62.3, 2.6, 2.6, { c: 1 }], [-1.1, 6, -62.3, 2.6, 2.6, { c: 1 }], [1.8, 6, -62.3, 2.6, 2.6, { c: 1 }], [7, 7, -62, 6, 6]],
+    gems: [[2.9, 1, -9.3], [3, 2, -20], [0, 5, -31.5], [3, 7.5, -45.5], [-4, 7, -55], [-1.1, 7, -62.3]],
+    enemies: [[11]], portal: [8.5, 7, -63.5], medals: [35, 55, 90],
+    extra: {
+      light: { hemiSky: 0xffb890, hemiGround: 0x4a1a2a, sun: 0xffa070 }, palette: { top: 0x6a4a50, side: 0x3a2228 },
+      more: {
+        lava: { y: -9 }, embers: { n: 140, area: 70, y0: -8, y1: 16, cx: 0, cz: -32 },
+        fireJets: [{ pillar: 12, x: 3, y: 1, z: -45.5, h: 8, period: 2.8, on: 1, phase: 0 }, { pillar: 12, x: -0.5, y: 2, z: -52.5, h: 8, period: 2.8, on: 1, phase: 1.4 }],
+        signs: [{ id: 'nota_d6', x: 3, z: 3, rot: -0.4, title: 'Desafío', lines: ['Las rocas rojas se desploman un momento después de pisarlas. ¡No te pares!'] }],
+      },
+    },
+  }),
+  level({
+    id: 'desafio_7', hidden: [5, 3, -60], name: 'Fuego y Mazas', sky: 0x2a0a0a, fog: 0xc8502a,
+    abilities: { planeador: true },
+    plats: [[0, 0, 0, 10, 10], [0, 0, -29, 6, 6], [0, 1, -37.5, 3.4, 3.4], [3, 2, -44, 3.4, 3.4], [3, 2, -47.3, 2.6, 2.6, { c: 1 }], [3, 2, -50.2, 2.6, 2.6, { c: 1 }], [3, 2, -53.1, 2.6, 2.6, { c: 1 }], [3, 3, -58, 5, 5], [-6, 12, -66, 6, 6]],
+    gems: [[0, 1, -12.5], [0, 1, -17.5], [0, 3.5, -34], [3, 3, -44], [3, 3, -50.2], [3, 10, -58], [-6, 13, -66]],
+    enemies: [[1]], air: [[-1, 13, -62, 2.5]], portal: [-6, 12, -68], medals: [45, 70, 120],
+    extra: {
+      light: { hemiSky: 0xffa070, hemiGround: 0x3a0a08, sun: 0xff9050 }, palette: { top: 0x5a3a36, side: 0x2a1614 },
+      more: {
+        lava: { y: -8 }, embers: { n: 140, area: 70, y0: -7, y1: 18, cx: 0, cz: -34 },
+        bridges: [{ x1: 0, z1: -5, x2: 0, z2: -26, y: 0, w: 2.4 }],
+        pendulums: [{ x: 0, y: 6.2, z: -10, len: 5, axis: 'x', amp: 0.75, speed: 2, phase: 0, post: 14.2 }, { x: 0, y: 6.2, z: -15, len: 5, axis: 'x', amp: 0.75, speed: 2, phase: 1.7, post: 14.2 }, { x: 0, y: 6.2, z: -20, len: 5, axis: 'x', amp: 0.75, speed: 2.3, phase: 3.2, post: 14.2 },
+          { x: 3, y: 8.2, z: -50.2, len: 5.4, axis: 'x', amp: 0.7, speed: 1.7, phase: 0, post: 16 }],
+        fireJets: [{ pillar: 8, x: 0, y: -3, z: -34, h: 8, period: 2.6, on: 1, phase: 0 }, { pillar: 8, x: 1.5, y: -2, z: -40.75, h: 8, period: 2.6, on: 1, phase: 1.3 }, { x: -3, y: 0, z: -30, h: 4, period: 3, on: 1.1, phase: 0.5 }, { x: 3, y: 0, z: -28, h: 4, period: 3, on: 1.1, phase: 2 }],
+        updrafts: [{ x: 3, z: -58, y0: 3, y1: 18, r: 2, color: 0xffa050 }],
+        signs: [{ id: 'nota_d7', x: 3, z: 3, rot: -0.4, title: 'Desafío', lines: ['Mira el ritmo de las mazas y del fuego. Corre cuando te dejen pasar.'] }],
       },
     },
   }),

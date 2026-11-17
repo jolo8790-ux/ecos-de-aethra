@@ -22,10 +22,11 @@ import ciudadEngranajes from './zones/ciudad_engranajes.js';
 import glaciarEco from './zones/glaciar_eco.js';
 import ciudadelaOrden from './zones/ciudadela_orden.js';
 import ecoOlvidado from './zones/eco_olvidado.js';
+import forjaIgnis from './zones/forja_ignis.js';
 import { Combat, DIFF } from './combat.js';
 import { LOGROS, loadLogros, unlock, bump, addTo } from './logros.js';
 
-const ZONES_BASE = { puerto_bruma: puertoBruma, bosque_colgante: bosqueColgante, ruinas_vidrio: ruinasVidrio, ciudad_engranajes: ciudadEngranajes, glaciar_eco: glaciarEco, ciudadela_orden: ciudadelaOrden, eco_olvidado: ecoOlvidado };
+const ZONES_BASE = { puerto_bruma: puertoBruma, bosque_colgante: bosqueColgante, ruinas_vidrio: ruinasVidrio, ciudad_engranajes: ciudadEngranajes, glaciar_eco: glaciarEco, ciudadela_orden: ciudadelaOrden, eco_olvidado: ecoOlvidado, forja_ignis: forjaIgnis };
 const ZONES = { ...ZONES_BASE }; for (const L of DESAFIOS) ZONES[L.id] = L;
 const $ = id => document.getElementById(id);
 
@@ -52,11 +53,12 @@ const sun = new THREE.DirectionalLight(0xfff1d6, 1.6);
 sun.castShadow = true; sun.shadow.mapSize.set(LOW_GPU ? 1024 : 2048, LOW_GPU ? 1024 : 2048);
 if (LOW_GPU) renderer.shadowMap.type = THREE.PCFShadowMap;
 const QUALITY = {
-  alta: { ratio: 2, shadows: true, soft: true, map: 2048, fx: 1 },
+  alta: { ratio: 2, shadows: true, soft: true, map: 2048, fx: 1, bloom: true },
   media: { ratio: 1, shadows: true, soft: false, map: 1024, fx: 1 },
   baja: { ratio: 0.75, shadows: false, soft: false, map: 512, fx: 0.5 },
 };
 let qualityNow = '';
+let composer = null, bloomLoading = false; // resplandor (bloom) en calidad Alta
 const aq = { t: 0, n: 0, slow: 0 };
 
 // Si la tarjeta gráfica se reinicia (pasa en algunas integradas), el juego no se queda en blanco:
@@ -89,10 +91,10 @@ const input = new Input(renderer.domElement);
 const audio = new Audio();
 const music = new Music(audio);
 // Música de cada zona y de cada jefe; ambiente de fondo
-const ZONE_MUSIC = { eco_olvidado: 'eco', puerto_bruma: 'puerto', bosque_colgante: 'bosque', ruinas_vidrio: 'ruinas', ciudad_engranajes: 'ciudad', glaciar_eco: 'glaciar', ciudadela_orden: 'ciudadela' };
+const ZONE_MUSIC = { forja_ignis: 'forja', eco_olvidado: 'eco', puerto_bruma: 'puerto', bosque_colgante: 'bosque', ruinas_vidrio: 'ruinas', ciudad_engranajes: 'ciudad', glaciar_eco: 'glaciar', ciudadela_orden: 'ciudadela' };
 const BOSS_MUSIC = { eco_olvidado: 'boss_eco', bosque_colgante: 'boss_raiz', ruinas_vidrio: 'boss_escorpion', ciudad_engranajes: 'boss_coloso', glaciar_eco: 'boss_sierpe', ciudadela_orden: 'vaelor' };
-const CH_MUSIC = { desafio_1: 'desafio', desafio_2: 'desafio', desafio_3: 'desafio_noche', desafio_4: 'ruinas', desafio_5: 'desafio_noche' };
-const ZONE_AMB = { eco_olvidado: 'ice', desafio_1: 'sea', desafio_2: 'desert', desafio_3: 'ice', desafio_4: 'desert', desafio_5: 'city',  puerto_bruma: 'sea', bosque_colgante: 'forest', ruinas_vidrio: 'desert', ciudad_engranajes: 'city', glaciar_eco: 'ice', ciudadela_orden: 'dark' };
+const CH_MUSIC = { desafio_1: 'desafio', desafio_2: 'desafio', desafio_3: 'desafio_noche', desafio_4: 'ruinas', desafio_5: 'desafio_noche', desafio_6: 'forja', desafio_7: 'forja' };
+const ZONE_AMB = { forja_ignis: 'desert', eco_olvidado: 'ice', desafio_1: 'sea', desafio_2: 'desert', desafio_3: 'ice', desafio_4: 'desert', desafio_5: 'city', desafio_6: 'desert', desafio_7: 'desert',  puerto_bruma: 'sea', bosque_colgante: 'forest', ruinas_vidrio: 'desert', ciudad_engranajes: 'city', glaciar_eco: 'ice', ciudadela_orden: 'dark' };
 // los navegadores solo dejan sonar audio después de un gesto: el primero enciende todo
 const wakeAudio = () => { audio.unlock(); if (music.init() && state === 'title') music.play('title'); };
 addEventListener('pointerdown', wakeAudio); addEventListener('keydown', wakeAudio); addEventListener('touchstart', wakeAudio);
@@ -133,6 +135,7 @@ const S = {
   give: name => { toast(`Obtuviste: ${name}`); audio.play('fragment'); player.gesture('Cheer', { speed: 1.2, fadeOut: 0.3 }); },
   ending: () => { pendingEnding = true; },
   chapterEnd: () => { pendingChapterEnd = true; },
+  logro: id => logro(id),
   finale: kind => { pendingFinale = kind; },
   endingDialog: kind => startDialog(zone.story.endings[kind], '', null, () => S.finale(kind)),
   dispel: id => { const B = world.darkBarriers.find(b => b.id === id); if (B) { world.dispelBarrier(B); fx.sparkle(B.pos, 30, 0xfff2a8); if (B.flag) save.flags[B.flag] = true; } },
@@ -248,7 +251,7 @@ function updateInteractions() {
 }
 
 // ---------- objetos rompibles y reliquias ----------
-const RELIC_TOTAL = 7;
+const RELIC_TOTAL = 8;
 combat.onBreak = B => {
   world.breakObject(B);
   audio.play('shatter'); fx.sparkle(B.pos, 18, B.kind === 'cofre' ? 0xc8a8ff : 0xffc890); combat.shake(0.08, 0.15); input.rumble(90, 0.4);
@@ -273,7 +276,7 @@ function collectRelic(it) {
 function collectFragment(it) {
   world.interactables.splice(world.interactables.indexOf(it), 1);
   world.root.remove(it.mesh);
-  fx.sparkle(it.pos.clone().setY(it.pos.y + 0.8));
+  fx.sparkle(it.pos.clone().setY(it.pos.y + 0.8)); fx.rainbow(it.pos.clone().setY(it.pos.y + 0.8), 26);
   save.fragments.push(it.id);
   audio.play('fragment');
   updateHUD();
@@ -533,6 +536,25 @@ $('bKeepExploring').onclick = () => leaveEnding(false);
 $('bEndTitle').onclick = () => leaveEnding(true);
 
 // ---------- combate: vida, muerte, jefe ----------
+// rocas que se desploman, chorros de fuego, péndulos
+function handleHazards(dt) {
+  if (!world.hz) return;
+  const hits = world.hz.update(dt, player);
+  for (const ev of world.hz.events.splice(0)) {
+    const near = ev.pos.distanceTo(player.pos) < 28;
+    if (ev.type === 'crack') { if (near) audio.play('crack'); if (!isAutoMode() && bump('rocas') >= 25) logro('pies_ligeros'); fx.dust(new THREE.Vector3(ev.pos.x, ev.pos.y, ev.pos.z), 10, 1.2, 0xd08a5a); input.rumble(60, 0.2); }
+    else if (ev.type === 'crumble') { if (near) audio.play('crumble'); fx.debris(ev.pos); }
+    else if (ev.type === 'crumbleBack') fx.sparkle(new THREE.Vector3(ev.pos.x, ev.pos.y + 0.3, ev.pos.z), 8, 0xffb070);
+    else if (ev.type === 'fire' && near) { audio.play('fire'); fx.flare(ev.pos); }
+  }
+  if (state !== 'play') return;
+  for (const h of hits) {
+    if (player.damage(h.dmg, h.from)) {
+      player.vel.copy(h.push); player.grounded = false; player.gliding = false;
+      if (h.kind === 'fire') { fx.flare(player.pos); toast('¡Fuego! Espera a que se apague el chorro'); } else combat.shake(0.12, 0.2);
+    }
+  }
+}
 function handlePlayerEvents() {
   for (const ev of player.events) {
     if (ev.type === 'gustWarn') { fx.wind(player.pos, ev.dir.x, ev.dir.z); audio.play('glide'); input.rumble(120, 0.25); }
@@ -834,6 +856,18 @@ function freeDir(a, y) {
   for (const r of [0.7, 1.4, 2.1]) { const x = here.x - Math.sin(a) * r, z = here.z - Math.cos(a) * r; if (wallAt(x, z, y) || !groundAhead(x, z, y)) return false; }
   return true;
 }
+// ¿una maza de péndulo está a punto de cruzar el camino hacia W?
+function pendulumAhead(here, W) {
+  if (!world.hz || !world.hz.pends.length) return false;
+  let dx = W.x - here.x, dz = W.z - here.z; const l = Math.hypot(dx, dz); if (l < 0.01) return false; dx /= l; dz /= l;
+  for (const Pd of world.hz.pends) {
+    const ahead = (Pd.x - here.x) * dx + (Pd.z - here.z) * dz;
+    if (ahead < 0.9 || ahead > 2.8) continue;
+    const px = here.x + dx * ahead, pz = here.z + dz * ahead;
+    if (Math.abs(Pd.ball.y - (here.y + 0.9)) < 2.2 && Math.hypot(Pd.ball.x - px, Pd.ball.z - pz) < 2.1) return true;
+  }
+  return false;
+}
 function walkTo(x, z, dt, speed = 1, noAvoid = false) {
   const here = player.pos, d = Math.hypot(x - here.x, z - here.z);
   if (Math.hypot(x - (walkAv.tx ?? 1e9), z - (walkAv.tz ?? 1e9)) > 0.3) { walkAv.tx = x; walkAv.tz = z; walkAv.best = Infinity; walkAv.prog = 0; walkAv.detour = 0; } // destino nuevo
@@ -865,6 +899,10 @@ function autoNavStep(dt, T, key) {
   if (nav.i >= P.length) { // ya en el suelo del objetivo: andar hasta él
     const lastN = P.length ? P[P.length - 1].to : null;
     if (lastN && player.grounded && !onNode(lastN)) { nav.path = null; nav.key = ''; return true; } // no está donde creía: replanificar
+    if (lastN && player.grounded && !lastN.ramp) { // el objetivo flota fuera de esta isla (un cristal sobre el vacío): replanificar hacia otra isla y cogerlo al saltar
+      const out = Math.hypot(Math.max(0, lastN.minX - T.x, T.x - lastN.maxX), Math.max(0, lastN.minZ - T.z, T.z - lastN.maxZ));
+      if (out > 1 && (nav.floatT = (nav.floatT || 0) + dt) > 0.3) { nav.floatT = 0; nav.path = null; nav.key = ''; return true; }
+    }
     const upT = T.y - player.pos.y, dT = Math.hypot(T.x - player.pos.x, T.z - player.pos.z);
     if (upT > 1.2 && dT < 1.6 && (nav.hopT = (nav.hopT || 0) + dt) < 12) { // objetivo en lo alto: salto doble y, si hay corriente, planear dentro
       if (player.grounded || (player.vel.y < 0.5 && player.jumps < 2)) input._pressed.add('jump');
@@ -892,27 +930,39 @@ function autoNavStep(dt, T, key) {
     if (e.kind === 'walk') { // andar hasta la otra superficie, por sus puntos de paso
       if (!nav.wp || nav.wpE !== e) { nav.wp = navAI.walkPoints(e, T); nav.wpE = e; nav.wpI = 0; }
       while (nav.wpI < nav.wp.length - 1 && Math.hypot(nav.wp[nav.wpI].x - here.x, nav.wp[nav.wpI].z - here.z) < 0.6) nav.wpI++;
-      const W = nav.wp[nav.wpI]; const nar = e.from.narrow || (B.narrow && Math.hypot(W.x - here.x, W.z - here.z) < 2.2); walkTo(W.x, W.z, dt, nar ? 0.6 : 1, nar); // en la escalera, sin rodeos
+      const W = nav.wp[nav.wpI];
+      if (!e.from.crumble && !(player.ground && player.ground.crumble) && pendulumAhead(here, W)) { input.move.x = input.move.y = 0; nav.t -= dt * 0.7; return true; } // deja pasar la maza
+      const nar = e.from.narrow || (B.narrow && Math.hypot(W.x - here.x, W.z - here.z) < 2.2); walkTo(W.x, W.z, dt, nar ? 0.6 : 1, nar); // en la escalera, sin rodeos
       if (onNode(B) && (!B.ramp || nav.wpI >= 1) && (!e.from.ramp || nav.wpI >= 1)) { nav.i++; nav.t = 0; auto.stats.edges++; auto.stats.kinds.walk = (auto.stats.kinds.walk || 0) + 1; }
       return true;
     }
     const Pt = navAI.takeoff(e, here), dx = Pt.x - here.x, dz = Pt.z - here.z, d = Math.hypot(dx, dz);
     // plataforma móvil: espera a que se acerque
     const moverFar = () => { if (!B.moving) return false; const gap = Math.hypot(Math.max(0, e.from.minX - B.maxX, B.minX - e.from.maxX), Math.max(0, e.from.minZ - B.maxZ, B.minZ - e.from.maxZ)); if (gap > (player.canGlide ? 6 : 5)) { input.move.x = input.move.y = 0; nav.t -= dt * 0.6; nav.waitT = (nav.waitT || 0) + dt; if (nav.waitT > 6) { nav.waitT = 0; fail(); } return true; } nav.waitT = 0; return false; }; // si nunca se acerca, otro camino
-    if (e.kind === 'jump' && !e.climb) { // salto con carrerilla: se coge impulso y se salta en el borde
+    // fuego en el salto o roca de destino caída: esperar (pero nunca encima de una roca que se desploma)
+    const hazardWait = () => {
+      if (e.from.crumble || !world.hz) return false;
+      const L1 = navAI.landing(e, Pt, T), mx = (Pt.x + L1.x) / 2, mz = (Pt.z + L1.z) / 2;
+      const busy = (B.crumble && B.b.off) || world.hz.fireNear(mx, mz, 1.3) || world.hz.fireNear(L1.x, L1.z, 1.3, 0.6);
+      if (!busy) { nav.hazT = 0; return false; }
+      nav.hazT = (nav.hazT || 0) + dt; if (nav.hazT > 7) { nav.hazT = 0; return false; }
+      input.move.x = input.move.y = 0; nav.t -= dt * 0.8; return true;
+    };
+    if (e.kind === 'jump' && !e.climb && !e.from.crumble) { // salto con carrerilla: se coge impulso y se salta en el borde
       const L0 = navAI.landing(e, Pt, T); let ux = L0.x - Pt.x, uz = L0.z - Pt.z; const ul = Math.hypot(ux, uz) || 1; ux /= ul; uz /= ul;
       const A = e.from, cl = (v, lo, hi) => Math.max(lo + 0.3, Math.min(hi - 0.3, v));
       if (!nav.run) {
         const R = { x: cl(Pt.x - ux * 2.6, A.minX, A.maxX), z: cl(Pt.z - uz * 2.6, A.minZ, A.maxZ) }, dr = Math.hypot(R.x - here.x, R.z - here.z);
         if (dr > 0.5) { walkTo(R.x, R.z, dt, dr < 1.5 ? 0.6 : 1); return true; }
-        if (moverFar()) return true;
+        if (moverFar() || hazardWait()) return true;
         nav.run = true;
       }
       const along = (here.x - Pt.x) * ux + (here.z - Pt.z) * uz;
       if (along < -0.3) { steerTo(Math.atan2(-(Pt.x + ux * 2 - here.x), -(Pt.z + uz * 2 - here.z)), dt, 1); return true; }
     } else {
-      if (d > 0.45) { walkTo(Pt.x, Pt.z, dt, d < 1.5 ? 0.6 : 1); return true; }
-      if (moverFar()) return true;
+      const quick = e.from.crumble; // sobre una roca que se desploma: sin frenar
+      if (d > (quick ? 0.6 : 0.45)) { walkTo(Pt.x, Pt.z, dt, quick || d >= 1.5 ? 1 : 0.6, quick); return true; }
+      if (moverFar() || hazardWait()) return true;
     }
     nav.run = false;
     nav.L = navAI.landing(e, here, T); nav.dj = false; nav.wasHooked = false; nav.phase = 'air'; nav.airT = 0;
@@ -948,7 +998,11 @@ function autoNavStep(dt, T, key) {
     else { nav.phase = 'go'; nav.t = 0; }
     return true;
   }
-  steerTo(Math.atan2(-lx, -lz), dt, ld < 0.8 ? 0.2 : 1);
+  // si el objetivo es un cristal que flota en medio del salto, pasar por él
+  let ax = lx, az = lz;
+  if (ld > 1) { const tx = T.x - here.x, tz = T.z - here.z, along = (tx * lx + tz * lz) / ld, side = Math.abs(tx * lz - tz * lx) / ld;
+    if (along > 0.3 && along < ld - 0.5 && side < 2.2 && T.y > here.y - 1.5 && T.y < here.y + 3.5) { ax = tx; az = tz; } }
+  steerTo(Math.atan2(-ax, -az), dt, ld < 0.8 ? 0.2 : 1);
   if (!nav.dj && player.vel.y < 0.5 && e.kind !== 'walk') { input._pressed.add('jump'); nav.dj = true; }
   // impulso aéreo cuando el planeo no alcanza el borde
   if (player.canAirDash && !player.airDashUsed && player.jumps >= 2 && player.vel.y < -0.5 && e.kind !== 'walk') {
@@ -1144,7 +1198,7 @@ $('bCustomOk').onclick = () => closeCustom(true);
 $('bCustomReset').onclick = () => { cust.cfg = { ...DEFAULT_CUSTOM }; buildCustomOpts(); refreshPreview(); };
 
 // ---------- capítulos y créditos ----------
-const CHAPTERS = [['puerto_bruma', 'Prólogo'], ['bosque_colgante', 'Capítulo 1'], ['ruinas_vidrio', 'Capítulo 2'], ['ciudad_engranajes', 'Capítulo 3'], ['glaciar_eco', 'Capítulo 4'], ['ciudadela_orden', 'Capítulo 5'], ['eco_olvidado', 'Capítulo extra']];
+const CHAPTERS = [['puerto_bruma', 'Prólogo'], ['bosque_colgante', 'Capítulo 1'], ['ruinas_vidrio', 'Capítulo 2'], ['ciudad_engranajes', 'Capítulo 3'], ['glaciar_eco', 'Capítulo 4'], ['ciudadela_orden', 'Capítulo 5'], ['eco_olvidado', 'Capítulo extra'], ['forja_ignis', 'Capítulo extra 2']];
 function titlePanel(id) {
   for (const p of ['chaptersPanel', 'creditsPanel', 'challengesPanel', 'logrosPanel']) $(p).classList.toggle('hidden', p !== id);
   document.querySelector('#title .menu').classList.toggle('hidden', !!id);
@@ -1154,7 +1208,7 @@ function titlePanel(id) {
 $('bChapters').onclick = () => {
   const sv = loadSave(), list = $('chapterList'); list.innerHTML = '';
   for (const [id, label] of CHAPTERS) {
-    const Z = ZONES[id], reached = sv && (sv.zone === id || sv.flags[id === 'puerto_bruma' ? 'intro' : 'intro_' + id] || (id === 'eco_olvidado' && sv.flags.juego_completado));
+    const Z = ZONES[id], reached = sv && (sv.zone === id || sv.flags[id === 'puerto_bruma' ? 'intro' : 'intro_' + id] || ((id === 'eco_olvidado' || id === 'forja_ignis') && sv.flags.juego_completado));
     const got = sv ? Z.fragments.filter(f => sv.fragments.includes(f.id)).length : 0;
     const b = document.createElement('button');
     b.innerHTML = `<span>${label} · ${Z.title}</span><span>${reached ? `◆ ${got}/${Z.fragments.length} · ${(sv.relics || []).includes('reliquia_' + id) ? '✦ reliquia' : '✧ reliquia'}` : '🔒'}</span>`;
@@ -1236,7 +1290,25 @@ function applyQuality() {
   }
   if (sun.shadow.mapSize.x !== Q.map) { sun.shadow.mapSize.set(Q.map, Q.map); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
   fx.density = Q.fx;
+  if (Q.bloom) ensureBloom(); else if (composer) composer.setPixelRatio(renderer.getPixelRatio());
 }
+// Resplandor (bloom) en calidad Alta: el fuego, los cristales y los fragmentos brillan de verdad.
+async function ensureBloom() {
+  if (composer || bloomLoading) return; bloomLoading = true;
+  try {
+    const [{ EffectComposer }, { RenderPass }, { UnrealBloomPass }, { OutputPass }] = await Promise.all([
+      import('three/addons/postprocessing/EffectComposer.js'), import('three/addons/postprocessing/RenderPass.js'),
+      import('three/addons/postprocessing/UnrealBloomPass.js'), import('three/addons/postprocessing/OutputPass.js')]);
+    const c = new EffectComposer(renderer);
+    c.addPass(new RenderPass(scene, camera));
+    c.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.45, 0.45, 0.88));
+    c.addPass(new OutputPass());
+    c.setPixelRatio(renderer.getPixelRatio()); c.setSize(innerWidth, innerHeight);
+    composer = c;
+  } catch (e) { console.warn('Sin resplandor', e); }
+  bloomLoading = false;
+}
+function renderScene() { if (composer && QUALITY[qualityNow] && QUALITY[qualityNow].bloom) composer.render(); else renderer.render(scene, camera); }
 // En «Automática», si el juego va lento un buen rato, baja un nivel (y lo recuerda para la próxima vez).
 
 function autoQualityTick(dt) {
@@ -1266,10 +1338,10 @@ function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(clock.getDelta(), 1 / 30);
   if (glLost) return;
-  if (paused4test) { renderer.render(scene, camera); return; }
+  if (paused4test) { renderScene(); return; }
   try {
     simulate(dt);
-    renderer.render(scene, camera);
+    renderScene();
   } catch (e) { // un error en un fotograma no debe congelar el juego
     if (frameErrors++ < 5) console.error('Error en el fotograma', e);
     if (frameErrors === 3) toast('Algo falló; si se queda quieto, pulsa Esc y carga la partida');
@@ -1301,8 +1373,10 @@ function simulate(dt) {
       player.facing += Math.atan2(Math.sin(want - player.facing), Math.cos(want - player.facing)) * Math.min(1, dt * 6);
     }
     if (auto.fly) autoFly(dt); else player.update(dt, input, cam.yaw, state === 'play' ? combat.targets : []);
+    if (player.dodge && player.dodge.air) fx.trail(player.pos, 0.5 + player.dodge.t * 2); // estela de colores del impulso
     combat.handlePlayer(player);
     if (state === 'play') combat.update(dt, player);
+    handleHazards(dt);
     handlePlayerEvents();
     checkRegions();
     updateGrapple();
@@ -1310,12 +1384,13 @@ function simulate(dt) {
     cam.update(dt, state === 'dialog' ? { look: { x: 0, y: 0 }, zoom: 0, move: { x: 0, y: 0 } } : input, player);
     world.updateFade(camera.position, cam.target, dt);
     const floor = world.water ? world.water.y + 0.3 : -20;
+    const fallMsg = () => world.water && world.water.lava ? '¡Caíste a la lava!' : zone.id === 'puerto_bruma' ? 'Caíste al mar de nubes' : 'Caíste al vacío';
     if (player.pos.y < floor && player.hp > 0) {
-      audio.play('splash');
-      if (player.diff && !player.diff.fallHurts) { toast(zone.id === 'puerto_bruma' ? 'Caíste al mar de nubes' : 'Caíste al vacío'); respawn(save.checkpoint); return; }
+      audio.play(world.water && world.water.lava ? 'fire' : 'splash');
+      if (player.diff && !player.diff.fallHurts) { toast(fallMsg()); respawn(save.checkpoint); return; }
       player.hp -= 1; $('hudHearts').classList.remove('hit'); void $('hudHearts').offsetWidth; $('hudHearts').classList.add('hit');
       if (player.hp <= 0) startDeath();
-      else { toast(zone.id === 'puerto_bruma' ? 'Caíste al mar de nubes' : 'Caíste al vacío'); respawn(save.checkpoint); }
+      else { toast(fallMsg()); respawn(save.checkpoint); }
     }
     if (combat.shakeAmt > 0) camera.position.add(new THREE.Vector3((Math.random() - 0.5) * combat.shakeAmt, (Math.random() - 0.5) * combat.shakeAmt, (Math.random() - 0.5) * combat.shakeAmt));
   }
@@ -1367,6 +1442,7 @@ function titleScene() {
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
+  if (composer) composer.setSize(innerWidth, innerHeight);
 });
 
 frame();

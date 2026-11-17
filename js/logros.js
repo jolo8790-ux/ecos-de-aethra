@@ -16,7 +16,9 @@ export const LOGROS = [
   { id: 'ave', icon: '➶', title: 'Ave de Aethra', desc: 'Planea 12 segundos seguidos sin tocar el suelo.' },
   { id: 'cazavispas', icon: '✕', title: 'Cazavispas', desc: 'Derrota 10 avispas de cristal.' },
   { id: 'oro', icon: '★', title: 'Medalla de oro', desc: 'Consigue el oro en un desafío.' },
-  { id: 'todo_oro', icon: '✪', title: 'Cielo dorado', desc: 'Consigue el oro en los cinco desafíos.' },
+  { id: 'todo_oro', icon: '✪', title: 'Cielo dorado', desc: 'Consigue el oro en todos los desafíos.' },
+  { id: 'forja', icon: '♨', title: 'Corazón de fuego', desc: 'Consigue el Corazón de la Forja en Las Forjas de Ignis.' },
+  { id: 'pies_ligeros', icon: '⚡', title: 'Pies ligeros', desc: 'Pisa 25 rocas que se desploman.' },
   { id: 'estilo', icon: '✎', title: 'Estilo propio', desc: 'Cambia el aspecto de tu personaje.' },
 ];
 
