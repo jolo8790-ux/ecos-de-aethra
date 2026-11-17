@@ -24,6 +24,10 @@ export default {
     { x: 0, z: -126, w: 10, d: 10, top: 20, depth: 3 },      // santuario en lo alto
     { x: 15, z: -48, w: 5, d: 5, top: 12, depth: 2 },        // repisa del reloj
   ],
+  props: [
+    { kind: 'barril', x: 5.5, z: 6.5 }, { kind: 'barril', x: 6.4, z: 5.7, s: 0.9 }, { kind: 'caja', x: -6, z: 7, rot: 0.3 },
+    { kind: 'caja', x: 6, z: -24.5, rot: -0.3 }, { kind: 'caja', x: 6.2, z: -24.5, y: 0.9, rot: 0.2, s: 0.8 }, { kind: 'barril', x: -6, z: -15.5 },
+  ],
   bridges: [
     { x1: 0, z1: -6, x2: 0, z2: -12.8, y: 0, w: 2.4 },
     { x1: 0, z1: -81.2, x2: 0, z2: -87.8, y: 6, w: 2.4 },

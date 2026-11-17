@@ -21,6 +21,11 @@ export default {
     { x: -33, z: -10.5, w: 3.5, d: 3.5, top: 2.2, depth: 2 },
     { x: -36.5, z: -18, w: 5, d: 5, top: 3.6, depth: 2.5 },
   ],
+  props: [
+    { kind: 'puesto', x: 8, z: 1.5, rot: -Math.PI / 2 },
+    { kind: 'barril', x: 3, z: 18 }, { kind: 'barril', x: 3.9, z: 17.3, s: 0.9 }, { kind: 'caja', x: -3, z: 17.8, rot: 0.3 },
+    { kind: 'caja', x: -3.4, z: 16.7, rot: -0.2, s: 0.8 }, { kind: 'caja', x: -8.5, z: -12, rot: 0.4 }, { kind: 'barril', x: -9.4, z: -10.8 },
+  ],
   boxes: [
     { x: 0, y: 0.8, z: 0, w: 3, h: 1, d: 3, color: 0xb8b2a6, cap: 0x7fc6ff },           // fuente
     { x: -4, y: 3, z: -14, w: 6, h: 3, d: 4, color: 0x9a6a45, cap: 0xa0703f },         // almacén de mapas (techo plano)

@@ -88,8 +88,10 @@ def main():
             fh.write('export default "' + base64.b64encode(data).decode() + '";\n')
         ids.append(pid)
         print(f'{pid}: {len(data) // 1024} KB')
+    # el índice incluye todos los modelos de la carpeta (también los de tandas anteriores)
+    allids = sorted(f[:-7] for f in os.listdir(out) if f.endswith('.glb.js'))
     with open(os.path.join(out, 'index.js'), 'w') as fh:
-        fh.write('// Generado por tools/gen3d/pack.py\nexport default ' + json.dumps(ids) + ';\n')
+        fh.write('// Generado por tools/gen3d/pack.py\nexport default ' + json.dumps(allids) + ';\n')
     print('total', len(ids))
 
 
