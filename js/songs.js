@@ -175,6 +175,15 @@ SONGS.desafio_noche = { ...SONGS.desafio, bpm: 116, chords: ['Am', 'F', 'C', 'G'
   tracks: [...SONGS.desafio.tracks.slice(0, 4), { type: 'pad', inst: 'pad', oct: 3, vol: 0.3 },
     { type: 'mel', inst: 'bell', from: 4, vol: 0.4, notes: ['A5 - E5 - C6 - B5 -', 'A5 - - - F5 - - -', 'G5 - E5 - C5 - E5 -', 'D5 - - - G5 - - -', 'A5 - C6 - E6 - D6 -', 'C6 - - - A5 - - -', 'F5 - A5 - D6 - C6 -', 'B5 - - - G#5 - - -'] }] };
 
+// Capítulo extra: el tema de Aethra, nocturno y con campanas; su jefe usa el tema de Vaelor en otro tono
+SONGS.eco = { ...SONGS.title, bpm: 68, transpose: -3, vol: 0.9, tracks: [
+  { type: 'pad', inst: 'choir', oct: 3, vol: 0.4, open: true },
+  { type: 'arp', inst: 'glass', oct: 4, pattern: '0 2 4 2 1 3 4 3', vol: 0.25 },
+  { type: 'bass', inst: 'subbass', oct: 2, pattern: 'R - - - F - - -', vol: 0.35 },
+  { type: 'mel', inst: 'bell', notes: TEMA, vol: 0.38, from: 4 },
+] };
+SONGS.boss_eco = { ...SONGS.vaelor, transpose: 2, bpm: 132 };
+
 // Fanfarrias cortas. 'nota:duración en tiempos', '+' para acordes.
 export const STINGERS = {
   victoria: { bpm: 120, len: 6, vol: 1, parts: [

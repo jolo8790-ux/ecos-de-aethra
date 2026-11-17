@@ -26,7 +26,7 @@
   #dialog .text { font-size: 18px; line-height: 1.45; min-height: 52px; }
   #dialog .next { text-align: right; font-size: 13px; opacity: .65; margin-top: 6px; }
 
-  .overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: radial-gradient(ellipse at center, rgba(20,40,80,.65), rgba(5,10,25,.9)); z-index: 10; padding: 24px; overflow-y: auto; }
+  .overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: safe center; text-align: center; background: radial-gradient(ellipse at center, rgba(20,40,80,.65), rgba(5,10,25,.9)); z-index: 10; padding: 24px; overflow-y: auto; }
   .overlay h1 { font-size: clamp(40px, 8vw, 84px); font-weight: 700; background: linear-gradient(180deg, #fff 25%, #9fe3ff); -webkit-background-clip: text; background-clip: text; color: transparent; letter-spacing: 1px; }
   .overlay h2 { font-size: clamp(28px, 4vw, 40px); margin-bottom: 14px; }
   .overlay .sub { opacity: .8; margin-bottom: 24px; font-size: 17px; }
@@ -46,6 +46,13 @@
   .copts button.sw { width: 34px; height: 34px; padding: 0; border-radius: 50%; }
   .copts button.sel { border-color: #ffe27a; background: rgba(255,226,122,.22); }
   @media (max-height: 520px) { #cPreview { width: 170px; height: 215px; } .copts button.sw { width: 28px; height: 28px; } .copts { gap: 6px; } }
+  .slots { display: flex; gap: 10px; justify-content: center; margin-bottom: 14px; flex-wrap: wrap; }
+  .slot { font: inherit; text-align: left; min-width: 170px; padding: 10px 14px; border-radius: 14px; border: 2px solid rgba(255,255,255,.25); background: rgba(8,20,40,.55); color: #fff; cursor: pointer; display: flex; gap: 10px; align-items: center; }
+  .slot.sel { border-color: #ffe27a; background: rgba(40,50,80,.75); }
+  .slot .dot { width: 30px; height: 30px; border-radius: 50%; flex: none; border: 2px solid rgba(255,255,255,.6); }
+  .slot b { display: block; font-size: 15px; } .slot small { display: block; font-size: 12px; opacity: .75; line-height: 1.3; }
+  @media (max-height: 520px) { .slot { min-width: 140px; padding: 6px 10px; } .slots { margin-bottom: 8px; } }
+  .keysBox { margin-top: 14px; } .keysBox summary { cursor: pointer; opacity: .8; font-size: 15px; } .touch .keysBox { display: none; }
   .btn.small { font-size: 16px; padding: 8px 20px; }
   .row2 { display: flex; gap: 10px; justify-content: center; }
   .tpanel { background: rgba(8,20,40,.72); border-radius: 18px; padding: 18px 26px; max-width: 560px; margin-top: 8px; }
@@ -175,8 +182,9 @@
 
 <div class="overlay" id="title">
   <h1>Ecos de Aethra</h1>
-  <p class="sub">Versión 1.4</p>
+  <p class="sub">Versión 1.5</p>
   <p class="sub" id="loading" style="margin-bottom:12px">Cargando personajes…</p>
+  <div class="slots" id="slotRow"></div>
   <div class="menu">
     <button class="btn" id="bContinue">Continuar</button>
     <button class="btn" id="bNew">Nueva partida</button>
@@ -210,7 +218,7 @@
     </div>
     <button class="btn alt small" id="bCreditsBack">Volver</button>
   </div>
-  <div class="keys">
+  <details class="keysBox"><summary>Controles</summary><div class="keys">
     <b>W A S D</b><span>Moverse · Shift para caminar</span>
     <b>Espacio</b><span>Saltar · doble salto en el aire</span>
     <b>E</b><span>Hablar, leer, usar</span>
@@ -223,7 +231,7 @@
     <b>Ratón</b><span>Clic y arrastra para girar la cámara · rueda para acercar</span>
     <b>Esc / P</b><span>Pausa, ajustes y guardado</span>
     <b>Mando PS4</b><span>✕ saltar · □ golpear · ○ esquivar · △ usar · L1 escudo · R1 garfio · L2 luz · OPTIONS pausa · cruceta en los menús</span>
-  </div>
+  </div></details>
   <p style="position:absolute;bottom:10px;font-size:12px;opacity:.55">Personajes: KayKit Adventurers de Kay Lousberg (CC0)</p>
 </div>
 

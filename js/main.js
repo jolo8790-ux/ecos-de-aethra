@@ -13,16 +13,17 @@ const writeSave = s => challenge ? true : writeSaveRaw(s);
 import { FX } from './fx.js';
 import { loadCharacterLibrary, createCharacter, customLook, CUSTOM, DEFAULT_CUSTOM } from './characters.js';
 import { loadProps } from './props.js';
-import { newSave, loadSave, writeSave as writeSaveRaw, loadSettings, writeSettings, exportCode, importCode } from './save.js';
+import { newSave, loadSave, peekSave, getSlot, setSlot, SLOTS, writeSave as writeSaveRaw, loadSettings, writeSettings, exportCode, importCode } from './save.js';
 import puertoBruma from './zones/puerto_bruma.js';
 import bosqueColgante from './zones/bosque_colgante.js';
 import ruinasVidrio from './zones/ruinas_vidrio.js';
 import ciudadEngranajes from './zones/ciudad_engranajes.js';
 import glaciarEco from './zones/glaciar_eco.js';
 import ciudadelaOrden from './zones/ciudadela_orden.js';
+import ecoOlvidado from './zones/eco_olvidado.js';
 import { Combat, DIFF } from './combat.js';
 
-const ZONES_BASE = { puerto_bruma: puertoBruma, bosque_colgante: bosqueColgante, ruinas_vidrio: ruinasVidrio, ciudad_engranajes: ciudadEngranajes, glaciar_eco: glaciarEco, ciudadela_orden: ciudadelaOrden };
+const ZONES_BASE = { puerto_bruma: puertoBruma, bosque_colgante: bosqueColgante, ruinas_vidrio: ruinasVidrio, ciudad_engranajes: ciudadEngranajes, glaciar_eco: glaciarEco, ciudadela_orden: ciudadelaOrden, eco_olvidado: ecoOlvidado };
 const ZONES = { ...ZONES_BASE }; for (const L of DESAFIOS) ZONES[L.id] = L;
 const $ = id => document.getElementById(id);
 
@@ -79,10 +80,10 @@ const input = new Input(renderer.domElement);
 const audio = new Audio();
 const music = new Music(audio);
 // Música de cada zona y de cada jefe; ambiente de fondo
-const ZONE_MUSIC = { puerto_bruma: 'puerto', bosque_colgante: 'bosque', ruinas_vidrio: 'ruinas', ciudad_engranajes: 'ciudad', glaciar_eco: 'glaciar', ciudadela_orden: 'ciudadela' };
-const BOSS_MUSIC = { bosque_colgante: 'boss_raiz', ruinas_vidrio: 'boss_escorpion', ciudad_engranajes: 'boss_coloso', glaciar_eco: 'boss_sierpe', ciudadela_orden: 'vaelor' };
+const ZONE_MUSIC = { eco_olvidado: 'eco', puerto_bruma: 'puerto', bosque_colgante: 'bosque', ruinas_vidrio: 'ruinas', ciudad_engranajes: 'ciudad', glaciar_eco: 'glaciar', ciudadela_orden: 'ciudadela' };
+const BOSS_MUSIC = { eco_olvidado: 'boss_eco', bosque_colgante: 'boss_raiz', ruinas_vidrio: 'boss_escorpion', ciudad_engranajes: 'boss_coloso', glaciar_eco: 'boss_sierpe', ciudadela_orden: 'vaelor' };
 const CH_MUSIC = { desafio_1: 'desafio', desafio_2: 'desafio', desafio_3: 'desafio_noche', desafio_4: 'ruinas', desafio_5: 'desafio_noche' };
-const ZONE_AMB = { desafio_1: 'sea', desafio_2: 'desert', desafio_3: 'ice', desafio_4: 'desert', desafio_5: 'city',  puerto_bruma: 'sea', bosque_colgante: 'forest', ruinas_vidrio: 'desert', ciudad_engranajes: 'city', glaciar_eco: 'ice', ciudadela_orden: 'dark' };
+const ZONE_AMB = { eco_olvidado: 'ice', desafio_1: 'sea', desafio_2: 'desert', desafio_3: 'ice', desafio_4: 'desert', desafio_5: 'city',  puerto_bruma: 'sea', bosque_colgante: 'forest', ruinas_vidrio: 'desert', ciudad_engranajes: 'city', glaciar_eco: 'ice', ciudadela_orden: 'dark' };
 // los navegadores solo dejan sonar audio después de un gesto: el primero enciende todo
 const wakeAudio = () => { audio.unlock(); if (music.init() && state === 'title') music.play('title'); };
 addEventListener('pointerdown', wakeAudio); addEventListener('keydown', wakeAudio); addEventListener('touchstart', wakeAudio);
@@ -149,7 +150,7 @@ let pChars = 0, pProps = 0, charLib = null;
 const showLoad = () => { $('loading').textContent = `Cargando personajes y escenarios… ${Math.round((pChars * 0.4 + pProps * 0.6) * 100)}%`; };
 Promise.all([
   loadCharacterLibrary(p => { pChars = p; showLoad(); })
-    .then(lib => { charLib = lib; player.useModel(lib, customLook(settings.custom || {})); world.chars = lib; combat.chars = lib; })
+    .then(lib => { charLib = lib; player.useModel(lib, customLook(((loadSave() || {}).custom) || settings.custom || {})); world.chars = lib; combat.chars = lib; })
     .catch(e => { console.warn('No se pudieron cargar los personajes animados; se usan los de formas simples.', e); }),
   loadProps(p => { pProps = p; showLoad(); }).catch(e => console.warn('Sin modelos de escenario', e)),
 ]).finally(() => { charsReady = true; $('loading').classList.add('hidden'); $('bContinue').disabled = $('bNew').disabled = false; });
@@ -157,6 +158,10 @@ Promise.all([
 // ---------- zonas ----------
 function loadZone(id, checkpointId) {
   zone = ZONES[id];
+  if (zone.boss && zone.boss.type === 'eco') { // el Eco Sombrío es una copia oscura de la protagonista tal como la vistió el jugador
+    const base = customLook((save && save.custom) || settings.custom || {});
+    zone.boss.look = { model: base.model, scale: 1.05, recolor: [{ from: [0, 360], minSat: 0, to: 268, setSat: 0.4, light: 0.55 }] };
+  }
   skyMat.uniforms.top.value.setHex(zone.sky.top);
   skyMat.uniforms.bottom.value.setHex(zone.sky.bottom);
   scene.fog = new THREE.Fog(zone.sky.fog, zone.sky.fogNear, zone.sky.fogFar);
@@ -234,7 +239,7 @@ function updateInteractions() {
 }
 
 // ---------- objetos rompibles y reliquias ----------
-const RELIC_TOTAL = 6;
+const RELIC_TOTAL = 7;
 combat.onBreak = B => {
   world.breakObject(B);
   audio.play('shatter'); fx.sparkle(B.pos, 18, B.kind === 'cofre' ? 0xc8a8ff : 0xffc890); combat.shake(0.08, 0.15); input.rumble(90, 0.4);
@@ -437,12 +442,13 @@ function updateFinale(dt) {
   if (c.t > 8 && !c.faded) { c.faded = true; $('fade').style.opacity = 1; }
   if (c.t > 9) {
     cutscene = null; state = 'end';
-    let all = 0; for (const z of Object.values(ZONES)) all += z.fragments.length;
+    let all = 0; for (const z of Object.values(ZONES_BASE)) all += z.fragments.length;
     const other = c.kind === 'a' ? 'b' : 'a';
     showEndCard({
       kicker: 'Final', title: F.title,
       stats: `Tiempo de juego: ${fmtTime(save.playTime)}<br>Fragmentos encontrados: ${save.fragments.length}/${all}<br>Finales vistos: ${['a', 'b'].filter(x => save.flags['final_' + x]).length}/2`,
       sub: (save.flags['final_' + other] ? 'Viste los dos finales. ' : 'Hay otro final: vuelve al altar y elige el otro camino. ') + 'Gracias por jugar Ecos de Aethra.',
+      next: { label: 'Capítulo extra: El Eco Olvidado', zone: 'eco_olvidado', cp: 'llegada' },
     });
     $('fade').style.opacity = 0;
   }
@@ -627,7 +633,28 @@ function showPausePanel(p) {
   $('savePanel').classList.toggle('hidden', p !== 'save');
 }
 
+// ranuras de partida en el título: resumen de cada una
+function renderSlots() {
+  const row = $('slotRow'); row.innerHTML = '';
+  for (let n = 1; n <= SLOTS; n++) {
+    const sv = peekSave(n), b = document.createElement('button');
+    b.className = 'slot' + (n === getSlot() ? ' sel' : '');
+    const look = { ...DEFAULT_CUSTOM, ...((sv && sv.custom) || (n === 1 ? settings.custom : null) || {}) };
+    const col = '#' + ((CUSTOM.ropa.find(o => o[0] === look.ropa) || CUSTOM.ropa[0])[3]).toString(16).padStart(6, '0');
+    const Z = sv && (ZONES_BASE[sv.zone] || ZONES[sv.zone]);
+    b.innerHTML = `<span class="dot" style="background:${sv ? col : 'transparent'}"></span><span><b>Partida ${n}</b><small>${sv ? `${Z ? Z.subtitle : ''} · ${fmtTime(sv.playTime || 0)}<br>◆ ${sv.fragments.length} · ✦ ${(sv.relics || []).length}` : 'Vacía'}</small></span>`;
+    b.onclick = () => { setSlot(n); refreshTitle(); applySlotLook(); audio.play('open'); };
+    row.appendChild(b);
+  }
+}
+// cada partida guarda su propio aspecto de personaje
+function applySlotLook() {
+  if (!charLib) return;
+  const sv = loadSave(); const cfg = (sv && sv.custom) || settings.custom || {};
+  player.useModel(charLib, customLook(cfg)); player.setFight(player.canFight);
+}
 function refreshTitle() {
+  renderSlots();
   const existing = loadSave();
   $('bContinue').classList.toggle('hidden', !existing);
   $('bChapters').classList.toggle('hidden', !existing);
@@ -643,7 +670,9 @@ function goFull() {
 }
 function startGame(s) {
   audio.unlock(); music.init(); goFull();
+  if (!s.custom && settings.custom) s.custom = settings.custom; // la partida nueva se lleva el aspecto elegido
   save = s;
+  if (charLib) { player.useModel(charLib, customLook(s.custom || {})); player.setFight(player.canFight); }
   writeSave(save);
   showOverlay(null);
   enterZone(save.zone, save.checkpoint);
@@ -835,12 +864,19 @@ $('bRestartCh').onclick = () => { if (challenge) { const i = challenge.i; resume
 const cust = { cfg: null, from: null, prev: null };
 function openCustom(from) {
   if (!charLib) return;
-  cust.from = from; cust.cfg = { ...DEFAULT_CUSTOM, ...(settings.custom || {}) };
+  const sv = from === 'title' ? loadSave() : save;
+  cust.from = from; cust.cfg = { ...DEFAULT_CUSTOM, ...((sv && sv.custom) || settings.custom || {}) };
   $(from).classList.add('hidden'); $('customize').classList.remove('hidden');
   buildCustomOpts(); startPreview();
 }
 function closeCustom(save = true) {
-  if (save) { settings.custom = cust.cfg; writeSettings(settings); player.useModel(charLib, customLook(cust.cfg)); player.setFight(player.canFight); }
+  if (save) {
+    settings.custom = cust.cfg; writeSettings(settings); // también es el aspecto por defecto de las partidas nuevas
+    const sv = cust.from === 'title' ? loadSave() : (challenge ? null : window.__aethra && window.__aethra.save);
+    if (sv) { sv.custom = cust.cfg; if (cust.from === 'title') writeSaveRaw(sv); else writeSave(sv); }
+    player.useModel(charLib, customLook(cust.cfg)); player.setFight(player.canFight);
+    if (cust.from === 'title') renderSlots();
+  }
   stopPreview(); $('customize').classList.add('hidden'); $(cust.from).classList.remove('hidden');
 }
 function buildCustomOpts() {
@@ -893,7 +929,7 @@ $('bCustomOk').onclick = () => closeCustom(true);
 $('bCustomReset').onclick = () => { cust.cfg = { ...DEFAULT_CUSTOM }; buildCustomOpts(); refreshPreview(); };
 
 // ---------- capítulos y créditos ----------
-const CHAPTERS = [['puerto_bruma', 'Prólogo'], ['bosque_colgante', 'Capítulo 1'], ['ruinas_vidrio', 'Capítulo 2'], ['ciudad_engranajes', 'Capítulo 3'], ['glaciar_eco', 'Capítulo 4'], ['ciudadela_orden', 'Capítulo 5']];
+const CHAPTERS = [['puerto_bruma', 'Prólogo'], ['bosque_colgante', 'Capítulo 1'], ['ruinas_vidrio', 'Capítulo 2'], ['ciudad_engranajes', 'Capítulo 3'], ['glaciar_eco', 'Capítulo 4'], ['ciudadela_orden', 'Capítulo 5'], ['eco_olvidado', 'Capítulo extra']];
 function titlePanel(id) {
   for (const p of ['chaptersPanel', 'creditsPanel', 'challengesPanel']) $(p).classList.toggle('hidden', p !== id);
   document.querySelector('#title .menu').classList.toggle('hidden', !!id);
@@ -902,7 +938,7 @@ function titlePanel(id) {
 $('bChapters').onclick = () => {
   const sv = loadSave(), list = $('chapterList'); list.innerHTML = '';
   for (const [id, label] of CHAPTERS) {
-    const Z = ZONES[id], reached = sv && (sv.zone === id || sv.flags[id === 'puerto_bruma' ? 'intro' : 'intro_' + id]);
+    const Z = ZONES[id], reached = sv && (sv.zone === id || sv.flags[id === 'puerto_bruma' ? 'intro' : 'intro_' + id] || (id === 'eco_olvidado' && sv.flags.juego_completado));
     const got = sv ? Z.fragments.filter(f => sv.fragments.includes(f.id)).length : 0;
     const b = document.createElement('button');
     b.innerHTML = `<span>${label} · ${Z.title}</span><span>${reached ? `◆ ${got}/${Z.fragments.length} · ${(sv.relics || []).includes('reliquia_' + id) ? '✦ reliquia' : '✧ reliquia'}` : '🔒'}</span>`;

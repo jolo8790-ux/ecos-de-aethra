@@ -4,7 +4,7 @@ Aventura 3D con historia para el navegador, hecha con [Three.js](https://threejs
 
 Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes para reunir los fragmentos del Corazón de Aethra y decidir el destino de su mundo.
 
-## Estado: versión 1.4
+## Estado: versión 1.5
 
 | Etapa | Contenido | Estado |
 | --- | --- | --- |
@@ -46,9 +46,13 @@ python -m http.server 8000
 
 **Dificultad:** Cuento (fácil), Aventura (normal), Leyenda (difícil) y **Automático**: Lía recorre la historia y los desafíos sola (camina, planea hasta donde haga falta, resuelve los mecanismos y vence a los jefes); los desafíos jugados así no cuentan como récord.
 
+**Partidas:** tres ranuras en el título (cada una con su progreso y su propio aspecto de personaje), para que jueguen varias personas en el mismo dispositivo.
+
+**Capítulo extra — El Eco Olvidado:** se abre al terminar la historia (botón al final o en *Capítulos*). Una isla nueva con el eco del abuelo Ilan, puentes de luz, corrientes de aire, el garfio y un jefe secreto: el Eco Sombrío, una copia oscura de tu personaje. Guarda la séptima reliquia.
+
 **Personaje:** en el título o en la pausa, botón *Personaje*: estilo (exploradora, encapuchada, maga o caballera), color de ropa, pelo y piel, y color del planeador, con vista previa en 3D que se puede girar.
 
-**Reliquias de Aethra:** cada zona esconde una geoda violeta que se rompe con el bastón; dentro hay una reliquia. Cada dos reliquias, un corazón más. Las vasijas pueden tener corazones, y en los desafíos un reloj de arena que resta 3 segundos.
+**Reliquias de Aethra:** cada zona esconde una geoda violeta que se rompe con el bastón; dentro hay una reliquia. Son 7 (una en el capítulo extra); cada dos reliquias, un corazón más. Las vasijas pueden tener corazones, y en los desafíos un reloj de arena que resta 3 segundos.
 
 ## Estructura
 
@@ -74,6 +78,7 @@ assets/props/           modelos generados (.glb codificados en .js); ver tools/g
 tools/build_assets.mjs  reconstruye los modelos desde el paquete KayKit original
 js/zones/*.js           datos de cada zona (plataformas, personajes, diálogos)
 js/zones/desafios.js    niveles contrarreloj de Cristales del Cielo
+js/zones/eco_olvidado.js capítulo extra con el jefe secreto
 prototipos/             prototipos anteriores (Cristales del Cielo)
 ```
 

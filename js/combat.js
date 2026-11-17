@@ -979,12 +979,12 @@ class Sierpe {
 class Vaelor {
   constructor(c, x, y, z, B) {
     this.c = c; this.pos = new THREE.Vector3(x, y, z); this.home = this.pos.clone(); this.arenaR = B.arenaR || 9;
-    this.name = 'Vaelor, Gran Maestre'; this.phaseMsg = 'Vaelor: «¡Basta de juegos, niña!»';
-    this.maxHp = 6; this.hp = 6; this.state = 'sleep'; this.t = 0; this.st = 0; this.phase = 1; this.flash = 0;
+    this.name = B.name || 'Vaelor, Gran Maestre'; this.phaseMsg = B.phaseMsg || 'Vaelor: «¡Basta de juegos, niña!»';
+    this.maxHp = this.hp = B.hp || 6; this.state = 'sleep'; this.t = 0; this.st = 0; this.phase = 1; this.flash = 0;
     this.facing = B.facing ?? 0; this.radius = 1.2; this.cycle = 0; this.barrier = true; this.exposedHits = 0; this.summoned = false;
     const g = this.group = new THREE.Group(); c.root.add(g);
     this.body = new THREE.Group(); g.add(this.body);
-    this.ch = c.chars ? createCharacter(c.chars, 'vaelor') : null;
+    this.ch = c.chars ? createCharacter(c.chars, B.look || 'vaelor') : null;
     if (this.ch) {
       this.body.add(this.ch.root);
       for (const a of Object.values(this.ch.actions)) { a.play(); a.timeScale = 0; a.setEffectiveWeight(0); }
@@ -992,7 +992,7 @@ class Vaelor {
       const hand = findBone(this.ch.model, 'handslotr');
       this.sword = buildDarkSword(); if (hand) { hand.add(this.sword); this.sword.rotation.y = Math.PI; }
       const head = this.ch.bones.head;
-      if (head) { const helm = buildHelm(); head.add(helm); helm.position.set(0, 0.56, 0.02); helm.scale.setScalar(1.65); } // medido en el espacio del hueso de la cabeza
+      if (head && !B.look) { const helm = buildHelm(); head.add(helm); helm.position.set(0, 0.56, 0.02); helm.scale.setScalar(1.65); } // medido en el espacio del hueso de la cabeza
       // el modelo del caballero ya trae capa (recoloreada en LOOKS.vaelor)
     } else { // respaldo sin modelos
       mesh(new THREE.CylinderGeometry(0.5, 0.6, 2.2, 8), mat(0x3a2a4a), this.body, 0, 1.1, 0);
@@ -1191,7 +1191,7 @@ export class Combat {
     this.voidY = zone.water ? zone.water.y : -30;
     for (const e of zone.enemies || []) this.addEnemy(e.type, e.x, e.y || 0, e.z);
     if (zone.boss && !save.flags[zone.boss.flag]) {
-      const B = zone.boss, K = { raiz: RaizMadre, escorpion: Escorpion, coloso: Coloso, sierpe: Sierpe, vaelor: Vaelor }[B.type] || RaizMadre;
+      const B = zone.boss, K = { raiz: RaizMadre, escorpion: Escorpion, coloso: Coloso, sierpe: Sierpe, vaelor: Vaelor, eco: Vaelor }[B.type] || RaizMadre;
       this.boss = new K(this, B.x, B.y, B.z, B);
       const k = DIFF[this.difficulty || 'normal'].bossHp; // vida del jefe según la dificultad
       if (k !== 1) this.boss.maxHp = this.boss.hp = Math.max(3, Math.round(this.boss.maxHp * k));
