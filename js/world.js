@@ -15,6 +15,7 @@ const C = {
   plaster: 0xf1e3c8, roofRed: 0xc9563c, roofBlue: 0x4f7fc0, stone: 0xb8b2a6, water: 0x3d8fd6,
 };
 
+const _v1 = new THREE.Vector3();
 export class World {
   constructor(scene, physics) {
     this.scene = scene; this.physics = physics;
@@ -33,6 +34,7 @@ export class World {
     this.animated = []; this.interactables = []; this.checkpoints = {}; this.water = null; this.airships = {};
     this.updrafts = []; this.grapplePoints = []; this.pillars = []; this.movers = [];
     this.locks = []; this.lightCrystals = []; this.lightPlatforms = []; this.darkBarriers = [];
+    this.fadeables = [];
   }
 
   build(zone, save) {
@@ -46,7 +48,7 @@ export class World {
     (z.stairs || []).forEach(s => this._stairs(s));
     (z.ramps || []).forEach(r => this._ramp(r));
     (z.houses || []).forEach(h => this._house(h));
-    (z.trees || []).forEach(t => this._tree(t));
+    (z.trees || []).forEach(t => this._fw(() => this._tree(t)));
     (z.bigTrees || []).forEach(t => this._bigTree(t));
     (z.mushrooms || []).forEach(m => this._mushroom(m));
     (z.bridges || []).forEach(b => this._bridge(b));
@@ -55,15 +57,15 @@ export class World {
     (z.grapples || []).forEach(g => this._grapplePoint(g));
     (z.pillars || []).forEach(p => this._pillar(p));
     (z.arches || []).forEach(a => this._arch(a));
-    (z.columns || []).forEach(c => this._column(c));
-    (z.crystals || []).forEach(c => this._crystalCluster(c));
+    (z.columns || []).forEach(c => this._fw(() => this._column(c)));
+    (z.crystals || []).forEach(c => this._fw(() => this._crystalCluster(c)));
     (z.tents || []).forEach(t => this._tent(t));
     (z.gears || []).forEach(g => this._gear(g));
     (z.towers || []).forEach(t => this._tower(t));
-    (z.pines || []).forEach(p => this._pine(p));
+    (z.pines || []).forEach(p => this._fw(() => this._pine(p)));
     (z.icicleWalls || []).forEach(p => this._icicleWall(p));
     (z.obelisks || []).forEach(p => this._obelisk(p));
-    (z.banners || []).forEach(p => this._banner(p));
+    (z.banners || []).forEach(p => this._fw(() => this._banner(p)));
     (z.locks || []).forEach(l => this._lock(l, save));
     (z.lightPlatforms || []).forEach(p => this._lightPlatform(p));
     (z.lightCrystals || []).forEach(c => this._lightCrystal(c, save));
@@ -74,12 +76,12 @@ export class World {
     (z.rocks || []).forEach(r => this._rock(r));
     (z.fences || []).forEach(f => this._fence(f));
     (z.lighthouses || []).forEach(l => this._lighthouse(l));
-    (z.signs || []).forEach(s => this._sign(s));
-    (z.npcs || []).forEach(n => this._npc(n));
+    (z.signs || []).forEach(s => this._fw(() => this._sign(s)));
+    (z.npcs || []).forEach(n => this._fw(() => this._npc(n)));
     (z.items || []).forEach(i => this._item(i));
     (z.triggers || []).forEach(t => this._trigger(t));
     (z.airships || []).forEach(a => this._airship(a));
-    (z.lanterns || []).forEach(l => this._lantern(l, save));
+    (z.lanterns || []).forEach(l => this._fw(() => this._lantern(l, save)));
     (z.fragments || []).forEach(f => { if (!save.fragments.includes(f.id)) this._fragment(f); });
     this.checkpoints[z.start.id] = { pos: new THREE.Vector3(...z.start.pos), facing: z.start.facing || 0 };
     this._clouds(z.seed || 1);
@@ -90,6 +92,41 @@ export class World {
   // ---------- piezas ----------
   _mesh(geo, material, x, y, z, parent = this.root) {
     const m = new THREE.Mesh(geo, material); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m;
+  }
+
+  // Decorado fino que la cámara puede atravesar: se vuelve translúcido cuando tapa a Lía o la cámara entra en él.
+  _fw(build) {
+    const n0 = this.root.children.length; build();
+    const objs = this.root.children.slice(n0); if (!objs.length) return;
+    const box = new THREE.Box3(); objs.forEach(o => box.expandByObject(o));
+    if (box.isEmpty()) return;
+    const c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
+    this.fadeables.push({ objs, c, r: Math.max(0.6, Math.max(sz.x, sz.z) * 0.5), h: sz.y * 0.5, k: 1, mats: null });
+  }
+  // cam: posición de la cámara; tgt: punto que mira (Lía)
+  updateFade(cam, tgt, dt) {
+    const ab = _v1.subVectors(cam, tgt), len2 = ab.lengthSq();
+    for (const f of this.fadeables) {
+      // distancia del eje vertical del objeto al segmento cámara-Lía (en planta) y altura compatible
+      const t = len2 > 0 ? Math.max(0, Math.min(1, ((f.c.x - tgt.x) * ab.x + (f.c.z - tgt.z) * ab.z) / (ab.x * ab.x + ab.z * ab.z || 1))) : 0;
+      const px = tgt.x + ab.x * t, py = tgt.y + ab.y * t, pz = tgt.z + ab.z * t;
+      const dxz = Math.hypot(px - f.c.x, pz - f.c.z), dy = Math.abs(py - f.c.y);
+      const block = t > 0.08 && dxz < f.r + 0.25 && dy < f.h + 0.3;
+      const want = block ? 0.22 : 1;
+      if (f.k === want && !f.mats) continue;
+      f.k += (want - f.k) * Math.min(1, dt * 10); if (Math.abs(f.k - want) < 0.02) f.k = want;
+      if (!f.mats) { // clona los materiales una sola vez, la primera vez que hace falta
+        if (want === 1) continue;
+        f.mats = [];
+        for (const o of f.objs) o.traverse(m => {
+          if (!m.isMesh || !m.material || m.userData.noFade) return;
+          m.material = m.material.clone(); f.mats.push([m.material, m.material.opacity, m.material.depthWrite]);
+          m.material.transparent = true; m.material.needsUpdate = true;
+        });
+      }
+      const fading = f.k < 0.999;
+      for (const [m, op, dw] of f.mats) { m.opacity = op * f.k; m.depthWrite = fading ? false : dw; }
+    }
   }
 
   // Modelo 3D generado (assets/props); devuelve null si no está y el builder usa sus primitivas.

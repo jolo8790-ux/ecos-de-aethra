@@ -16,7 +16,7 @@ import ruinasVidrio from './zones/ruinas_vidrio.js';
 import ciudadEngranajes from './zones/ciudad_engranajes.js';
 import glaciarEco from './zones/glaciar_eco.js';
 import ciudadelaOrden from './zones/ciudadela_orden.js';
-import { Combat } from './combat.js';
+import { Combat, DIFF } from './combat.js';
 
 const ZONES = { puerto_bruma: puertoBruma, bosque_colgante: bosqueColgante, ruinas_vidrio: ruinasVidrio, ciudad_engranajes: ciudadEngranajes, glaciar_eco: glaciarEco, ciudadela_orden: ciudadelaOrden };
 const $ = id => document.getElementById(id);
@@ -602,6 +602,7 @@ function showPausePanel(p) {
 function refreshTitle() {
   const existing = loadSave();
   $('bContinue').classList.toggle('hidden', !existing);
+  $('bChapters').classList.toggle('hidden', !existing);
   $('bNew').textContent = 'Nueva partida';
   $('bNew').dataset.confirm = '';
 }
@@ -615,6 +616,29 @@ function startGame(s) {
   enterZone(save.zone, save.checkpoint);
 }
 $('bContinue').onclick = () => startGame(loadSave() || newSave());
+// ---------- capítulos y créditos ----------
+const CHAPTERS = [['puerto_bruma', 'Prólogo'], ['bosque_colgante', 'Capítulo 1'], ['ruinas_vidrio', 'Capítulo 2'], ['ciudad_engranajes', 'Capítulo 3'], ['glaciar_eco', 'Capítulo 4'], ['ciudadela_orden', 'Capítulo 5']];
+function titlePanel(id) {
+  for (const p of ['chaptersPanel', 'creditsPanel']) $(p).classList.toggle('hidden', p !== id);
+  document.querySelector('#title .menu').classList.toggle('hidden', !!id);
+  document.querySelector('#title .keys').classList.toggle('hidden', !!id);
+}
+$('bChapters').onclick = () => {
+  const sv = loadSave(), list = $('chapterList'); list.innerHTML = '';
+  for (const [id, label] of CHAPTERS) {
+    const Z = ZONES[id], reached = sv && (sv.zone === id || sv.flags[id === 'puerto_bruma' ? 'intro' : 'intro_' + id]);
+    const got = sv ? Z.fragments.filter(f => sv.fragments.includes(f.id)).length : 0;
+    const b = document.createElement('button');
+    b.innerHTML = `<span>${label} · ${Z.title}</span><span>${reached ? `◆ ${got}/${Z.fragments.length}` : '🔒'}</span>`;
+    b.disabled = !reached;
+    b.onclick = () => { titlePanel(null); audio.unlock(); music.init(); save = sv; showOverlay(null); enterZone(id); };
+    list.appendChild(b);
+  }
+  titlePanel('chaptersPanel');
+};
+$('bChaptersBack').onclick = () => titlePanel(null);
+$('bCredits').onclick = () => titlePanel('creditsPanel');
+$('bCreditsBack').onclick = () => titlePanel(null);
 $('bNew').onclick = () => {
   if (loadSave() && !$('bNew').dataset.confirm) { $('bNew').dataset.confirm = '1'; $('bNew').textContent = '¿Borrar la partida actual? Pulsa otra vez'; return; }
   startGame(newSave());
@@ -647,12 +671,15 @@ $('bImport').onclick = () => {
 
 function applySettings() {
   cam.settings.sens = settings.sens; cam.settings.invert = settings.invert; audio.volume = settings.volume; music.setVolume(settings.music ?? 0.6);
+  const dk = DIFF[settings.difficulty] ? settings.difficulty : 'normal'; player.diff = DIFF[dk]; combat.difficulty = dk; $('sDiff').value = dk; $('tDiff').value = dk;
   $('sSens').value = settings.sens; $('sInv').checked = settings.invert; $('sVol').value = settings.volume; $('sMus').value = settings.music ?? 0.6; $('sDbg').checked = settings.debug;
   $('debug').classList.toggle('hidden', !settings.debug);
 }
 $('sSens').oninput = e => { settings.sens = +e.target.value; writeSettings(settings); applySettings(); };
 $('sInv').onchange = e => { settings.invert = e.target.checked; writeSettings(settings); applySettings(); };
 $('sVol').oninput = e => { settings.volume = +e.target.value; writeSettings(settings); applySettings(); };
+const setDiff = e => { settings.difficulty = e.target.value; writeSettings(settings); applySettings(); };
+$('sDiff').onchange = setDiff; $('tDiff').onchange = setDiff;
 $('sMus').oninput = e => { settings.music = +e.target.value; writeSettings(settings); applySettings(); };
 $('sDbg').onchange = e => { settings.debug = e.target.checked; writeSettings(settings); applySettings(); };
 
@@ -702,9 +729,11 @@ function simulate(dt) {
     updateGrapple();
     if (state === 'dialog') updateDialog(dt); else updateInteractions();
     cam.update(dt, state === 'dialog' ? { look: { x: 0, y: 0 }, zoom: 0, move: { x: 0, y: 0 } } : input, player);
+    world.updateFade(camera.position, cam.target, dt);
     const floor = world.water ? world.water.y + 0.3 : -20;
     if (player.pos.y < floor && player.hp > 0) {
       audio.play('splash');
+      if (player.diff && !player.diff.fallHurts) { toast(zone.id === 'puerto_bruma' ? 'Caíste al mar de nubes' : 'Caíste al vacío'); respawn(save.checkpoint); return; }
       player.hp -= 1; $('hudHearts').classList.remove('hit'); void $('hudHearts').offsetWidth; $('hudHearts').classList.add('hit');
       if (player.hp <= 0) startDeath();
       else { toast(zone.id === 'puerto_bruma' ? 'Caíste al mar de nubes' : 'Caíste al vacío'); respawn(save.checkpoint); }

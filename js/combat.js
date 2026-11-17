@@ -14,6 +14,13 @@ const WHITE = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
 function mesh(geo, m, parent, x = 0, y = 0, z = 0) { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; parent.add(o); return o; }
 
+// Niveles de dificultad
+export const DIFF = {
+  facil: { name: 'Cuento', dmg: 0.5, invuln: 1.8, bossHp: 0.7, fallHurts: false },
+  normal: { name: 'Aventura', dmg: 1, invuln: 1.1, bossHp: 1, fallHurts: true },
+  dificil: { name: 'Leyenda', dmg: 2, invuln: 0.8, bossHp: 1.35, fallHurts: true },
+};
+
 // Modelo generado con un material propio que puede brillar (el brillo usa la propia textura).
 function glowModel(id, fit, tint, emissive, rotY = Math.PI) {
   const m = prop(id, fit, { rotY });
@@ -607,7 +614,7 @@ class Escorpion {
     this.hp -= 1; this.stunHits++; this.flash = 0.15; setFlash(this.group, true);
     this.c.audio.play('shatter'); this.c.shake(0.3, 0.3);
     this.c.fx.sparkle(this.weak.pos, 18, 0xbff8ff);
-    if (this.hp <= 3 && this.phase === 1) { this.phase = 2; this.c.onBossPhase && this.c.onBossPhase(this); }
+    if (this.hp <= this.maxHp / 2 && this.phase === 1) { this.phase = 2; this.c.onBossPhase && this.c.onBossPhase(this); }
     if (this.hp <= 0) { this.state = 'dying'; this.st = 2.6; this.c.shake(0.7, 2.2); this.beam.visible = false; }
     return true;
   }
@@ -774,7 +781,7 @@ class Coloso {
     if (this.state !== 'stuck') return false;
     this.hp -= 1; this.stuckHits++; this.flash = 0.15; setFlash(this.group, true);
     this.c.audio.play('shatter'); this.c.shake(0.35, 0.3); this.c.fx.sparkle(this.weak.pos, 18, 0xbff8ff);
-    if (this.hp <= 3 && this.phase === 1) { this.phase = 2; this.c.onBossPhase && this.c.onBossPhase(this); }
+    if (this.hp <= this.maxHp / 2 && this.phase === 1) { this.phase = 2; this.c.onBossPhase && this.c.onBossPhase(this); }
     if (this.hp <= 0) {
       this.state = 'dying'; this.st = 2.8; this.c.shake(0.8, 2.6);
       this.ring.visible = false; this.ledgeMesh.visible = false; if (this.ledge) { this.ledge.off = true; this.ledge = null; }
@@ -957,7 +964,7 @@ class Sierpe {
     if (this.state !== 'downed') return false;
     this.hp -= 1; this.downHits++; this.flash = 0.15; setFlash(this.group, true);
     this.c.audio.play('shatter'); this.c.shake(0.3, 0.3); this.c.fx.sparkle(this.weak.pos, 18, 0xe8fbff);
-    if (this.hp <= 3 && this.phase === 1) { this.phase = 2; this.c.onBossPhase && this.c.onBossPhase(this); }
+    if (this.hp <= this.maxHp / 2 && this.phase === 1) { this.phase = 2; this.c.onBossPhase && this.c.onBossPhase(this); }
     if (this.hp <= 0) { this.state = 'dying'; this.st = 2.6; this.c.shake(0.7, 2.4); }
     return true;
   }
@@ -1126,7 +1133,7 @@ class Vaelor {
     if (this.state !== 'exposed') return false;
     this.hp -= 1; this.exposedHits++; this.flash = 0.15; setFlash(this.body, true);
     this.c.audio.play('hit'); this.c.shake(0.3, 0.3); this.c.fx.sparkle(this.weak.pos, 14, 0xb07aff);
-    if (this.hp <= 3 && this.phase === 1) { this.phase = 2; this.c.onBossPhase && this.c.onBossPhase(this); }
+    if (this.hp <= this.maxHp / 2 && this.phase === 1) { this.phase = 2; this.c.onBossPhase && this.c.onBossPhase(this); }
     if (this.hp <= 0) {
       this.state = 'dying'; this.st = 2.6; this.barrier = false; this.c.shake(0.6, 2);
       this._anim('Death_A', { speed: 0.7, hold: true });
@@ -1185,6 +1192,8 @@ export class Combat {
     if (zone.boss && !save.flags[zone.boss.flag]) {
       const B = zone.boss, K = { raiz: RaizMadre, escorpion: Escorpion, coloso: Coloso, sierpe: Sierpe, vaelor: Vaelor }[B.type] || RaizMadre;
       this.boss = new K(this, B.x, B.y, B.z, B);
+      const k = DIFF[this.difficulty || 'normal'].bossHp; // vida del jefe según la dificultad
+      if (k !== 1) this.boss.maxHp = this.boss.hp = Math.max(3, Math.round(this.boss.maxHp * k));
     }
   }
   addEnemy(type, x, y, z) {

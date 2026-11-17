@@ -1,7 +1,7 @@
 // Guardado en el navegador + código de exportación para llevar la partida a otro dispositivo.
 const KEY = 'aethra_save_v1', SETTINGS_KEY = 'aethra_settings_v1', PREFIX = 'AETHRA1:';
 
-export const DEFAULT_SETTINGS = { sens: 1, invert: false, volume: 0.7, music: 0.6, debug: false };
+export const DEFAULT_SETTINGS = { sens: 1, invert: false, volume: 0.7, music: 0.6, difficulty: 'normal', debug: false };
 
 export function newSave() {
   return { v: 1, zone: 'puerto_bruma', checkpoint: 'inicio', fragments: [], flags: {}, playTime: 0 };

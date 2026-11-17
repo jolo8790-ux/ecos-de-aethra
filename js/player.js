@@ -94,7 +94,11 @@ export class Player {
       this.shieldFlash = 1; this.audio.play('block'); this.events.push({ type: 'block' });
       return false;
     }
-    this.hp -= amount; this.invuln = 1.1; this.hurtT = 0.35;
+    // dificultad: en Cuento solo un golpe de cada dos quita corazón; en Leyenda los golpes quitan el doble
+    const D = this.diff || { dmg: 1, invuln: 1.1 };
+    if (D.dmg < 1) { this._half = !this._half; amount = this._half ? 0 : Math.max(1, Math.round(amount)); }
+    else amount = Math.max(1, Math.round(amount * D.dmg));
+    this.hp -= amount; this.invuln = D.invuln; this.hurtT = 0.35;
     const dx = this.pos.x - from.x, dz = this.pos.z - from.z, l = Math.hypot(dx, dz) || 1;
     this.vel.x = dx / l * 7; this.vel.z = dz / l * 7; this.vel.y = 5; this.grounded = false;
     this.attack = null;

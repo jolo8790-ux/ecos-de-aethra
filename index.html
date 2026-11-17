@@ -36,6 +36,15 @@
   .btn.alt { background: linear-gradient(180deg, #e9eef5, #b9c6d6); box-shadow: 0 5px 0 #6f7f94; }
   .btn.warn { background: linear-gradient(180deg, #ffd0a6, #ff9a4c); box-shadow: 0 5px 0 #a6581c; }
   .panel { background: rgba(12,22,40,.85); border-radius: 18px; padding: 20px 24px; width: min(520px, 92vw); text-align: left; }
+  .btn.small { font-size: 16px; padding: 8px 20px; }
+  .row2 { display: flex; gap: 10px; justify-content: center; }
+  .tpanel { background: rgba(8,20,40,.72); border-radius: 18px; padding: 18px 26px; max-width: 560px; margin-top: 8px; }
+  .tpanel .credits p { margin: 8px 0; line-height: 1.4; font-size: 16px; }
+  #chapterList { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  #chapterList button { font: inherit; font-size: 16px; padding: 10px 16px; border-radius: 12px; border: 0; cursor: pointer; text-align: left; background: #e8f6ff; color: #10213a; display: flex; justify-content: space-between; gap: 16px; }
+  #chapterList button:disabled { opacity: .4; cursor: default; }
+  .diffSel { font: inherit; font-size: 15px; padding: 6px 10px; border-radius: 10px; border: 0; background: #e8f6ff; color: #10213a; }
+  .diffRow { display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 16px; opacity: .9; margin-top: 4px; }
   .panel label { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 10px 0; font-size: 16px; }
   .panel input[type=range] { width: 55%; }
   .panel textarea { width: 100%; height: 90px; font-family: monospace; font-size: 12px; border-radius: 10px; padding: 8px; border: none; resize: none; margin: 8px 0; user-select: text; -webkit-user-select: text; }
@@ -152,6 +161,27 @@
   <div class="menu">
     <button class="btn" id="bContinue">Continuar</button>
     <button class="btn" id="bNew">Nueva partida</button>
+    <div class="row2"><button class="btn alt small" id="bChapters">Capítulos</button><button class="btn alt small" id="bCredits">Créditos</button></div>
+    <label class="diffRow">Dificultad <select id="tDiff" class="diffSel"><option value="facil">Cuento (fácil)</option><option value="normal">Aventura (normal)</option><option value="dificil">Leyenda (difícil)</option></select></label>
+  </div>
+  <div class="tpanel hidden" id="chaptersPanel">
+    <h2>Capítulos</h2>
+    <div class="sub" style="margin-bottom:12px">Vuelve a una zona que ya visitaste para buscar los fragmentos que te faltan.</div>
+    <div id="chapterList"></div>
+    <button class="btn alt small" id="bChaptersBack">Volver</button>
+  </div>
+  <div class="tpanel hidden" id="creditsPanel">
+    <h2>Créditos</h2>
+    <div class="credits">
+      <p><b>Ecos de Aethra</b> — una aventura creada paso a paso con Claude.</p>
+      <p><b>Idea y dirección:</b> el creador del juego. <b>Historia, diseño, programación y música:</b> escritos con Claude (Anthropic).</p>
+      <p><b>Personajes y animaciones:</b> KayKit Adventurers de Kay Lousberg (CC0).</p>
+      <p><b>Jefes, enemigos y decorados:</b> modelos generados para el juego con Hunyuan3D 2.1 (Tencent) a partir de imágenes de SDXL.</p>
+      <p><b>Motor 3D:</b> three.js. <b>Tipografía:</b> Fredoka.</p>
+      <p><b>La música</b> se toca en tu navegador mientras juegas: no hay archivos de audio.</p>
+      <p style="opacity:.75">Gracias por jugar.</p>
+    </div>
+    <button class="btn alt small" id="bCreditsBack">Volver</button>
   </div>
   <div class="keys">
     <b>W A S D</b><span>Moverse · Shift para caminar</span>
@@ -183,6 +213,7 @@
     <label>Invertir eje vertical <input type="checkbox" id="sInv"></label>
     <label>Volumen general <input type="range" id="sVol" min="0" max="1" step="0.05"></label>
     <label>Música <input type="range" id="sMus" min="0" max="1" step="0.05"></label>
+    <label>Dificultad <select id="sDiff" class="diffSel"><option value="facil">Cuento (fácil)</option><option value="normal">Aventura (normal)</option><option value="dificil">Leyenda (difícil)</option></select></label>
     <label>Mostrar datos técnicos <input type="checkbox" id="sDbg"></label>
     <div class="row"><button class="btn" id="bSettingsBack">Listo</button></div>
   </div>
