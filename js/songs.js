@@ -156,6 +156,25 @@ SONGS.boss_escorpion = { ...SONGS.boss, transpose: 2, bpm: 136 };
 SONGS.boss_coloso = { ...SONGS.boss, transpose: -2, bpm: 120 };
 SONGS.boss_sierpe = { ...SONGS.boss, transpose: -3, bpm: 140 };
 
+
+// Desafíos: animado y rápido (do mayor) y su versión nocturna (la menor)
+SONGS.desafio = {
+  bpm: 124, vol: 0.8, chords: ['C', 'G', 'Am', 'F', 'C', 'G', 'F', 'G'],
+  tracks: [
+    { type: 'bass', inst: 'bass', oct: 2, pattern: 'R . O . R . O . R . O . F . O .', vol: 0.4 },
+    { type: 'arp', inst: 'pluck', oct: 4, pattern: '0 1 2 3 2 1 0 1', vol: 0.3 },
+    { type: 'drum', inst: 'kick', pattern: 'x...x...x...x...', vol: 0.5 },
+    { type: 'drum', inst: 'clap', pattern: '....x.......x...', vol: 0.35 },
+    { type: 'drum', inst: 'hat', pattern: '..x...x...x...x.', vol: 0.5 },
+    { type: 'mel', inst: 'lead', from: 4, vol: 0.4, notes: [
+      'E5 - G5 - C6 - B5 G5', 'D5 - - - G5 - - -', 'C5 - E5 - A5 - G5 E5', 'F5 - - - A5 - - -',
+      'G5 - E5 - C5 - E5 G5', 'B5 - - - D6 - B5 -', 'A5 - G5 - F5 - A5 -', 'G5 - - - - - . .'] },
+  ],
+};
+SONGS.desafio_noche = { ...SONGS.desafio, bpm: 116, chords: ['Am', 'F', 'C', 'G', 'Am', 'F', 'Dm', 'E'],
+  tracks: [...SONGS.desafio.tracks.slice(0, 4), { type: 'pad', inst: 'pad', oct: 3, vol: 0.3 },
+    { type: 'mel', inst: 'bell', from: 4, vol: 0.4, notes: ['A5 - E5 - C6 - B5 -', 'A5 - - - F5 - - -', 'G5 - E5 - C5 - E5 -', 'D5 - - - G5 - - -', 'A5 - C6 - E6 - D6 -', 'C6 - - - A5 - - -', 'F5 - A5 - D6 - C6 -', 'B5 - - - G#5 - - -'] }] };
+
 // Fanfarrias cortas. 'nota:duración en tiempos', '+' para acordes.
 export const STINGERS = {
   victoria: { bpm: 120, len: 6, vol: 1, parts: [

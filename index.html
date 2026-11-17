@@ -40,6 +40,10 @@
   .row2 { display: flex; gap: 10px; justify-content: center; }
   .tpanel { background: rgba(8,20,40,.72); border-radius: 18px; padding: 18px 26px; max-width: 560px; margin-top: 8px; }
   .tpanel .credits p { margin: 8px 0; line-height: 1.4; font-size: 16px; }
+  #chTimer { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 5; font-size: 26px; font-weight: 700; padding: 6px 18px; border-radius: 14px; background: rgba(10,20,40,.55); font-variant-numeric: tabular-nums; }
+  .chList { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  .chList button { font: inherit; font-size: 16px; padding: 10px 16px; border-radius: 12px; border: 0; cursor: pointer; text-align: left; background: #f0eaff; color: #1a1040; display: flex; justify-content: space-between; gap: 16px; }
+  .chList button:disabled { opacity: .4; cursor: default; }
   #chapterList { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
   #chapterList button { font: inherit; font-size: 16px; padding: 10px 16px; border-radius: 12px; border: 0; cursor: pointer; text-align: left; background: #e8f6ff; color: #10213a; display: flex; justify-content: space-between; gap: 16px; }
   #chapterList button:disabled { opacity: .4; cursor: default; }
@@ -129,6 +133,7 @@
   <button id="glReload" class="hidden" onclick="location.reload()" style="font:inherit;padding:10px 22px;border-radius:12px;border:0;background:#7fd3ff;color:#10213a;cursor:pointer">Recargar desde el último punto guardado</button>
 </div>
 <div id="hud" class="hidden"><div class="chip" id="hudHearts"></div><div class="chip" id="hudFrag">◆ 0/0</div></div>
+<div id="chTimer" class="hidden">⏱ 0:00.0</div>
 <div id="bossbar" class="hidden"><div class="bname" id="bossName"></div><div class="btrack"><div class="bfill" id="bossFill"></div></div></div>
 <div id="objective" class="hidden"><div class="lbl">Objetivo</div><div class="txt" id="objText"></div><div class="dist" id="objDist"></div></div>
 <div id="compass" class="hidden"><div class="needle" id="needle"></div><div class="pin"></div><div class="cd" id="compassDist"></div></div>
@@ -156,11 +161,12 @@
 
 <div class="overlay" id="title">
   <h1>Ecos de Aethra</h1>
-  <p class="sub">Versión 1.0</p>
+  <p class="sub">Versión 1.1</p>
   <p class="sub" id="loading" style="margin-bottom:12px">Cargando personajes…</p>
   <div class="menu">
     <button class="btn" id="bContinue">Continuar</button>
     <button class="btn" id="bNew">Nueva partida</button>
+    <button class="btn alt" id="bChallenges">Desafíos: Cristales del Cielo</button>
     <div class="row2"><button class="btn alt small" id="bChapters">Capítulos</button><button class="btn alt small" id="bCredits">Créditos</button></div>
     <label class="diffRow">Dificultad <select id="tDiff" class="diffSel"><option value="facil">Cuento (fácil)</option><option value="normal">Aventura (normal)</option><option value="dificil">Leyenda (difícil)</option></select></label>
   </div>
@@ -169,6 +175,12 @@
     <div class="sub" style="margin-bottom:12px">Vuelve a una zona que ya visitaste para buscar los fragmentos que te faltan.</div>
     <div id="chapterList"></div>
     <button class="btn alt small" id="bChaptersBack">Volver</button>
+  </div>
+  <div class="tpanel hidden" id="challengesPanel">
+    <h2>Cristales del Cielo</h2>
+    <div class="sub" style="margin-bottom:12px">Recoge todos los cristales, cruza el portal y bate tu mejor tiempo. No afecta a tu partida.</div>
+    <div id="challengeList" class="chList"></div>
+    <button class="btn alt small" id="bChallengesBack">Volver</button>
   </div>
   <div class="tpanel hidden" id="creditsPanel">
     <h2>Créditos</h2>
@@ -204,6 +216,7 @@
   <h2>Pausa</h2>
   <div class="menu" id="pauseMain">
     <button class="btn" id="bResume">Continuar</button>
+    <button class="btn alt hidden" id="bRestartCh">Reiniciar desafío</button>
     <button class="btn alt" id="bSettings">Ajustes</button>
     <button class="btn alt" id="bSaveMenu">Guardar o cargar partida</button>
     <button class="btn warn" id="bTitle">Volver al título</button>

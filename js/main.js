@@ -6,10 +6,14 @@ import { FollowCamera } from './camera.js';
 import { World } from './world.js';
 import { Audio } from './audio.js';
 import { Music } from './music.js';
+import { DESAFIOS, medalFor } from './zones/desafios.js';
+// Modo desafío: mientras está activo, nada se guarda en la partida de la historia.
+let challenge = null;
+const writeSave = s => challenge ? true : writeSaveRaw(s);
 import { FX } from './fx.js';
 import { loadCharacterLibrary } from './characters.js';
 import { loadProps } from './props.js';
-import { newSave, loadSave, writeSave, loadSettings, writeSettings, exportCode, importCode } from './save.js';
+import { newSave, loadSave, writeSave as writeSaveRaw, loadSettings, writeSettings, exportCode, importCode } from './save.js';
 import puertoBruma from './zones/puerto_bruma.js';
 import bosqueColgante from './zones/bosque_colgante.js';
 import ruinasVidrio from './zones/ruinas_vidrio.js';
@@ -18,7 +22,8 @@ import glaciarEco from './zones/glaciar_eco.js';
 import ciudadelaOrden from './zones/ciudadela_orden.js';
 import { Combat, DIFF } from './combat.js';
 
-const ZONES = { puerto_bruma: puertoBruma, bosque_colgante: bosqueColgante, ruinas_vidrio: ruinasVidrio, ciudad_engranajes: ciudadEngranajes, glaciar_eco: glaciarEco, ciudadela_orden: ciudadelaOrden };
+const ZONES_BASE = { puerto_bruma: puertoBruma, bosque_colgante: bosqueColgante, ruinas_vidrio: ruinasVidrio, ciudad_engranajes: ciudadEngranajes, glaciar_eco: glaciarEco, ciudadela_orden: ciudadelaOrden };
+const ZONES = { ...ZONES_BASE }; for (const L of DESAFIOS) ZONES[L.id] = L;
 const $ = id => document.getElementById(id);
 
 // ---------- motor ----------
@@ -76,7 +81,8 @@ const music = new Music(audio);
 // Música de cada zona y de cada jefe; ambiente de fondo
 const ZONE_MUSIC = { puerto_bruma: 'puerto', bosque_colgante: 'bosque', ruinas_vidrio: 'ruinas', ciudad_engranajes: 'ciudad', glaciar_eco: 'glaciar', ciudadela_orden: 'ciudadela' };
 const BOSS_MUSIC = { bosque_colgante: 'boss_raiz', ruinas_vidrio: 'boss_escorpion', ciudad_engranajes: 'boss_coloso', glaciar_eco: 'boss_sierpe', ciudadela_orden: 'vaelor' };
-const ZONE_AMB = { puerto_bruma: 'sea', bosque_colgante: 'forest', ruinas_vidrio: 'desert', ciudad_engranajes: 'city', glaciar_eco: 'ice', ciudadela_orden: 'dark' };
+const CH_MUSIC = { desafio_1: 'desafio', desafio_2: 'desafio', desafio_3: 'desafio_noche', desafio_4: 'ruinas', desafio_5: 'desafio_noche' };
+const ZONE_AMB = { desafio_1: 'sea', desafio_2: 'desert', desafio_3: 'ice', desafio_4: 'desert', desafio_5: 'city',  puerto_bruma: 'sea', bosque_colgante: 'forest', ruinas_vidrio: 'desert', ciudad_engranajes: 'city', glaciar_eco: 'ice', ciudadela_orden: 'dark' };
 // los navegadores solo dejan sonar audio después de un gesto: el primero enciende todo
 const wakeAudio = () => { audio.unlock(); if (music.init() && state === 'title') music.play('title'); };
 addEventListener('pointerdown', wakeAudio); addEventListener('keydown', wakeAudio); addEventListener('touchstart', wakeAudio);
@@ -86,7 +92,7 @@ function updateMusic() {
   if (d !== duckNow) { duckNow = d; music.duck(d); }
   if (state !== 'play' && state !== 'dialog' || !zone) return;
   const b = combat.boss, fighting = b && (b.state === 'intro' || b.fighting);
-  music.play(fighting ? (BOSS_MUSIC[zone.id] || 'boss') : ZONE_MUSIC[zone.id], { fade: fighting ? 0.8 : 2.5 });
+  music.play(fighting ? (BOSS_MUSIC[zone.id] || 'boss') : (ZONE_MUSIC[zone.id] || CH_MUSIC[zone.id]), { fade: fighting ? 0.8 : 2.5 });
 }
 const world = new World(scene, physics);
 const fx = new FX(scene);
@@ -453,7 +459,7 @@ function updateCutscene(dt) {
 }
 function showEndCard({ kicker, title, stats, sub, next }) {
   $('endKicker').textContent = kicker; $('endTitle').textContent = title; $('endStats').innerHTML = stats; $('endSub').textContent = sub || '';
-  endNext = next || null;
+  endNext = next || null; $('bKeepExploring').classList.remove('hidden');
   $('bNextChapter').classList.toggle('hidden', !next);
   if (next) $('bNextChapter').textContent = next.label;
   $('endcard').classList.remove('hidden');
@@ -469,17 +475,17 @@ function showChapterEnd() {
     sub: ce.sub || '', next: ce.next,
   });
 }
-function leaveEnding(toTitle) {
+function leaveEnding(toTitle, quiet = false) {
   const ship = world.airships.dirigible;
   if (ship && player.mesh.parent === ship.group) { scene.add(player.mesh); ship.offset.set(0, 0, 0); ship.spin = 3; }
   document.body.classList.remove('cine');
   $('endcard').classList.add('hidden');
   player.frozen = false;
-  if (toTitle) { writeSave(save); state = 'title'; showOverlay('title'); refreshTitle(); music.play('title'); music.ambient(null); return; }
+  if (toTitle) { if (quiet) return; endChallenge(); writeSave(save); state = 'title'; showOverlay('title'); refreshTitle(); music.play('title'); music.ambient(null); return; }
   if (zone.id === 'puerto_bruma') { player.teleport(0, 0.05, 31.5, 0); cam.snap(player); }
   state = 'play';
 }
-$('bNextChapter').onclick = () => { const n = endNext; leaveEnding(false); if (n) enterZone(n.zone, n.cp); };
+$('bNextChapter').onclick = () => { const n = endNext; leaveEnding(n && n.fn ? true : false, !!(n && n.fn)); if (n && n.fn) n.fn(); else if (n) enterZone(n.zone, n.cp); };
 const fmtTime = t => `${Math.floor(t / 60)} min ${String(Math.floor(t % 60)).padStart(2, '0')} s`;
 $('bKeepExploring').onclick = () => leaveEnding(false);
 $('bEndTitle').onclick = () => leaveEnding(true);
@@ -616,10 +622,66 @@ function startGame(s) {
   enterZone(save.zone, save.checkpoint);
 }
 $('bContinue').onclick = () => startGame(loadSave() || newSave());
+// ---------- desafíos: Cristales del Cielo ----------
+const CH_KEY = 'aethra_desafios_v1';
+const loadCh = () => { try { return JSON.parse(localStorage.getItem(CH_KEY)) || {}; } catch (e) { return {}; } };
+const fmtT = t => `${Math.floor(t / 60)}:${(t % 60).toFixed(1).padStart(4, '0')}`;
+const MEDAL = { oro: '🥇 Oro', plata: '🥈 Plata', bronce: '🥉 Bronce' };
+function startChallenge(i) {
+  const L = DESAFIOS[i];
+  challenge = { i, L, t: 0, done: false };
+  save = newSave(); save.zone = L.id;
+  Object.assign(save.flags, { baston: true, impulso: true, brujula: true }, L.abilities);
+  audio.unlock(); music.init();
+  showOverlay(null); titlePanel(null);
+  loadZone(L.id);
+  state = 'play'; lastGoal = '';
+  $('chTimer').classList.remove('hidden');
+}
+function endChallenge() { if (!challenge) return; challenge = null; $('chTimer').classList.add('hidden'); save = loadSave() || newSave(); }
+function updateChallenge(dt) {
+  const C = challenge; if (C.done) return;
+  C.t += dt;
+  const got = zone.fragments.filter(f => save.fragments.includes(f.id)).length, all = got === zone.fragments.length;
+  $('chTimer').textContent = `⏱ ${fmtT(C.t)}`;
+  const P = world.portal; if (!P) return;
+  if (all && !P.open) { P.setOpen(true); audio.play('unlock'); toast('¡El portal se abrió! Crúzalo'); }
+  if (P.open && Math.hypot(player.pos.x - P.pos.x, player.pos.z - P.pos.z) < 1.3 && Math.abs(player.pos.y - P.pos.y) < 2) finishChallenge();
+}
+function finishChallenge() {
+  const C = challenge; C.done = true;
+  const rec = loadCh(), prev = rec[C.L.id], best = !prev || C.t < prev.t;
+  if (best) { rec[C.L.id] = { t: C.t }; try { localStorage.setItem(CH_KEY, JSON.stringify(rec)); } catch (e) {} }
+  const m = medalFor(C.L, C.t), next = DESAFIOS[C.i + 1];
+  state = 'end'; document.body.classList.add('cine'); player.frozen = true;
+  music.stinger('victoria'); fx.sparkle(player.pos.clone().setY(player.pos.y + 1.2), 30, 0xc8b8ff);
+  const [o, p, b] = C.L.medals;
+  showEndCard({
+    kicker: `Desafío ${C.i + 1} superado`, title: C.L.title,
+    stats: `Tiempo: <b>${fmtT(C.t)}</b>${best ? ' · ¡nuevo récord!' : ` · récord: ${fmtT(prev.t)}`}<br>${m ? MEDAL[m] : 'Sin medalla'} · oro ${o} s · plata ${p} s · bronce ${b} s`,
+    sub: next ? '' : 'Superaste todos los desafíos. ¿Puedes conseguir el oro en todos?',
+    next: { label: next ? `Siguiente: ${next.title}` : 'Repetir este desafío', fn: () => startChallenge(next ? C.i + 1 : C.i) },
+  });
+  $('bKeepExploring').classList.add('hidden');
+}
+$('bChallenges').onclick = () => {
+  const rec = loadCh(), list = $('challengeList'); list.innerHTML = '';
+  DESAFIOS.forEach((L, i) => {
+    const r = rec[L.id], open = i === 0 || rec[DESAFIOS[i - 1].id], m = r && medalFor(L, r.t);
+    const b = document.createElement('button');
+    b.innerHTML = `<span>${i + 1}. ${L.title}${L.abilities.garfio ? ' · garfio' : L.abilities.planeador ? ' · planeador' : ''}</span><span>${!open ? '🔒' : r ? `${m ? MEDAL[m].split(' ')[0] + ' ' : ''}${fmtT(r.t)}` : '—'}</span>`;
+    b.disabled = !open; b.onclick = () => startChallenge(i);
+    list.appendChild(b);
+  });
+  titlePanel('challengesPanel');
+};
+$('bChallengesBack').onclick = () => titlePanel(null);
+$('bRestartCh').onclick = () => { if (challenge) { const i = challenge.i; resume(); startChallenge(i); } };
+
 // ---------- capítulos y créditos ----------
 const CHAPTERS = [['puerto_bruma', 'Prólogo'], ['bosque_colgante', 'Capítulo 1'], ['ruinas_vidrio', 'Capítulo 2'], ['ciudad_engranajes', 'Capítulo 3'], ['glaciar_eco', 'Capítulo 4'], ['ciudadela_orden', 'Capítulo 5']];
 function titlePanel(id) {
-  for (const p of ['chaptersPanel', 'creditsPanel']) $(p).classList.toggle('hidden', p !== id);
+  for (const p of ['chaptersPanel', 'creditsPanel', 'challengesPanel']) $(p).classList.toggle('hidden', p !== id);
   document.querySelector('#title .menu').classList.toggle('hidden', !!id);
   document.querySelector('#title .keys').classList.toggle('hidden', !!id);
 }
@@ -647,6 +709,7 @@ $('bNew').onclick = () => {
 function pause() {
   if (state === 'play' || state === 'dialog') {
     state = 'pause'; showOverlay('pause'); showPausePanel('main');
+    $('bRestartCh').classList.toggle('hidden', !challenge); $('bSaveMenu').classList.toggle('hidden', !!challenge);
     writeSave(save);
   } else if (state === 'pause') resume();
 }
@@ -656,7 +719,7 @@ $('bSettings').onclick = () => showPausePanel('settings');
 $('bSettingsBack').onclick = () => showPausePanel('main');
 $('bSaveMenu').onclick = () => { $('exportCode').value = exportCode(save); $('importCode').value = ''; $('saveMsg').textContent = ''; showPausePanel('save'); };
 $('bSaveBack').onclick = () => showPausePanel('main');
-$('bTitle').onclick = () => { writeSave(save); if (dialog) closeDialog(false); state = 'title'; music.play('title'); music.ambient(null); $('objective').classList.add('hidden'); $('compass').classList.add('hidden'); marker.visible = false; showOverlay('title'); refreshTitle(); };
+$('bTitle').onclick = () => { writeSave(save); if (dialog) closeDialog(false); endChallenge(); state = 'title'; music.play('title'); music.ambient(null); $('objective').classList.add('hidden'); $('compass').classList.add('hidden'); marker.visible = false; showOverlay('title'); refreshTitle(); };
 $('bCopy').onclick = async () => {
   try { await navigator.clipboard.writeText($('exportCode').value); $('saveMsg').textContent = 'Código copiado.'; }
   catch (e) { $('exportCode').select(); $('saveMsg').textContent = 'No se pudo copiar solo: selecciona el texto y cópialo a mano.'; }
@@ -708,6 +771,7 @@ function simulate(dt) {
   time += dt;
   input.poll();
   updateMusic();
+  if (challenge && state === 'play') updateChallenge(dt);
   if (input.pressed('pause') && (state === 'play' || state === 'dialog' || state === 'pause')) pause();
 
   if (state === 'play' || state === 'dialog') {

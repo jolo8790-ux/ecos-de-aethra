@@ -34,7 +34,7 @@ export class World {
     this.animated = []; this.interactables = []; this.checkpoints = {}; this.water = null; this.airships = {};
     this.updrafts = []; this.grapplePoints = []; this.pillars = []; this.movers = [];
     this.locks = []; this.lightCrystals = []; this.lightPlatforms = []; this.darkBarriers = [];
-    this.fadeables = [];
+    this.fadeables = []; this.portal = null;
   }
 
   build(zone, save) {
@@ -84,6 +84,7 @@ export class World {
     (z.lanterns || []).forEach(l => this._fw(() => this._lantern(l, save)));
     (z.fragments || []).forEach(f => { if (!save.fragments.includes(f.id)) this._fragment(f); });
     this.checkpoints[z.start.id] = { pos: new THREE.Vector3(...z.start.pos), facing: z.start.facing || 0 };
+    if (z.portal) this._portal(z.portal);
     this._clouds(z.seed || 1);
   }
 
@@ -745,6 +746,26 @@ export class World {
     it.light(save.checkpoint === id || (save.flags.lit || []).includes(id));
     this.interactables.push(it);
     this.checkpoints[id] = { pos: new THREE.Vector3(x + Math.sin(facing) * -1.2, y, z + Math.cos(facing) * -1.2), facing };
+  }
+
+  // Portal de salida de los desafíos: se enciende al recoger todos los cristales
+  _portal({ x, y, z }) {
+    const g = new THREE.Group(); g.position.set(x, y, z); this.root.add(g);
+    const ringMat = new THREE.MeshStandardMaterial({ color: 0x9b8cff, emissive: 0x4433aa, emissiveIntensity: 0.3, metalness: 0.3, roughness: 0.4 });
+    const ring = this._mesh(new THREE.TorusGeometry(1.25, 0.18, 12, 40), ringMat, 0, 1.6, 0, g);
+    const innerMat = new THREE.MeshBasicMaterial({ color: 0xd8ccff, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false });
+    const inner = this._mesh(new THREE.CircleGeometry(1.12, 40), innerMat, 0, 1.6, 0, g); inner.castShadow = false;
+    this._mesh(new THREE.CylinderGeometry(1.1, 1.3, 0.3, 24), mat(0x6a6080), 0, 0.15, 0, g);
+    this.physics.addBox(x, y + 0.15, z, 2.2, 0.3, 2.2);
+    const P = this.portal = { pos: new THREE.Vector3(x, y, z), open: false, k: 0 };
+    P.setOpen = v => { P.open = v; };
+    this.animated.push((t, dt = 0.016) => {
+      P.k += ((P.open ? 1 : 0) - P.k) * Math.min(1, dt * 3);
+      ring.rotation.z = t * (0.3 + P.k * 1.5);
+      ringMat.emissiveIntensity = 0.3 + P.k * 1.6 + (P.open ? Math.sin(t * 4) * 0.25 : 0);
+      innerMat.opacity = P.k * (0.55 + Math.sin(t * 3) * 0.1);
+      inner.rotation.z = -t;
+    });
   }
 
   _fragment({ id, x, y, z }) {

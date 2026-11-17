@@ -4,7 +4,7 @@ Aventura 3D con historia para el navegador, hecha con [Three.js](https://threejs
 
 Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes para reunir los fragmentos del Corazón de Aethra y decidir el destino de su mundo.
 
-## Estado: versión 1.0 completa
+## Estado: versión 1.1
 
 | Etapa | Contenido | Estado |
 | --- | --- | --- |
@@ -15,6 +15,7 @@ Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes
 | 5. Capítulos 4 y 5 | Escudo, pulso de luz, Glaciar del Eco, Ciudadela de la Orden, Sierpe de Escarcha, Vaelor, 2 finales | Lista |
 | 6. Arte y sonido | 16 modelos 3D generados con Hunyuan3D 2.1; música sintetizada para cada zona, jefe y final; ambiente | Lista |
 | 7. Pulido y versión final | Cámara que aclara el decorado, 3 dificultades, capítulos, créditos, memoria gráfica, recuperación de la GPU | Lista: versión 1.0 |
+| 8. Desafíos | Cristales del Cielo: el primer prototipo convertido en 5 niveles contrarreloj con medallas (3 originales + planeador + garfio) | Lista: versión 1.1 |
 
 ## Cómo jugar en tu computadora
 
@@ -65,6 +66,7 @@ js/props.js             carga los modelos generados y los encaja en cada pieza (
 assets/props/           modelos generados (.glb codificados en .js); ver tools/gen3d/
 tools/build_assets.mjs  reconstruye los modelos desde el paquete KayKit original
 js/zones/*.js           datos de cada zona (plataformas, personajes, diálogos)
+js/zones/desafios.js    niveles contrarreloj de Cristales del Cielo
 prototipos/             prototipos anteriores (Cristales del Cielo)
 ```
 
