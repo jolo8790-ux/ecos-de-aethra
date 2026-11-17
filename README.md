@@ -4,7 +4,7 @@ Aventura 3D con historia para el navegador, hecha con [Three.js](https://threejs
 
 Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes para reunir los fragmentos del Corazón de Aethra y decidir el destino de su mundo.
 
-## Estado
+## Estado: versión 1.0 completa
 
 | Etapa | Contenido | Estado |
 | --- | --- | --- |
@@ -14,7 +14,7 @@ Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes
 | 4. Capítulos 2 y 3 | Planeador, garfio, Ruinas de Vidrio, Ciudad de Engranajes, Escorpión Prisma, Coloso | Lista |
 | 5. Capítulos 4 y 5 | Escudo, pulso de luz, Glaciar del Eco, Ciudadela de la Orden, Sierpe de Escarcha, Vaelor, 2 finales | Lista |
 | 6. Arte y sonido | 16 modelos 3D generados con Hunyuan3D 2.1; música sintetizada para cada zona, jefe y final; ambiente | Lista |
-| 7. Pruebas y versión final | Equilibrio, errores, publicación | Pendiente |
+| 7. Pulido y versión final | Cámara que aclara el decorado, 3 dificultades, capítulos, créditos, memoria gráfica, recuperación de la GPU | Lista: versión 1.0 |
 
 ## Cómo jugar en tu computadora
 

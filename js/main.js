@@ -792,7 +792,7 @@ frame();
 // gancho para pruebas automáticas
 // step(n): avanza n pasos de 1/60 s sin depender de la velocidad de dibujo (para pruebas en máquinas lentas)
 window.__aethra = {
-  music,
+  music, renderer,
   player, cam, world, input, get state() { return state; }, get save() { return save; }, startGame, newSave, loadZone,
   hold(on) { paused4test = on; }, S, combat, enterZone, choose, get zone() { return zone; }, get dialog() { return dialog; },
   step(n, press) {

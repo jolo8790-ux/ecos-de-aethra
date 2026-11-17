@@ -94,3 +94,17 @@ export function clipModel(root, rules) {
   });
   return root;
 }
+
+// Libera la memoria de la tarjeta gráfica de todo lo que cuelga de root (al cambiar de zona).
+// Si algo se vuelve a usar después, three.js lo sube de nuevo solo.
+export function freeGPU(root) {
+  const seen = new Set();
+  root.traverse(o => {
+    if (o.geometry && !seen.has(o.geometry)) { seen.add(o.geometry); o.geometry.dispose(); }
+    if (o.isSkinnedMesh && o.skeleton && !seen.has(o.skeleton)) { seen.add(o.skeleton); o.skeleton.dispose(); }
+    const ms = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
+    for (const m of ms) for (const k of ['map', 'emissiveMap', 'normalMap', 'roughnessMap', 'alphaMap']) {
+      const t = m[k]; if (t && !seen.has(t) && t.isCanvasTexture) { seen.add(t); t.dispose(); }
+    }
+  });
+}

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { buildHumanoid, NpcAnimator } from './rig.js';
 import { createCharacter, NpcModelAnimator, LOOKS } from './characters.js';
-import { prop } from './props.js';
+import { prop, freeGPU } from './props.js';
 
 // Construye una zona a partir de sus datos (js/zones/*.js): mallas + colisiones + objetos interactivos.
 
@@ -30,7 +30,7 @@ export class World {
   }
 
   clear() {
-    this.root.clear(); this.physics.clear();
+    freeGPU(this.root); this.root.clear(); this.physics.clear();
     this.animated = []; this.interactables = []; this.checkpoints = {}; this.water = null; this.airships = {};
     this.updrafts = []; this.grapplePoints = []; this.pillars = []; this.movers = [];
     this.locks = []; this.lightCrystals = []; this.lightPlatforms = []; this.darkBarriers = [];

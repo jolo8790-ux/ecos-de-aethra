@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createCharacter, restorePose, savePose } from './characters.js';
-import { prop, clipModel } from './props.js';
+import { prop, clipModel, freeGPU } from './props.js';
 
 // Combate: criaturas de cristal, proyectiles, curaciones y el jefe Raíz Madre.
 // Todas las criaturas avisan antes de atacar (brillo rojo y temblor) para que el jugador pueda esquivar.
@@ -1183,7 +1183,7 @@ export class Combat {
   }
   clear() {
     if (this.boss) this.boss.dispose();
-    this.root.clear(); this.enemies = []; this.projectiles = []; this.heals = []; this.slashes = []; this.boss = null;
+    freeGPU(this.root); this.root.clear(); this.enemies = []; this.projectiles = []; this.heals = []; this.slashes = []; this.boss = null;
   }
   spawnZone(zone, save) {
     this.clear();
