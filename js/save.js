@@ -4,7 +4,7 @@ const KEY = 'aethra_save_v1', SETTINGS_KEY = 'aethra_settings_v1', PREFIX = 'AET
 export const DEFAULT_SETTINGS = { sens: 1, invert: false, volume: 0.7, music: 0.6, difficulty: 'normal', debug: false };
 
 export function newSave() {
-  return { v: 1, zone: 'puerto_bruma', checkpoint: 'inicio', fragments: [], flags: {}, playTime: 0 };
+  return { v: 1, zone: 'puerto_bruma', checkpoint: 'inicio', fragments: [], relics: [], flags: {}, playTime: 0 };
 }
 
 export function loadSave() {

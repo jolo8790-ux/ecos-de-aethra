@@ -14,6 +14,13 @@ export default {
   water: { y: -14, color: 0xd8efe0 },
   start: { id: 'llegada', pos: [0, 0, 4], facing: 0 },
 
+  // objetos que se rompen con el bastón (la geoda violeta guarda la Reliquia de Aethra de esta zona)
+  breakables: [
+    { id: 'reliquia_bosque_colgante', kind: 'cofre', x: 11.6, y: 1.2, z: -25.2, loot: 'reliquia' },
+    { id: 'bosque_colgante_v1', kind: 'vasija', x: -5.5, y: 0, z: 6, loot: 'corazon' },
+    { id: 'bosque_colgante_v2', kind: 'vasija', x: 5, y: 0, z: -30 },
+    { id: 'bosque_colgante_v3', kind: 'vasija', x: -6, y: -2, z: -48, loot: 'corazon' },
+  ],
   islands: [
     { x: 0, z: 2, w: 16, d: 16, top: 0, depth: 4 },                 // muelle del bosque
     { x: 0, z: -24, w: 14, d: 20, top: 0, depth: 4 },               // sendero de raíces
@@ -110,7 +117,7 @@ export default {
 
     goal(S) {
       if (!S.has('llego_claro')) return { text: 'Atraviesa el Sendero de raíces', at: [0, -2, -40] };
-      if (!S.has('llego_alto')) return { text: 'Rebota en la seta rosada para subir a la plataforma alta', at: [0, -2, -48.5] };
+      if (!S.has('llego_alto')) return { text: 'Rebota en la seta rosada para subir a la plataforma alta', at: [0, -2, -48.5], auto: [0, 6, -57] };
       if (!S.has('raiz_vencida')) return S.bossActive ? { text: 'Golpea los nudos brillantes de las raíces de la Raíz Madre', at: null } : { text: 'Cruza el puente hacia el corazón del bosque', at: [0, 6, -72] };
       if (!S.has('gran_fragmento_1')) return { text: 'Usa el impulso aéreo para cruzar al santuario', at: [0, 8, -107] };
       return { text: 'Capítulo 1 completado. Busca los fragmentos que falten o vuelve con Marta.', at: null };

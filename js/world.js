@@ -34,7 +34,7 @@ export class World {
     this.animated = []; this.interactables = []; this.checkpoints = {}; this.water = null; this.airships = {};
     this.updrafts = []; this.grapplePoints = []; this.pillars = []; this.movers = [];
     this.locks = []; this.lightCrystals = []; this.lightPlatforms = []; this.darkBarriers = [];
-    this.fadeables = []; this.portal = null;
+    this.fadeables = []; this.portal = null; this.breakables = [];
   }
 
   build(zone, save) {
@@ -75,6 +75,7 @@ export class World {
     if (z.id === 'bosque_colgante') this._fireflies(60);
     (z.rocks || []).forEach(r => this._rock(r));
     (z.props || []).forEach(p => this._prop(p));
+    (z.breakables || []).forEach(b => this._breakable(b, save));
     (z.fences || []).forEach(f => this._fence(f));
     (z.lighthouses || []).forEach(l => this._lighthouse(l));
     (z.signs || []).forEach(s => this._fw(() => this._sign(s)));
@@ -401,6 +402,34 @@ export class World {
     if (broken) c.rotation.z = 0.08;
     this._mesh(new THREE.BoxGeometry(1.2, 0.3, 1.2), stone, x, y + 0.15, z);
     this.physics.addBox(x, y + h / 2, z, 0.9, h, 0.9, { noCamera: true });
+  }
+
+  // Objetos que se rompen con el bastón. loot: 'reliquia' (oculta, una por zona), 'corazon', 'reloj' (desafíos: -3 s) o nada.
+  _breakable({ id, x, y = 0, z, kind = 'vasija', loot }, save) {
+    if (loot === 'reliquia' && save && (save.relics || []).includes(id)) return; // ya encontrada
+    const g = new THREE.Group(); g.position.set(x, y, z); this.root.add(g);
+    if (kind === 'cofre') { // geoda de cristal violeta: guarda algo valioso
+      const rock = mat(0x5a4a6a, { flatShading: true }), cr = mat(0xc8a8ff, { emissive: 0x7a4ad0, emissiveIntensity: 0.8, flatShading: true, roughness: 0.2 });
+      this._mesh(new THREE.DodecahedronGeometry(0.55, 0), rock, 0, 0.45, 0, g).scale.set(1.1, 0.85, 1);
+      [[0, 0.95, 0, 0.16, 0.6, 0], [0.25, 0.85, 0.1, 0.12, 0.45, -0.5], [-0.22, 0.82, -0.1, 0.11, 0.4, 0.5]].forEach(([a, b, c, r, h, rz]) => { this._mesh(new THREE.ConeGeometry(r, h, 5), cr, a, b, c, g).rotation.z = rz; });
+    } else { // vasija de barro con franja azul
+      const clay = mat(0xc07a4a, { flatShading: true }), band = mat(0x4a8acf, { flatShading: true });
+      const pts = [[0, 0], [0.32, 0.05], [0.42, 0.35], [0.36, 0.7], [0.2, 0.85], [0.24, 0.98], [0, 0.98]].map(([r, h]) => new THREE.Vector2(r, h));
+      this._mesh(new THREE.LatheGeometry(pts, 9), clay, 0, 0, 0, g);
+      this._mesh(new THREE.CylinderGeometry(0.43, 0.43, 0.08, 9), band, 0, 0.42, 0, g);
+    }
+    const box = this.physics.addBox(x, y + 0.45, z, 0.8, 0.9, 0.8);
+    const ph = Math.random() * 6; if (kind === 'cofre') this.animated.push(t => { g.children.slice(1).forEach((c, i) => { c.material.emissiveIntensity = 0.6 + Math.sin(t * 2 + ph + i) * 0.3; }); });
+    this.breakables.push({ id, kind, loot, pos: new THREE.Vector3(x, y + 0.45, z), r: 0.55, g, box, broken: false });
+  }
+  breakObject(B) { if (B.broken) return; B.broken = true; B.box.off = true; this.root.remove(B.g); }
+  // Reliquia: pieza dorada que flota hasta que Lía la toca
+  spawnRelic(id, pos) {
+    const g = new THREE.Group(); g.position.copy(pos); this.root.add(g);
+    const gold = mat(0xffd27a, { emissive: 0xffa020, emissiveIntensity: 0.9, metalness: 0.6, roughness: 0.25, flatShading: true });
+    const core = this._mesh(new THREE.TorusKnotGeometry(0.2, 0.06, 40, 6), gold, 0, 0.9, 0, g);
+    this.animated.push(t => { core.rotation.y = t * 2; core.position.y = 0.9 + Math.sin(t * 3) * 0.1; });
+    this.interactables.push({ id, type: 'relic', pos: pos.clone(), radius: 1.2, mesh: g, auto: true });
   }
 
   // Barriles, cajas y puestos de mercado (solo con modelo; si no hay modelo, piezas sencillas)

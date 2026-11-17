@@ -59,30 +59,36 @@ export class Input {
 
   _setupTouch() {
     const joy = document.getElementById('joy'), knob = document.getElementById('joyKnob');
-    let joyId = null, cx = 0, cy = 0, camId = null, tx = 0, ty = 0;
+    let joyId = null, camId = null, tx = 0, ty = 0;
     this._joy = { x: 0, y: 0 };
-    const btn = (id, action) => document.getElementById(id).addEventListener('touchstart', e => { e.stopPropagation(); this._pressed.add(action); this._held.add(action); }, { passive: true });
-    btn('tJump', 'jump'); btn('tAct', 'interact'); btn('tPause', 'pause'); btn('tAtk', 'attack'); btn('tDodge', 'dodge'); btn('tHook', 'grapple'); btn('tShield', 'shield'); btn('tPulse', 'pulse');
-    document.getElementById('tShield').addEventListener('touchend', () => this._held.delete('shield'));
-    document.getElementById('tJump').addEventListener('touchend', () => this._held.delete('jump'));
+    // A saltar · B golpear · C esquivar · X usar/hablar · Y escudo (mantener) · Z garfio o pulso de luz
+    const MAP = { tA: 'jump', tB: 'attack', tC: 'dodge', tX: 'interact', tY: 'shield', tZ: 'special', tPause: 'pause' };
+    for (const [id, action] of Object.entries(MAP)) {
+      const el = document.getElementById(id);
+      el.addEventListener('touchstart', e => { e.stopPropagation(); e.preventDefault(); this._pressed.add(action); this._held.add(action); el.classList.add('on'); if (navigator.vibrate) navigator.vibrate(8); }, { passive: false });
+      const up = () => { this._held.delete(action); el.classList.remove('on'); };
+      el.addEventListener('touchend', up); el.addEventListener('touchcancel', up);
+    }
+    // la palanca está fija abajo a la izquierda; cualquier toque en la mitad izquierda la mueve
+    const center = () => { const r = joy.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+    const setKnob = (x, y) => {
+      const [cx, cy] = center(); let dx = x - cx, dy = y - cy;
+      const l = Math.hypot(dx, dy), m = 52;
+      if (l > m) { dx *= m / l; dy *= m / l; }
+      this._joy.x = dx / m; this._joy.y = -dy / m;
+      knob.style.left = (39 + dx) + 'px'; knob.style.top = (39 + dy) + 'px';
+    };
     addEventListener('touchstart', e => {
       for (const t of e.changedTouches) {
         if (t.target.closest('.tbtn') || t.target.closest('.overlay') || t.target.closest('#dialog')) continue;
-        if (t.clientX < innerWidth * 0.45 && joyId === null) {
-          joyId = t.identifier; cx = t.clientX; cy = t.clientY;
-          joy.style.display = 'block'; joy.style.left = (cx - 60) + 'px'; joy.style.top = (cy - 60) + 'px';
-        } else if (camId === null) { camId = t.identifier; tx = t.clientX; ty = t.clientY; }
+        if (t.clientX < innerWidth * 0.45 && joyId === null) { joyId = t.identifier; setKnob(t.clientX, t.clientY); }
+        else if (camId === null) { camId = t.identifier; tx = t.clientX; ty = t.clientY; }
       }
     }, { passive: true });
     addEventListener('touchmove', e => {
       for (const t of e.changedTouches) {
-        if (t.identifier === joyId) {
-          let dx = t.clientX - cx, dy = t.clientY - cy;
-          const l = Math.hypot(dx, dy), m = 50;
-          if (l > m) { dx *= m / l; dy *= m / l; }
-          this._joy.x = dx / m; this._joy.y = -dy / m;
-          knob.style.left = (35 + dx) + 'px'; knob.style.top = (35 + dy) + 'px';
-        } else if (t.identifier === camId) {
+        if (t.identifier === joyId) setKnob(t.clientX, t.clientY);
+        else if (t.identifier === camId) {
           this.look.x += (t.clientX - tx) * 1.3; this.look.y += (t.clientY - ty) * 1.3;
           tx = t.clientX; ty = t.clientY;
         }
@@ -90,7 +96,7 @@ export class Input {
     }, { passive: true });
     const end = e => {
       for (const t of e.changedTouches) {
-        if (t.identifier === joyId) { joyId = null; this._joy.x = this._joy.y = 0; joy.style.display = 'none'; knob.style.left = knob.style.top = '35px'; }
+        if (t.identifier === joyId) { joyId = null; this._joy.x = this._joy.y = 0; knob.style.left = knob.style.top = '39px'; }
         if (t.identifier === camId) camId = null;
       }
     };
@@ -121,7 +127,10 @@ export class Input {
       this.look.x += rx * 14; this.look.y += ry * 10;
       const b = i => pad.buttons[i] && pad.buttons[i].pressed;
       const edge = (i, action) => { const now = b(i); if (now && !this._prevPad[i]) { this._pressed.add(action); this.usingGamepad = true; } this._prevPad[i] = now; };
-      edge(0, 'jump'); edge(2, 'attack'); edge(1, 'dodge'); edge(3, 'interact'); edge(9, 'pause'); edge(5, 'grapple'); edge(7, 'grapple'); edge(6, 'pulse'); edge(12, 'choiceUp'); edge(13, 'choiceDown');
+      edge(0, 'jump'); edge(2, 'attack'); edge(1, 'dodge'); edge(3, 'interact'); edge(9, 'pause'); edge(8, 'pause'); edge(5, 'grapple'); edge(7, 'grapple'); edge(6, 'pulse'); edge(12, 'choiceUp'); edge(13, 'choiceDown'); edge(14, 'navLeft'); edge(15, 'navRight');
+      // la cruceta también mueve a Lía
+      if (b(12)) my += 1; if (b(13)) my -= 1; if (b(14)) mx -= 1; if (b(15)) mx += 1;
+      this.padName = pad.id || '';
       this._padShield = b(4);
       this._padJump = b(0);
     }
@@ -132,6 +141,22 @@ export class Input {
   }
 
   pressed(action) { return this._pressed.has(action); }
+  // Símbolo del botón según el mando: PlayStation (✕ ○ □ △) o Xbox/genérico (A B X Y)
+  get isPlayStation() { return /054c|playstation|dualshock|dualsense|wireless controller|ps4|ps5/i.test(this.padName || ''); }
+  padIcon(action) {
+    const ps = { jump: '✕', dodge: '○', attack: '□', interact: '△', shield: 'L1', grapple: 'R1', pulse: 'L2', pause: 'OPTIONS' };
+    const xb = { jump: 'A', dodge: 'B', attack: 'X', interact: 'Y', shield: 'LB', grapple: 'RB', pulse: 'LT', pause: 'START' };
+    return (this.isPlayStation ? ps : xb)[action] || '';
+  }
+  // Vibración del mando (si lo admite) o del teléfono
+  rumble(ms = 180, strong = 0.6) {
+    try {
+      const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+      const pad = this.gamepadIndex !== null ? pads[this.gamepadIndex] : [...pads].find(p => p);
+      if (pad && pad.vibrationActuator && this.usingGamepad) pad.vibrationActuator.playEffect('dual-rumble', { duration: ms, strongMagnitude: strong, weakMagnitude: strong * 0.6 });
+      else if (this.isTouch && navigator.vibrate) navigator.vibrate(Math.min(ms, 120));
+    } catch (e) {}
+  }
   held(action) {
     if (action === 'jump') return !!(this.keys.Space || this._padJump || this._held.has('jump'));
     if (action === 'shield') return !!(this.keys.KeyV || this._padShield || this._held.has('shield'));

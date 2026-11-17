@@ -19,6 +19,7 @@ export const DIFF = {
   facil: { name: 'Cuento', dmg: 0.5, invuln: 1.8, bossHp: 0.7, fallHurts: false },
   normal: { name: 'Aventura', dmg: 1, invuln: 1.1, bossHp: 1, fallHurts: true },
   dificil: { name: 'Leyenda', dmg: 2, invuln: 0.8, bossHp: 1.35, fallHurts: true },
+  auto: { name: 'Automático', dmg: 0, invuln: 1.8, bossHp: 0.7, fallHurts: false, auto: true },
 };
 
 // Modelo generado con un material propio que puede brillar (el brillo usa la propia textura).
@@ -1280,6 +1281,15 @@ export class Combat {
   get grapplePoints() { return (this.boss && this.boss.grapplePoints) || []; }
 
   // procesa los eventos de ataque de Lía
+  // Modo automático: daña al jefe aunque no esté en su momento vulnerable
+  autoWound() {
+    const b = this.boss; if (!b || !b.fighting || b.state === 'dying') return false;
+    const need = { RaizMadre: 'fight', Escorpion: 'stunned', Coloso: 'stuck', Sierpe: 'downed', Vaelor: 'exposed' }[b.constructor.name];
+    const prev = b.state; if (need) b.state = need;
+    try { b.wound(); } catch (e) {}
+    if (b.state === need) b.state = prev;
+    return true;
+  }
   handlePlayer(pl) {
     for (const ev of pl.events) {
       if (ev.type === 'swing') this.slash(pl, ev.def);
@@ -1296,6 +1306,10 @@ export class Combat {
         if (!e.alive || ev.hitList.has(e) || !inArc(e.pos, e.radius)) continue;
         ev.hitList.add(e); e.hurt(ev.def.dmg, pl.pos, ev.def.push); hit = true;
         this.fx.sparkle(e.pos.clone().setY(e.pos.y + 0.6), 8, 0xffffff);
+      }
+      for (const b of this.breakables || []) { // vasijas y geodas
+        if (b.broken || ev.hitList.has(b) || !inArc(b.pos, b.r)) continue;
+        ev.hitList.add(b); hit = true; this.onBreak && this.onBreak(b);
       }
       for (const p of this.projectiles) {
         if (p.life <= 0 || ev.hitList.has(p) || !inArc(p.pos, 0.5)) continue;

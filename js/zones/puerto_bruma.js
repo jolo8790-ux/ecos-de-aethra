@@ -15,6 +15,13 @@ export default {
   water: { y: -3, color: 0xeaf2ff },   // mar de nubes
   start: { id: 'inicio', pos: [-12.5, 0, 9.6], facing: -Math.PI / 2 },
 
+  // objetos que se rompen con el bastón (la geoda violeta guarda la Reliquia de Aethra de esta zona)
+  breakables: [
+    { id: 'reliquia_puerto_bruma', kind: 'cofre', x: -37.4, y: 3.6, z: -16.6, loot: 'reliquia' },
+    { id: 'puerto_bruma_v1', kind: 'vasija', x: -6, y: 0, z: 9.5, loot: 'corazon' },
+    { id: 'puerto_bruma_v2', kind: 'vasija', x: 12, y: 0, z: 4 },
+    { id: 'puerto_bruma_v3', kind: 'vasija', x: -18, y: 0, z: 14, loot: 'corazon' },
+  ],
   islands: [
     { x: 0, z: 0, w: 44, d: 40, top: 0, depth: 4 },
     { x: -27.5, z: -4, w: 4, d: 4, top: 1, depth: 2 },

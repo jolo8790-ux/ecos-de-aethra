@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Input } from './input.js';
 import { Physics } from './physics.js';
-import { Player } from './player.js';
+import { Player, angleDiff } from './player.js';
 import { FollowCamera } from './camera.js';
 import { World } from './world.js';
 import { Audio } from './audio.js';
@@ -164,7 +164,7 @@ function loadZone(id, checkpointId) {
   hemi.color.setHex(li.hemiSky || 0xdff1ff); hemi.groundColor.setHex(li.hemiGround || 0x5c6a50); sun.color.setHex(li.sun || 0xfff1d6);
   world.build(zone, save); music.ambient(ZONE_AMB[zone.id]);
   player.updrafts = world.updrafts;
-  combat.spawnZone(zone, save);
+  combat.spawnZone(zone, save); combat.breakables = world.breakables;
   bossActive = false; hintClang = false; hintStun = false; hintAura = false; $('bossbar').classList.add('hidden');
   applyAbilities(); player.hp = player.maxHp;
   respawn(checkpointId);
@@ -181,10 +181,9 @@ function applyAbilities() {
   player.canGrapple = !!save.flags.garfio;
   player.canShield = !!save.flags.escudo;
   player.canPulse = !!save.flags.pulso;
-  $('tShield').classList.toggle('hidden', !(player.canShield && input.isTouch));
-  $('tPulse').classList.toggle('hidden', !(player.canPulse && input.isTouch));
-  $('tHook').classList.toggle('hidden', !(player.canGrapple && input.isTouch));
-  player.maxHp = 4 + Math.floor(save.fragments.length / 5);
+  $('tY').classList.toggle('off', !player.canShield);
+  $('tZ').classList.toggle('off', !(player.canGrapple || player.canPulse));
+  player.maxHp = 4 + Math.floor(save.fragments.length / 5) + Math.floor((save.relics || []).length / 2);
 }
 
 // Entrar en una zona (al empezar, al continuar o al cambiar de capítulo), con su introducción la primera vez.
@@ -220,6 +219,7 @@ function updateInteractions() {
     const d = Math.hypot(dx, dz);
     if (d > it.radius || Math.abs(dy) > 2.2) continue;
     if (it.type === 'fragment') { collectFragment(it); continue; }
+    if (it.type === 'relic') { collectRelic(it); continue; }
     if (it.type === 'lantern') {
       if (save.checkpoint !== it.id) lightLantern(it);
       continue;
@@ -227,10 +227,32 @@ function updateInteractions() {
     if (d < best) { best = d; focus = it; }
   }
   if (focus) {
-    $('prompt').innerHTML = `<b>${input.usingGamepad ? 'X' : input.isTouch ? 'USAR' : 'E'}</b>${focus.verb}`;
+    $('prompt').innerHTML = `<b>${input.usingGamepad ? input.padIcon('interact') : input.isTouch ? 'X' : 'E'}</b>${focus.verb}`;
     $('prompt').classList.remove('hidden');
     if (input.pressed('interact') && talkCooldown <= 0) openDialog(focus);
   } else $('prompt').classList.add('hidden');
+}
+
+// ---------- objetos rompibles y reliquias ----------
+const RELIC_TOTAL = 6;
+combat.onBreak = B => {
+  world.breakObject(B);
+  audio.play('shatter'); fx.sparkle(B.pos, 18, B.kind === 'cofre' ? 0xc8a8ff : 0xffc890); combat.shake(0.08, 0.15); input.rumble(90, 0.4);
+  if (B.loot === 'reliquia') world.spawnRelic(B.id, B.pos.clone().setY(B.pos.y - 0.45));
+  else if (B.loot === 'corazon') combat.spawnHeal(B.pos.x, B.pos.y - 0.45, B.pos.z);
+  else if (B.loot === 'reloj' && challenge) { challenge.t = Math.max(0, challenge.t - 3); audio.play('unlock'); toast('⏳ ¡Reloj de arena! −3 segundos'); }
+};
+function collectRelic(it) {
+  world.interactables.splice(world.interactables.indexOf(it), 1);
+  world.root.remove(it.mesh);
+  save.relics = save.relics || [];
+  if (!save.relics.includes(it.id)) save.relics.push(it.id);
+  music.stinger('hallazgo'); fx.sparkle(it.pos.clone().setY(it.pos.y + 1), 26, 0xffd27a);
+  player.gesture('Cheer', { speed: 1.2, fadeOut: 0.3 });
+  const n = save.relics.length, before = player.maxHp;
+  applyAbilities(); if (player.maxHp > before) player.hp = player.maxHp;
+  toast(n === RELIC_TOTAL ? '¡Encontraste todas las Reliquias de Aethra!' : `Reliquia de Aethra (${n}/${RELIC_TOTAL})${player.maxHp > before ? ' · ¡un corazón más!' : ''}`);
+  writeSave(save);
 }
 
 function collectFragment(it) {
@@ -321,7 +343,7 @@ function updateDialog(dt) {
     if (d.i >= d.lines.length) { closeDialog(true); return; }
     showLine();
   }
-  if (dialog) $('dNext').textContent = `${d.i + 1}/${d.lines.length} · ${input.isTouch ? 'toca' : input.usingGamepad ? 'A' : 'E / clic'} para continuar`;
+  if (dialog) $('dNext').textContent = `${d.i + 1}/${d.lines.length} · ${input.usingGamepad ? input.padIcon('jump') + ' / ' + input.padIcon('interact') : input.isTouch ? 'toca' : 'E / clic'} para continuar`;
 }
 function choose(i) {
   const d = dialog; if (!d) return;
@@ -493,7 +515,7 @@ $('bEndTitle').onclick = () => leaveEnding(true);
 // ---------- combate: vida, muerte, jefe ----------
 function handlePlayerEvents() {
   for (const ev of player.events) {
-    if (ev.type === 'hurt') { combat.shake(0.25, 0.25); $('hudHearts').classList.remove('hit'); void $('hudHearts').offsetWidth; $('hudHearts').classList.add('hit'); }
+    if (ev.type === 'hurt') { combat.shake(0.25, 0.25); input.rumble(220, 0.7); $('hudHearts').classList.remove('hit'); void $('hudHearts').offsetWidth; $('hudHearts').classList.add('hit'); }
     if (ev.type === 'dead') startDeath();
     if (ev.type === 'pulse') doPulse(ev.pos, ev.radius);
   }
@@ -614,14 +636,144 @@ function refreshTitle() {
 }
 refreshTitle();
 
+// En el teléfono: pantalla completa y horizontal al empezar a jugar
+function goFull() {
+  if (!input.isTouch) return;
+  try { const r = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); if (r && r.then) r.then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {})).catch(() => {}); } catch (e) {}
+}
 function startGame(s) {
-  audio.unlock(); music.init();
+  audio.unlock(); music.init(); goFull();
   save = s;
   writeSave(save);
   showOverlay(null);
   enterZone(save.zone, save.checkpoint);
 }
 $('bContinue').onclick = () => startGame(loadSave() || newSave());
+// ---------- modo automático: Lía supera los retos sola ----------
+// Camina hacia el objetivo; si hay un hueco, una subida o se atasca, vuela con el planeador hasta él.
+// Al llegar habla, recoge, enciende cristales, rompe cerraduras o barreras, y en los jefes los derrota poco a poco.
+const auto = { fly: null, stuckT: 0, last: new THREE.Vector3(), nearT: 0, goalKey: '', bossT: 0, atkT: 0, readT: 0, endT: 0 };
+function nearestFragment() {
+  let best = null, bd = Infinity;
+  for (const it of world.interactables) if (it.type === 'fragment') { const d = it.pos.distanceTo(player.pos); if (d < bd) { bd = d; best = it; } }
+  if (!best) return null; const v = best.pos.clone(); v.precise = true; return v;
+}
+function autoTarget() {
+  if (challenge) { const f = nearestFragment(); if (f) return f; if (world.portal && world.portal.open) { const v = world.portal.pos.clone(); v.precise = true; return v; } return null; } // cristales y luego el portal
+  if (!zone.story) return null;
+  const b = combat.boss;
+  if (b && b.fighting) return null; // en la pelea se queda en su sitio
+  const g = zone.story.goal(S); if (!g) return null;
+  if (g.auto) return new THREE.Vector3(...g.auto); // pista para el modo automático (p. ej. adónde lleva una seta)
+  return g.at ? new THREE.Vector3(...g.at) : nearestFragment(); // sin lugar marcado: busca fragmentos
+}
+function autoSolveNear(p, r) { // mecanismos cerca del objetivo
+  for (const L of world.locks) if (!L.open && L.pos && L.pos.distanceTo(p) < r) combat.onLockHit(L);
+  for (const C of world.lightCrystals) if (!C.on && C.pos.distanceTo(p) < r) { C.set(true); if (C.flag) S.set(C.flag); audio.play('unlock'); }
+  for (const B of world.darkBarriers) if (!B.gone && B.pos.distanceTo(p) < r + (B.half || 0)) { world.dispelBarrier(B); if (B.flag) S.set(B.flag); audio.play('unlock'); }
+}
+function autoPilot(dt) {
+  // diálogos: deja leer y avanza solo; en las elecciones toma la primera opción
+  if (state === 'dialog' && dialog) {
+    auto.readT += dt;
+    const line = dialog.lines[dialog.i];
+    if (dialog.shown >= dialog.full.length && auto.readT > 1.2 + dialog.full.length * 0.03) { auto.readT = 0; if (line && line.choices) choose(0); else input._pressed.add('interact'); }
+    return;
+  }
+  auto.readT = 0;
+  if (state === 'end') { auto.endT += dt; if (auto.endT > 6) { auto.endT = 0; const b = $('bNextChapter'); if (b && !b.classList.contains('hidden')) b.click(); } return; }
+  auto.endT = 0;
+  if (state !== 'play' || auto.fly) return;
+  // enemigos cercanos: los golpea
+  auto.atkT -= dt;
+  for (const e of combat.enemies) if (e.alive && e.pos.distanceTo(player.pos) < 2.4 && auto.atkT <= 0) {
+    player.facing = Math.atan2(-(e.pos.x - player.pos.x), -(e.pos.z - player.pos.z)); input._pressed.add('attack'); auto.atkT = 0.45;
+    if (e.dispel) e.dispel();
+  }
+  // jefe: cada pocos segundos le acierta en su punto débil
+  const b = combat.boss;
+  if (b && b.fighting) {
+    auto.bossT += dt; input.move.x = input.move.y = 0;
+    const want = Math.atan2(-(b.pos.x - player.pos.x), -(b.pos.z - player.pos.z)); cam.yaw += angleDiff(want, cam.yaw) * Math.min(1, dt * 2);
+    if (auto.bossT > 2.6) { auto.bossT = 0; input._pressed.add('attack'); combat.autoWound(); }
+    return;
+  }
+  const T = autoTarget(); if (!T) { input.move.x = input.move.y = 0; return; }
+  const dx = T.x - player.pos.x, dz = T.z - player.pos.z, dh = Math.hypot(dx, dz), up = T.y - player.pos.y;
+  const key = `${zone.id}|${lastGoal}|${T.x.toFixed(1)},${T.z.toFixed(1)}`;
+  if (key !== auto.goalKey) { auto.goalKey = key; auto.nearT = 0; auto.stuckT = 0; }
+  if (dh < (T.precise ? 0.45 : 1.6) && Math.abs(up) < 2.2) { // llegó
+    input.move.x = 0; input.move.y = auto.nearT > 1.5 && auto.nearT < 3.5 && !focus ? 1 : 0; auto.nearT += dt; // si no pasa nada, sigue un poco hacia delante
+    if (focus && auto.nearT > 0.4 && talkCooldown <= 0) input._pressed.add('interact');
+    autoSolveNear(T, 6);
+    if (auto.nearT > 5) { // si nada cambia, prueba con todo lo que hay alrededor
+      for (const it of world.interactables) if (it.pos.distanceTo(player.pos) < 6 && it.type !== 'fragment' && it.type !== 'relic' && it.active !== false) { openDialog(it); break; }
+      autoSolveNear(player.pos, 12); auto.nearT = 0;
+    }
+    return;
+  }
+  // caminar hacia el objetivo con la cámara detrás
+  const want = Math.atan2(-dx, -dz);
+  cam.yaw += angleDiff(want, cam.yaw) * Math.min(1, dt * 4);
+  const rel = angleDiff(want, cam.yaw);
+  input.move.x = -Math.sin(rel); input.move.y = Math.cos(rel);
+  // ¿atascada, subida alta o suelo que se acaba delante?
+  auto.stuckT = player.pos.distanceTo(auto.last) < dt * 1.2 ? auto.stuckT + dt : Math.max(0, auto.stuckT - dt);
+  auto.last.copy(player.pos);
+  const ax = player.pos.x - Math.sin(want) * 1.2, az = player.pos.z - Math.cos(want) * 1.2;
+  const ground = physics.raycast(ax, player.pos.y + 0.5, az, 0, -1, 0, 3);
+  const noGround = player.grounded && ground > 2.5 && dh > 2;
+  if (player.grounded && (auto.stuckT > 0.7 || up > 1.3 || noGround)) startAutoFly(T, want);
+}
+function startAutoFly(T, want) {
+  const from = player.pos.clone(), d = Math.hypot(T.x - from.x, T.z - from.z);
+  // aterriza en el objetivo (o un poco más allá si justo ahí no hay suelo), sobre lo que haya
+  let to = null;
+  for (const k of [0, 1.2, 2.4, -1.2]) {
+    const x = T.x - Math.sin(want) * k, z = T.z - Math.cos(want) * k;
+    const hit = physics.raycast(x, T.y + 3, z, 0, -1, 0, 8);
+    if (hit < 8) { to = new THREE.Vector3(x, T.y + 3 - hit + 0.05, z); break; }
+  }
+  if (!to) to = new THREE.Vector3(T.x, T.y + 0.05, T.z);
+  const apex = Math.max(from.y, to.y) + 2.5 + d * 0.08;
+  auto.fly = { from, to, apex, t: 0, dur: Math.max(0.9, d / 9) };
+  player.facing = want; audio.play('glide'); auto.stuckT = 0;
+}
+function autoFly(dt) {
+  const F = auto.fly; F.t += dt; const k = Math.min(1, F.t / F.dur);
+  const x = F.from.x + (F.to.x - F.from.x) * k, z = F.from.z + (F.to.z - F.from.z) * k;
+  const y = (1 - k) * (1 - k) * F.from.y + 2 * (1 - k) * k * (F.apex * 2 - (F.from.y + F.to.y) / 2) + k * k * F.to.y;
+  player.vel.set(0, 0, 0); player.pos.set(x, y, z); player.grounded = false;
+  const was = player.canGlide; player.canGlide = true; player.gliding = k > 0.15 && k < 0.95;
+  player.update(dt, { move: { x: 0, y: 0 }, look: { x: 0, y: 0 }, pressed: () => false, held: () => false, walk: false }, cam.yaw, []);
+  player.pos.set(x, y, z); player.vel.set(0, 0, 0); player.canGlide = was;
+  if (k >= 1) { auto.fly = null; player.gliding = false; player.teleport(F.to.x, F.to.y, F.to.z, player.facing); }
+}
+
+// ---------- menús con el mando: cruceta para elegir, ✕/A para aceptar, ○/B para volver ----------
+let navI = 0, navSig = '';
+function menuNav() {
+  if (!input.usingGamepad) { document.querySelectorAll('.padFocus').forEach(e => e.classList.remove('padFocus')); return; }
+  if (state === 'play' || state === 'dialog' || state === 'dead' || state === 'cutscene') return;
+  const ov = [...document.querySelectorAll('.overlay:not(.hidden)')].pop(); if (!ov) return;
+  const items = [...ov.querySelectorAll('button, select')].filter(el => !el.disabled && el.offsetParent !== null);
+  if (!items.length) return;
+  const sig = items.map(e => e.id || e.textContent).join('|');
+  if (sig !== navSig) { navSig = sig; navI = 0; }
+  if (input.pressed('choiceUp')) navI = (navI + items.length - 1) % items.length;
+  if (input.pressed('choiceDown')) navI = (navI + 1) % items.length;
+  navI = Math.min(navI, items.length - 1);
+  const el = items[navI];
+  document.querySelectorAll('.padFocus').forEach(e => e !== el && e.classList.remove('padFocus'));
+  el.classList.add('padFocus'); el.scrollIntoView && el.scrollIntoView({ block: 'nearest' });
+  if (el.tagName === 'SELECT' && (input.pressed('navLeft') || input.pressed('navRight'))) {
+    el.selectedIndex = Math.max(0, Math.min(el.options.length - 1, el.selectedIndex + (input.pressed('navRight') ? 1 : -1)));
+    el.dispatchEvent(new Event('change'));
+  }
+  if (input.pressed('jump') && el.tagName === 'BUTTON') { audio.play('open'); el.click(); navSig = ''; }
+  if (input.pressed('dodge')) { const back = items.find(b => /Volver|Listo|Continuar/.test(b.textContent) && b.tagName === 'BUTTON'); if (back && state !== 'title') back.click(); else if (back && /Volver/.test(back.textContent)) back.click(); navSig = ''; }
+}
+
 // ---------- desafíos: Cristales del Cielo ----------
 const CH_KEY = 'aethra_desafios_v1';
 const loadCh = () => { try { return JSON.parse(localStorage.getItem(CH_KEY)) || {}; } catch (e) { return {}; } };
@@ -632,7 +784,7 @@ function startChallenge(i) {
   challenge = { i, L, t: 0, done: false };
   save = newSave(); save.zone = L.id;
   Object.assign(save.flags, { baston: true, impulso: true, brujula: true }, L.abilities);
-  audio.unlock(); music.init();
+  audio.unlock(); music.init(); goFull();
   showOverlay(null); titlePanel(null);
   loadZone(L.id);
   state = 'play'; lastGoal = '';
@@ -650,15 +802,16 @@ function updateChallenge(dt) {
 }
 function finishChallenge() {
   const C = challenge; C.done = true;
-  const rec = loadCh(), prev = rec[C.L.id], best = !prev || C.t < prev.t;
+  const rec = loadCh(), prev = rec[C.L.id], isAuto = !!(player.diff && player.diff.auto), best = !isAuto && (!prev || prev.t == null || C.t < prev.t);
   if (best) { rec[C.L.id] = { t: C.t }; try { localStorage.setItem(CH_KEY, JSON.stringify(rec)); } catch (e) {} }
-  const m = medalFor(C.L, C.t), next = DESAFIOS[C.i + 1];
+  else if (isAuto && !prev) { rec[C.L.id] = { t: null }; try { localStorage.setItem(CH_KEY, JSON.stringify(rec)); } catch (e) {} } // desbloquea el siguiente, sin tiempo
+  const m = isAuto ? null : medalFor(C.L, C.t), next = DESAFIOS[C.i + 1];
   state = 'end'; document.body.classList.add('cine'); player.frozen = true;
   music.stinger('victoria'); fx.sparkle(player.pos.clone().setY(player.pos.y + 1.2), 30, 0xc8b8ff);
   const [o, p, b] = C.L.medals;
   showEndCard({
     kicker: `Desafío ${C.i + 1} superado`, title: C.L.title,
-    stats: `Tiempo: <b>${fmtT(C.t)}</b>${best ? ' · ¡nuevo récord!' : ` · récord: ${fmtT(prev.t)}`}<br>${m ? MEDAL[m] : 'Sin medalla'} · oro ${o} s · plata ${p} s · bronce ${b} s`,
+    stats: `Tiempo: <b>${fmtT(C.t)}</b>${isAuto ? ' · modo automático (no cuenta como récord)' : best ? ' · ¡nuevo récord!' : prev && prev.t != null ? ` · récord: ${fmtT(prev.t)}` : ''}<br>${m ? MEDAL[m] : 'Sin medalla'} · oro ${o} s · plata ${p} s · bronce ${b} s`,
     sub: next ? '' : 'Superaste todos los desafíos. ¿Puedes conseguir el oro en todos?',
     next: { label: next ? `Siguiente: ${next.title}` : 'Repetir este desafío', fn: () => startChallenge(next ? C.i + 1 : C.i) },
   });
@@ -667,9 +820,9 @@ function finishChallenge() {
 $('bChallenges').onclick = () => {
   const rec = loadCh(), list = $('challengeList'); list.innerHTML = '';
   DESAFIOS.forEach((L, i) => {
-    const r = rec[L.id], open = i === 0 || rec[DESAFIOS[i - 1].id], m = r && medalFor(L, r.t);
+    const r = rec[L.id], open = i === 0 || rec[DESAFIOS[i - 1].id], m = r && r.t != null && medalFor(L, r.t);
     const b = document.createElement('button');
-    b.innerHTML = `<span>${i + 1}. ${L.title}${L.abilities.garfio ? ' · garfio' : L.abilities.planeador ? ' · planeador' : ''}</span><span>${!open ? '🔒' : r ? `${m ? MEDAL[m].split(' ')[0] + ' ' : ''}${fmtT(r.t)}` : '—'}</span>`;
+    b.innerHTML = `<span>${i + 1}. ${L.title}${L.abilities.garfio ? ' · garfio' : L.abilities.planeador ? ' · planeador' : ''}</span><span>${!open ? '🔒' : r && r.t != null ? `${m ? MEDAL[m].split(' ')[0] + ' ' : ''}${fmtT(r.t)}` : r ? '✓' : '—'}</span>`;
     b.disabled = !open; b.onclick = () => startChallenge(i);
     list.appendChild(b);
   });
@@ -691,7 +844,7 @@ $('bChapters').onclick = () => {
     const Z = ZONES[id], reached = sv && (sv.zone === id || sv.flags[id === 'puerto_bruma' ? 'intro' : 'intro_' + id]);
     const got = sv ? Z.fragments.filter(f => sv.fragments.includes(f.id)).length : 0;
     const b = document.createElement('button');
-    b.innerHTML = `<span>${label} · ${Z.title}</span><span>${reached ? `◆ ${got}/${Z.fragments.length}` : '🔒'}</span>`;
+    b.innerHTML = `<span>${label} · ${Z.title}</span><span>${reached ? `◆ ${got}/${Z.fragments.length} · ${(sv.relics || []).includes('reliquia_' + id) ? '✦ reliquia' : '✧ reliquia'}` : '🔒'}</span>`;
     b.disabled = !reached;
     b.onclick = () => { titlePanel(null); audio.unlock(); music.init(); save = sv; showOverlay(null); enterZone(id); };
     list.appendChild(b);
@@ -770,6 +923,10 @@ let paused4test = false;
 function simulate(dt) {
   time += dt;
   input.poll();
+  // botón Z (táctil) / acción especial: garfio si hay un anillo a la vista, si no, pulso de luz
+  if (input.pressed('special')) input._pressed.add(hookTarget && player.canGrapple ? 'grapple' : 'pulse');
+  menuNav();
+  if (player.diff && player.diff.auto) autoPilot(dt);
   updateMusic();
   if (challenge && state === 'play') updateChallenge(dt);
   if (input.pressed('pause') && (state === 'play' || state === 'dialog' || state === 'pause')) pause();
@@ -785,7 +942,7 @@ function simulate(dt) {
       const want = Math.atan2(-(dialog.it.pos.x - player.pos.x), -(dialog.it.pos.z - player.pos.z));
       player.facing += Math.atan2(Math.sin(want - player.facing), Math.cos(want - player.facing)) * Math.min(1, dt * 6);
     }
-    player.update(dt, input, cam.yaw, state === 'play' ? combat.targets : []);
+    if (auto.fly) autoFly(dt); else player.update(dt, input, cam.yaw, state === 'play' ? combat.targets : []);
     combat.handlePlayer(player);
     if (state === 'play') combat.update(dt, player);
     handlePlayerEvents();
@@ -856,7 +1013,7 @@ frame();
 // gancho para pruebas automáticas
 // step(n): avanza n pasos de 1/60 s sin depender de la velocidad de dibujo (para pruebas en máquinas lentas)
 window.__aethra = {
-  music, renderer,
+  music, renderer, auto, autoTarget: () => autoTarget(), get focus() { return focus; },
   player, cam, world, input, get state() { return state; }, get save() { return save; }, startGame, newSave, loadZone,
   hold(on) { paused4test = on; }, S, combat, enterZone, choose, get zone() { return zone; }, get dialog() { return dialog; },
   step(n, press) {

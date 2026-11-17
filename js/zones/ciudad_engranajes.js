@@ -15,6 +15,13 @@ export default {
   water: { y: -18, color: 0xb89aa8 },
   start: { id: 'llegada', pos: [0, 0, 4], facing: 0 },
 
+  // objetos que se rompen con el bastón (la geoda violeta guarda la Reliquia de Aethra de esta zona)
+  breakables: [
+    { id: 'reliquia_ciudad_engranajes', kind: 'cofre', x: 16.2, y: 12, z: -49.5, loot: 'reliquia' },
+    { id: 'ciudad_engranajes_v1', kind: 'vasija', x: -6, y: 0, z: -24, loot: 'corazon' },
+    { id: 'ciudad_engranajes_v2', kind: 'vasija', x: 6, y: 6, z: -53 },
+    { id: 'ciudad_engranajes_v3', kind: 'vasija', x: -3, y: 6, z: -78, loot: 'corazon' },
+  ],
   islands: [
     { x: 0, z: 2, w: 16, d: 16, top: 0, depth: 4 },          // muelle
     { x: 0, z: -20, w: 16, d: 14, top: 0, depth: 4 },        // taller

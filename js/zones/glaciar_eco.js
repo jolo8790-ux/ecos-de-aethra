@@ -16,6 +16,13 @@ export default {
   snow: 260,
   start: { id: 'llegada', pos: [0, 0, 4], facing: 0 },
 
+  // objetos que se rompen con el bastón (la geoda violeta guarda la Reliquia de Aethra de esta zona)
+  breakables: [
+    { id: 'reliquia_glaciar_eco', kind: 'cofre', x: 15.2, y: 2, z: -41.2, loot: 'reliquia' },
+    { id: 'glaciar_eco_v1', kind: 'vasija', x: -6, y: 0, z: -17, loot: 'corazon' },
+    { id: 'glaciar_eco_v2', kind: 'vasija', x: 6, y: 0, z: -50 },
+    { id: 'glaciar_eco_v3', kind: 'vasija', x: 3, y: 5, z: -68.5, loot: 'corazon' },
+  ],
   islands: [
     { x: 0, z: 2, w: 16, d: 16, top: 0, depth: 4 },          // muelle
     { x: 0, z: -20, w: 16, d: 14, top: 0, depth: 4 },        // campamento

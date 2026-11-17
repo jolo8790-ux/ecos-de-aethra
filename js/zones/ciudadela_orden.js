@@ -15,6 +15,13 @@ export default {
   water: { y: -18, color: 0x7a5a8a },
   start: { id: 'llegada', pos: [0, 0, 4], facing: 0 },
 
+  // objetos que se rompen con el bastón (la geoda violeta guarda la Reliquia de Aethra de esta zona)
+  breakables: [
+    { id: 'reliquia_ciudadela_orden', kind: 'cofre', x: -7, y: 2, z: -52.5, loot: 'reliquia' },
+    { id: 'ciudadela_orden_v1', kind: 'vasija', x: 6, y: 0, z: -24, loot: 'corazon' },
+    { id: 'ciudadela_orden_v2', kind: 'vasija', x: -6, y: 0, z: -15 },
+    { id: 'ciudadela_orden_v3', kind: 'vasija', x: 3.5, y: 7, z: -69, loot: 'corazon' },
+  ],
   islands: [
     { x: 0, z: 2, w: 16, d: 16, top: 0, depth: 4 },          // muelle
     { x: 0, z: -20, w: 16, d: 14, top: 0, depth: 4 },        // patio

@@ -15,6 +15,13 @@ export default {
   water: { y: -16, color: 0xffe0b8 },
   start: { id: 'llegada', pos: [0, 0, 4], facing: 0 },
 
+  // objetos que se rompen con el bastón (la geoda violeta guarda la Reliquia de Aethra de esta zona)
+  breakables: [
+    { id: 'reliquia_ruinas_vidrio', kind: 'cofre', x: -15.2, y: 1, z: -45.2, loot: 'reliquia' },
+    { id: 'ruinas_vidrio_v1', kind: 'vasija', x: 6, y: 0, z: -17, loot: 'corazon' },
+    { id: 'ruinas_vidrio_v2', kind: 'vasija', x: -6, y: -3, z: -52 },
+    { id: 'ruinas_vidrio_v3', kind: 'vasija', x: 4.5, y: 8, z: -60, loot: 'corazon' },
+  ],
   islands: [
     { x: 0, z: 2, w: 16, d: 16, top: 0, depth: 4 },          // muelle
     { x: 0, z: -20, w: 16, d: 14, top: 0, depth: 4 },        // campamento
@@ -120,9 +127,9 @@ export default {
       if (!S.has('tomas_hablo')) return { text: 'Habla con Tomás en el campamento', at: [-1.5, 0, -17.5] };
       if (!S.has('planeador')) return { text: 'Toma el planeador junto a la tienda', at: [-3, 0, -24.2] };
       if (!S.has('llego_patio')) return { text: 'Salta al abismo y mantén el salto para planear', at: [0, -3, -44] };
-      if (!S.has('llego_terraza')) return { text: 'Planea dentro de la columna de viento para subir', at: [4.5, -3, -52.5] };
+      if (!S.has('llego_terraza')) return { text: 'Planea dentro de la columna de viento para subir', at: [4.5, -3, -52.5], auto: [0, 8, -62] };
       if (!S.has('escorpion_vencido')) return S.bossActive ? { text: 'Haz que embista contra un pilar y golpea el cristal de su cola', at: null } : { text: 'Cruza el puente hacia la arena', at: [0, 8, -76] };
-      if (!S.has('gran_fragmento_2')) return { text: 'Sube al santuario con la nueva columna de viento', at: [0, 8, -99.5] };
+      if (!S.has('gran_fragmento_2')) return { text: 'Sube al santuario con la nueva columna de viento', at: [0, 8, -99.5], auto: [0, 16, -113] };
       return { text: 'Capítulo 2 completado. Vuelve con Marta cuando quieras zarpar.', at: [-3.2, 0, 6] };
     },
 

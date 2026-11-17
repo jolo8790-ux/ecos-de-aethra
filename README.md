@@ -4,7 +4,7 @@ Aventura 3D con historia para el navegador, hecha con [Three.js](https://threejs
 
 Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes para reunir los fragmentos del Corazón de Aethra y decidir el destino de su mundo.
 
-## Estado: versión 1.2
+## Estado: versión 1.3
 
 | Etapa | Contenido | Estado |
 | --- | --- | --- |
@@ -28,20 +28,25 @@ python -m http.server 8000
 
 ## Controles
 
-| Acción | Teclado | Mando |
-| --- | --- | --- |
-| Moverse | W A S D (Shift para caminar) | Stick izquierdo |
-| Cámara | Arrastrar con el ratón, rueda para acercar | Stick derecho |
-| Saltar / doble salto | Espacio | A |
-| Golpear (combo de 3) | Clic izquierdo o J | X |
-| Esquivar / impulso aéreo | Clic derecho o K | B |
-| Planear (con el planeador) | Mantener Espacio al caer | Mantener A |
-| Garfio (al anillo marcado) | G o clic central | RB / RT |
-| Escudo (bloquea y refleja) | Mantener V | Mantener LB |
-| Pulso de luz | Z | LT |
-| Elegir en diálogos | 1 / 2 o flechas y E | Cruceta y Y |
-| Hablar, leer, usar | E | Y |
-| Pausa, ajustes y guardado | Esc o P | Start |
+| Acción | Teclado | Mando PS4 (Xbox) | Teléfono (horizontal) |
+| --- | --- | --- | --- |
+| Moverse | W A S D (Shift para caminar) | Stick izquierdo o cruceta | Palanca izquierda |
+| Cámara | Arrastrar con el ratón, rueda para acercar | Stick derecho | Deslizar en la mitad derecha |
+| Saltar / doble salto / planear | Espacio (mantener para planear) | ✕ (A) | A |
+| Golpear (combo de 3) y romper vasijas | Clic izquierdo o J | □ (X) | B |
+| Esquivar / impulso aéreo | Clic derecho o K | ○ (B) | C |
+| Hablar, leer, usar | E | △ (Y) | X |
+| Escudo (bloquea y refleja) | Mantener V | Mantener L1 (LB) | Mantener Y |
+| Garfio (al anillo marcado) | G o clic central | R1 / R2 (RB / RT) | Z (si hay un anillo a la vista) |
+| Pulso de luz | Z | L2 (LT) | Z |
+| Pausa, ajustes y guardado | Esc o P | OPTIONS (Start) | ❚❚ |
+| Menús | Ratón | Cruceta para elegir, ✕ aceptar, ○ volver | Tocar |
+
+**Mando de PS4 en la notebook:** conéctalo por cable USB o por Bluetooth (en Windows: Configuración → Bluetooth → Agregar dispositivo, manteniendo PS + SHARE hasta que la luz parpadee). Abre el juego en Chrome o Edge y pulsa cualquier botón del mando: el juego lo detecta solo, muestra los símbolos ✕ ○ □ △ y vibra al recibir golpes.
+
+**Dificultad:** Cuento (fácil), Aventura (normal), Leyenda (difícil) y **Automático**: Lía recorre la historia y los desafíos sola (camina, planea hasta donde haga falta, resuelve los mecanismos y vence a los jefes); los desafíos jugados así no cuentan como récord.
+
+**Reliquias de Aethra:** cada zona esconde una geoda violeta que se rompe con el bastón; dentro hay una reliquia. Cada dos reliquias, un corazón más. Las vasijas pueden tener corazones, y en los desafíos un reloj de arena que resta 3 segundos.
 
 ## Estructura
 
