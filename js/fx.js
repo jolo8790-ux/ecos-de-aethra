@@ -41,6 +41,12 @@ export class FX {
       this._spawn(pos, new THREE.Vector3(Math.cos(a) * 3, -0.4, Math.sin(a) * 3), { life: 0.3, size: 0.06, grow: 1.5, color, opacity: 0.6, grav: 0 });
     }
   }
+  wind(pos, dx, dz) { // líneas de aire que anuncian una ráfaga
+    for (let i = 0; i < 10; i++) {
+      const o = new THREE.Vector3(pos.x - dx * 4 + (Math.random() - 0.5) * 3, pos.y + 0.4 + Math.random() * 1.6, pos.z - dz * 4 + (Math.random() - 0.5) * 3);
+      this._spawn(o, new THREE.Vector3(dx * 9, 0, dz * 9), { life: 0.55, size: 0.05, grow: 0.5, color: 0xffffff, opacity: 0.8, grav: 0 });
+    }
+  }
   update(dt) {
     for (const p of this.items) {
       if (p.life <= 0) continue;

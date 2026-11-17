@@ -53,6 +53,11 @@
   .slot b { display: block; font-size: 15px; } .slot small { display: block; font-size: 12px; opacity: .75; line-height: 1.3; }
   @media (max-height: 520px) { .slot { min-width: 140px; padding: 6px 10px; } .slots { margin-bottom: 8px; } }
   .keysBox { margin-top: 14px; } .keysBox summary { cursor: pointer; opacity: .8; font-size: 15px; } .touch .keysBox { display: none; }
+  #glideBar { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); width: 170px; height: 12px; border-radius: 8px; background: rgba(10,20,40,.55); border: 2px solid rgba(255,255,255,.55); z-index: 5; overflow: hidden; pointer-events: none; }
+  #glideFill { height: 100%; width: 100%; background: linear-gradient(90deg, #7fe0d8, #c8fff4); border-radius: 6px; transition: width .08s linear; }
+  #glideBar.low #glideFill { background: linear-gradient(90deg, #ff5a4a, #ffb08a); }
+  #glideBar.low { animation: blink .35s infinite alternate; }
+  @keyframes blink { from { opacity: 1; } to { opacity: .45; } }
   .btn.small { font-size: 16px; padding: 8px 20px; }
   .row2 { display: flex; gap: 10px; justify-content: center; }
   .tpanel { background: rgba(8,20,40,.72); border-radius: 18px; padding: 18px 26px; max-width: 560px; margin-top: 8px; }
@@ -156,6 +161,7 @@
   <div>La tarjeta gráfica se reinició. Recuperando la imagen…</div>
   <button id="glReload" class="hidden" onclick="location.reload()" style="font:inherit;padding:10px 22px;border-radius:12px;border:0;background:#7fd3ff;color:#10213a;cursor:pointer">Recargar desde el último punto guardado</button>
 </div>
+<div id="glideBar" class="hidden"><div id="glideFill"></div></div>
 <div id="hud" class="hidden"><div class="chip" id="hudHearts"></div><div class="chip" id="hudFrag">◆ 0/0</div></div>
 <div id="chTimer" class="hidden">⏱ 0:00.0</div>
 <div id="bossbar" class="hidden"><div class="bname" id="bossName"></div><div class="btrack"><div class="bfill" id="bossFill"></div></div></div>
@@ -182,7 +188,7 @@
 
 <div class="overlay" id="title">
   <h1>Ecos de Aethra</h1>
-  <p class="sub">Versión 1.5</p>
+  <p class="sub">Versión 1.6</p>
   <p class="sub" id="loading" style="margin-bottom:12px">Cargando personajes…</p>
   <div class="slots" id="slotRow"></div>
   <div class="menu">

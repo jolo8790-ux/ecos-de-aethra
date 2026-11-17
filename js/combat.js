@@ -16,10 +16,10 @@ function mesh(geo, m, parent, x = 0, y = 0, z = 0) { const o = new THREE.Mesh(ge
 
 // Niveles de dificultad
 export const DIFF = {
-  facil: { name: 'Cuento', dmg: 0.5, invuln: 1.8, bossHp: 0.7, fallHurts: false },
-  normal: { name: 'Aventura', dmg: 1, invuln: 1.1, bossHp: 1, fallHurts: true },
-  dificil: { name: 'Leyenda', dmg: 2, invuln: 0.8, bossHp: 1.35, fallHurts: true },
-  auto: { name: 'Automático', dmg: 0, invuln: 1.8, bossHp: 0.7, fallHurts: false, auto: true },
+  facil: { name: 'Cuento', dmg: 0.5, invuln: 1.8, bossHp: 0.7, fallHurts: false, glide: 7, gust: 0.6 },
+  normal: { name: 'Aventura', dmg: 1, invuln: 1.1, bossHp: 1, fallHurts: true, glide: 5, gust: 1 },
+  dificil: { name: 'Leyenda', dmg: 2, invuln: 0.8, bossHp: 1.35, fallHurts: true, glide: 4, gust: 1.3 },
+  auto: { name: 'Automático', dmg: 0, invuln: 1.8, bossHp: 0.7, fallHurts: false, auto: true, glide: 5, gust: 1 },
 };
 
 // Modelo generado con un material propio que puede brillar (el brillo usa la propia textura).
@@ -131,6 +131,46 @@ class Enemy {
     return false;
   }
   updateFlash(dt) { if (this.flash > 0 && (this.flash -= dt) <= 0) setFlash(this.group, false); }
+}
+
+// Avispa de cristal: vuela en círculos junto a las corrientes de aire y los tramos de vuelo.
+// Si toca a Lía en el aire, la golpea y le pliega el planeador. Un golpe de bastón o un pulso la deshace.
+class Avispa extends Enemy {
+  constructor(c, x, y, z, E = {}) {
+    super(c, x, y, z);
+    this.hp = 1; this.radius = 0.55; this.color = 0xffc85a; this.flying = true;
+    this.cx = x; this.cy = y; this.cz = z; this.r = E.r ?? 3; this.speed = (E.speed ?? 1.1) * (Math.random() < 0.5 ? 1 : -1); this.ph = Math.random() * 6.28;
+    this.axis = E.axis; this.hitCd = 0;
+    const g = this.group, body = new THREE.MeshStandardMaterial({ color: 0xffc85a, emissive: 0xa0601a, emissiveIntensity: 0.6, flatShading: true, roughness: 0.3 });
+    mesh(new THREE.OctahedronGeometry(0.32, 0), body, g, 0, 0, 0).scale.set(1, 0.8, 1.5);
+    mesh(new THREE.ConeGeometry(0.1, 0.35, 5), mat(0x3a2a1a), g, 0, -0.02, 0.5).rotation.x = Math.PI / 2;
+    const wm = new THREE.MeshStandardMaterial({ color: 0xe8fbff, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false });
+    this.wings = [-1, 1].map(sd => { const w = mesh(new THREE.PlaneGeometry(0.55, 0.28), wm, g, sd * 0.32, 0.18, 0); w.userData.noFlash = true; w.castShadow = false; return w; });
+    this.eye = mesh(new THREE.SphereGeometry(0.07, 6, 5), new THREE.MeshBasicMaterial({ color: 0xff4a3a }), g, 0, 0.08, -0.4); this.eye.userData.noFlash = true;
+  }
+  hurt(dmg, from) { return super.hurt(dmg, from, 0); }
+  update(dt, pl) {
+    if (!this.alive) return;
+    this.t += dt; this.updateFlash(dt); this.hitCd -= dt;
+    const a = this.t * this.speed + this.ph;
+    if (this.axis) { const o = Math.sin(a) * this.r; this.pos.set(this.cx + (this.axis === 'x' ? o : 0), this.cy + Math.sin(this.t * 2.2) * 0.4, this.cz + (this.axis === 'z' ? o : 0)); }
+    else this.pos.set(this.cx + Math.cos(a) * this.r, this.cy + Math.sin(this.t * 2.2) * 0.4, this.cz + Math.sin(a) * this.r);
+    // mira hacia donde vuela
+    const da = a + Math.PI / 2 * Math.sign(this.speed);
+    this.group.position.copy(this.pos); this.group.rotation.y = this.axis ? (Math.cos(a) * this.speed > 0 ? (this.axis === 'x' ? -Math.PI / 2 : Math.PI) : (this.axis === 'x' ? Math.PI / 2 : 0)) : -da;
+    for (const [i, w] of this.wings.entries()) w.rotation.z = (i ? -1 : 1) * Math.sin(this.t * 40) * 0.6;
+    // picadura
+    const dx = pl.pos.x - this.pos.x, dy = pl.pos.y + 0.9 - this.pos.y, dz = pl.pos.z - this.pos.z;
+    if (this.hitCd <= 0 && dx * dx + dy * dy + dz * dz < 1.05 * 1.05) {
+      this.hitCd = 1.4;
+      const hit = pl.damage(1, this.pos);
+      if (hit) { pl.gliding = false; pl.tired = !pl.grounded; this.c.audio.play('hit'); }
+      else if (pl.diff && pl.diff.auto && pl.invuln <= 0) { // en automático no quita vida, pero sí la desvía
+        const l = Math.hypot(dx, dz) || 1; pl.vel.x = dx / l * 6; pl.vel.z = dz / l * 6; pl.vel.y = 2; pl.gliding = false; pl.tired = !pl.grounded; pl.invuln = 1.2;
+        this.c.audio.play('hit'); this.c.fx.sparkle(this.pos, 10, 0xffc85a);
+      }
+    }
+  }
 }
 
 // Brote de cristal: se acerca saltando, avisa (brilla y tiembla) y embiste.
@@ -1189,7 +1229,7 @@ export class Combat {
   spawnZone(zone, save) {
     this.clear();
     this.voidY = zone.water ? zone.water.y : -30;
-    for (const e of zone.enemies || []) this.addEnemy(e.type, e.x, e.y || 0, e.z);
+    for (const e of zone.enemies || []) this.addEnemy(e.type, e.x, e.y || 0, e.z, e);
     if (zone.boss && !save.flags[zone.boss.flag]) {
       const B = zone.boss, K = { raiz: RaizMadre, escorpion: Escorpion, coloso: Coloso, sierpe: Sierpe, vaelor: Vaelor, eco: Vaelor }[B.type] || RaizMadre;
       this.boss = new K(this, B.x, B.y, B.z, B);
@@ -1197,8 +1237,8 @@ export class Combat {
       if (k !== 1) this.boss.maxHp = this.boss.hp = Math.max(3, Math.round(this.boss.maxHp * k));
     }
   }
-  addEnemy(type, x, y, z) {
-    const e = ESPORA_LOOKS[type] ? new Espora(this, x, y, z, type) : new Brote(this, x, y, z, type);
+  addEnemy(type, x, y, z, E) {
+    const e = type === 'avispa' ? new Avispa(this, x, y, z, E) : ESPORA_LOOKS[type] ? new Espora(this, x, y, z, type) : new Brote(this, x, y, z, type);
     this.enemies.push(e); return e;
   }
   shake(amount, time) { this.shakeAmt = Math.max(this.shakeAmt, amount); this.shakeT = Math.max(this.shakeT, time); }

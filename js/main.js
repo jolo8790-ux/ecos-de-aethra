@@ -6,6 +6,7 @@ import { FollowCamera } from './camera.js';
 import { World } from './world.js';
 import { Audio } from './audio.js';
 import { Music } from './music.js';
+import { AutoNav } from './autonav.js';
 import { DESAFIOS, medalFor } from './zones/desafios.js';
 // Modo desafío: mientras está activo, nada se guarda en la partida de la historia.
 let challenge = null;
@@ -521,6 +522,8 @@ $('bEndTitle').onclick = () => leaveEnding(true);
 // ---------- combate: vida, muerte, jefe ----------
 function handlePlayerEvents() {
   for (const ev of player.events) {
+    if (ev.type === 'gustWarn') { fx.wind(player.pos, ev.dir.x, ev.dir.z); audio.play('glide'); input.rumble(120, 0.25); }
+    if (ev.type === 'tired') toast('¡El planeador se cansó! Aterriza o busca una corriente de aire');
     if (ev.type === 'hurt') { combat.shake(0.25, 0.25); input.rumble(220, 0.7); $('hudHearts').classList.remove('hit'); void $('hudHearts').offsetWidth; $('hudHearts').classList.add('hit'); }
     if (ev.type === 'dead') startDeath();
     if (ev.type === 'pulse') doPulse(ev.pos, ev.radius);
@@ -614,7 +617,16 @@ function updateCombatHUD() {
 }
 
 // ---------- UI ----------
+function updateGlideBar() { // aguante del planeador
+  const show = state === 'play' && player.canGlide && !player.grounded && (player.gliding || player.stamina < player.glideMax - 0.05);
+  $('glideBar').classList.toggle('hidden', !show);
+  if (!show) return;
+  const k = player.stamina / player.glideMax;
+  $('glideFill').style.width = (k * 100).toFixed(1) + '%';
+  $('glideBar').classList.toggle('low', k < 0.28);
+}
 function updateHUD() {
+  updateGlideBar();
   const total = zone.fragments.length, got = zone.fragments.filter(f => save.fragments.includes(f.id)).length;
   $('hudFrag').textContent = `◆ ${got}/${total}`;
 }
@@ -681,7 +693,7 @@ $('bContinue').onclick = () => startGame(loadSave() || newSave());
 // ---------- modo automático: Lía supera los retos sola ----------
 // Camina hacia el objetivo; si hay un hueco, una subida o se atasca, vuela con el planeador hasta él.
 // Al llegar habla, recoge, enciende cristales, rompe cerraduras o barreras, y en los jefes los derrota poco a poco.
-const auto = { fly: null, stuckT: 0, last: new THREE.Vector3(), nearT: 0, goalKey: '', bossT: 0, atkT: 0, readT: 0, endT: 0 };
+const auto = { stats: { flights: 0, edges: 0, fails: 0, kinds: {} }, fly: null, stuckT: 0, last: new THREE.Vector3(), nearT: 0, goalKey: '', bossT: 0, atkT: 0, readT: 0, endT: 0 };
 function nearestFragment() {
   let best = null, bd = Infinity;
   for (const it of world.interactables) if (it.type === 'fragment') { const d = it.pos.distanceTo(player.pos); if (d < bd) { bd = d; best = it; } }
@@ -702,6 +714,7 @@ function autoSolveNear(p, r) { // mecanismos cerca del objetivo
   for (const B of world.darkBarriers) if (!B.gone && B.pos.distanceTo(p) < r + (B.half || 0)) { world.dispelBarrier(B); if (B.flag) S.set(B.flag); audio.play('unlock'); }
 }
 function autoPilot(dt) {
+  input.autoJump = false;
   // diálogos: deja leer y avanza solo; en las elecciones toma la primera opción
   if (state === 'dialog' && dialog) {
     auto.readT += dt;
@@ -741,20 +754,186 @@ function autoPilot(dt) {
     }
     return;
   }
-  // caminar hacia el objetivo con la cámara detrás
+  // recorrido de verdad: camino por las superficies (andar, saltar, planear, corrientes, setas, garfio)
+  if (navLog.length > 300) navLog.splice(0, 150);
+  if (autoNavStep(dt, T, key)) { auto.noPathT = 0; return; }
+  auto.noPathT = (auto.noPathT || 0) + dt; // puede que el camino aparezca enseguida (una corriente que se activa)
+  // sin camino posible: camina hacia el objetivo y, si se atasca, vuela (último recurso)
   const want = Math.atan2(-dx, -dz);
-  cam.yaw += angleDiff(want, cam.yaw) * Math.min(1, dt * 4);
-  const rel = angleDiff(want, cam.yaw);
-  input.move.x = -Math.sin(rel); input.move.y = Math.cos(rel);
-  // ¿atascada, subida alta o suelo que se acaba delante?
+  steerTo(want, dt);
   auto.stuckT = player.pos.distanceTo(auto.last) < dt * 1.2 ? auto.stuckT + dt : Math.max(0, auto.stuckT - dt);
   auto.last.copy(player.pos);
   const ax = player.pos.x - Math.sin(want) * 1.2, az = player.pos.z - Math.cos(want) * 1.2;
   const ground = physics.raycast(ax, player.pos.y + 0.5, az, 0, -1, 0, 3);
   const noGround = player.grounded && ground > 2.5 && dh > 2;
-  if (player.grounded && (auto.stuckT > 0.7 || up > 1.3 || noGround)) startAutoFly(T, want);
+  if (player.grounded && auto.noPathT > 2.5 && (auto.stuckT > 1.2 || up > 1.3 || noGround)) startAutoFly(T, want, 'sin camino');
+  if (noGround) input.move.x = input.move.y = 0;
 }
-function startAutoFly(T, want) {
+function steerTo(want, dt, speed = 1) {
+  cam.yaw += angleDiff(want, cam.yaw) * Math.min(1, dt * 4);
+  const rel = angleDiff(want, cam.yaw);
+  input.move.x = -Math.sin(rel) * speed; input.move.y = Math.cos(rel) * speed;
+}
+const navAI = new AutoNav();
+const navLog = []; const nd = n => `${n.ramp ? 'R' : ''}[${((n.minX + n.maxX) / 2).toFixed(1)},${n.top.toFixed(1)},${((n.minZ + n.maxZ) / 2).toFixed(1)} ${(n.maxX - n.minX).toFixed(1)}x${(n.maxZ - n.minZ).toFixed(1)}]`;
+const nav = { path: null, i: 0, phase: 'go', t: 0, key: '', L: null, wasHooked: false, dj: false, failsHere: 0 };
+function onNode(n) { // ¿Lía está de pie sobre esta superficie?
+  if (!player.grounded) return false;
+  const p = player.pos;
+  if (p.x < n.minX - 0.3 || p.x > n.maxX + 0.3 || p.z < n.minZ - 0.3 || p.z > n.maxZ + 0.3) return false;
+  if (n.ramp) return Math.abs(p.y - physics.rampHeight(n.ramp, Math.max(n.minX, Math.min(n.maxX, p.x)), Math.max(n.minZ, Math.min(n.maxZ, p.z)))) < 0.5;
+  return Math.abs(p.y - n.top) < 0.6;
+}
+// andar esquivando: tantea direcciones libres alrededor (muros, cajas, casas) y elige la más cercana al destino
+const walkAv = { best: Infinity, prog: 0, detour: 0, dAng: 0, jumpCd: 0 };
+function wallAt(x, z, y) {
+  for (const b of physics.boxes) {
+    if (b.off) continue;
+    if (x + 0.42 <= b.minX || x - 0.42 >= b.maxX || z + 0.42 <= b.minZ || z - 0.42 >= b.maxZ) continue;
+    if (b.maxY > y + 0.45 && b.minY < y + 1.6) return true;
+  }
+  return false;
+}
+function groundAhead(x, z, y) { const g = physics.groundAt(x, z, 0.3, y + 1.6); return g.y > y - 1.2; } // alto de sondeo 1.6: las rampas suben
+function freeDir(a, y) {
+  const here = player.pos;
+  for (const r of [0.7, 1.4, 2.1]) { const x = here.x - Math.sin(a) * r, z = here.z - Math.cos(a) * r; if (wallAt(x, z, y) || !groundAhead(x, z, y)) return false; }
+  return true;
+}
+function walkTo(x, z, dt, speed = 1, noAvoid = false) {
+  const here = player.pos, d = Math.hypot(x - here.x, z - here.z);
+  if (Math.hypot(x - (walkAv.tx ?? 1e9), z - (walkAv.tz ?? 1e9)) > 0.3) { walkAv.tx = x; walkAv.tz = z; walkAv.best = Infinity; walkAv.prog = 0; walkAv.detour = 0; } // destino nuevo
+  let want = Math.atan2(-(x - here.x), -(z - here.z));
+  // progreso: si en 0.8 s no se acerca, rodea
+  walkAv.jumpCd -= dt;
+  if (d < walkAv.best - 0.3) { walkAv.best = d; walkAv.prog = 0; } else walkAv.prog += dt;
+  if (walkAv.detour > 0) { walkAv.detour -= dt; want = walkAv.dAng; if (walkAv.detour <= 0) walkAv.best = Infinity; }
+  else if (player.grounded && !noAvoid && d > 1.5 && (walkAv.prog > 0.8 || !freeDir(want, here.y))) {
+    let pick = null;
+    for (const off of [0.5, -0.5, 1.0, -1.0, 1.5, -1.5, 2.1, -2.1, 2.7, -2.7]) if (freeDir(want + off, here.y)) { pick = want + off; break; }
+    if (pick != null) { walkAv.dAng = pick; walkAv.detour = 0.7; want = pick; }
+    else if (walkAv.jumpCd <= 0) { input._pressed.add('jump'); walkAv.jumpCd = 1; }
+    walkAv.prog = 0;
+  }
+  if (d < 0.6) walkAv.best = Infinity;
+  steerTo(want, dt, speed);
+}
+function autoNavStep(dt, T, key) {
+  const caps = { glide: player.canGlide, grapple: player.canGrapple, dash: player.canAirDash };
+  const extras = { updrafts: world.updrafts, grapples: [...world.grapplePoints, ...combat.grapplePoints] };
+  if (nav.key !== key || !nav.path) {
+    if (!player.grounded) return nav.path != null; // planifica con los pies en el suelo
+    nav.key = key; nav.path = navAI.plan(physics, player.pos, T, caps, extras); nav.i = 0; nav.phase = 'go'; nav.t = 0; nav.run = false;
+    navLog.push(`PLAN a ${T.x.toFixed(0)},${T.y.toFixed(0)},${T.z.toFixed(0)}: ${nav.path ? nav.path.map(e => e.kind + nd(e.to)).join(' ') : 'SIN CAMINO'}`);
+    if (!nav.path) { nav.path = null; return false; }
+  }
+  const P = nav.path;
+  if (nav.i >= P.length) { // ya en el suelo del objetivo: andar hasta él
+    const lastN = P.length ? P[P.length - 1].to : null;
+    if (lastN && player.grounded && !onNode(lastN)) { nav.path = null; nav.key = ''; return true; } // no está donde creía: replanificar
+    const upT = T.y - player.pos.y, dT = Math.hypot(T.x - player.pos.x, T.z - player.pos.z);
+    if (upT > 1.2 && dT < 1.6 && (nav.hopT = (nav.hopT || 0) + dt) < 12) { // objetivo en lo alto: salto doble y, si hay corriente, planear dentro
+      if (player.grounded || (player.vel.y < 0.5 && player.jumps < 2)) input._pressed.add('jump');
+      input.autoJump = true;
+      if (dT > 0.3) steerTo(Math.atan2(-(T.x - player.pos.x), -(T.z - player.pos.z)), dt, 0.4); else input.move.x = input.move.y = 0;
+      return true;
+    }
+    if (player.grounded && upT < 1.2) nav.hopT = 0;
+    const want = Math.atan2(-(T.x - player.pos.x), -(T.z - player.pos.z)); walkTo(T.x, T.z, dt);
+    auto.stuckT = player.pos.distanceTo(auto.last) < dt * 1.2 ? auto.stuckT + dt : Math.max(0, auto.stuckT - dt); auto.last.copy(player.pos);
+    if (auto.stuckT > 6) { auto.stuckT = 0; nav.path = null; startAutoFly(T, want, 'atasco final'); }
+    return true;
+  }
+  const e = P[nav.i]; nav.t += dt; input.autoJump = false;
+  const B = e.to, here = player.pos;
+  const fail = () => {
+    input.autoJump = false;
+    const n = navAI.fail(e); nav.path = null; nav.key = ''; auto.stats.fails++; navLog.push(`FALLA ${e.kind} ${nd(e.from)}->${nd(e.to)} fase ${nav.phase} pos ${here.x.toFixed(1)},${here.y.toFixed(1)},${here.z.toFixed(1)} t${nav.t.toFixed(1)}`);
+    if (n >= 2 && player.grounded) { const L = navAI.landing(e, player.pos); startAutoFly(new THREE.Vector3(L.x, B.top, L.z), Math.atan2(-(L.x - here.x), -(L.z - here.z)), '2 fallas'); }
+    return true;
+  };
+  if (nav.t > 12) return fail();
+  if (nav.phase === 'go') {
+    if (!player.grounded) { if (here.y < Math.min(e.from.low ?? e.from.top, B.low ?? B.top) - 5) return fail(); return true; }
+    if (e.kind === 'walk') { // andar hasta la otra superficie, por sus puntos de paso
+      if (!nav.wp || nav.wpE !== e) { nav.wp = navAI.walkPoints(e, T); nav.wpE = e; nav.wpI = 0; }
+      while (nav.wpI < nav.wp.length - 1 && Math.hypot(nav.wp[nav.wpI].x - here.x, nav.wp[nav.wpI].z - here.z) < 0.6) nav.wpI++;
+      const W = nav.wp[nav.wpI]; const nar = e.from.narrow || B.narrow; walkTo(W.x, W.z, dt, nar ? 0.6 : 1, nar);
+      if (onNode(B) && (!B.ramp || nav.wpI >= 1) && (!e.from.ramp || nav.wpI >= 1)) { nav.i++; nav.t = 0; auto.stats.edges++; auto.stats.kinds.walk = (auto.stats.kinds.walk || 0) + 1; }
+      return true;
+    }
+    const Pt = navAI.takeoff(e, here), dx = Pt.x - here.x, dz = Pt.z - here.z, d = Math.hypot(dx, dz);
+    // plataforma móvil: espera a que se acerque
+    const moverFar = () => { if (!B.moving) return false; const gap = Math.hypot(Math.max(0, e.from.minX - B.maxX, B.minX - e.from.maxX), Math.max(0, e.from.minZ - B.maxZ, B.minZ - e.from.maxZ)); if (gap > (player.canGlide ? 6 : 5)) { input.move.x = input.move.y = 0; nav.t -= dt * 0.6; nav.waitT = (nav.waitT || 0) + dt; if (nav.waitT > 6) { nav.waitT = 0; fail(); } return true; } nav.waitT = 0; return false; }; // si nunca se acerca, otro camino
+    if (e.kind === 'jump' && !e.climb) { // salto con carrerilla: se coge impulso y se salta en el borde
+      const L0 = navAI.landing(e, Pt, T); let ux = L0.x - Pt.x, uz = L0.z - Pt.z; const ul = Math.hypot(ux, uz) || 1; ux /= ul; uz /= ul;
+      const A = e.from, cl = (v, lo, hi) => Math.max(lo + 0.3, Math.min(hi - 0.3, v));
+      if (!nav.run) {
+        const R = { x: cl(Pt.x - ux * 2.6, A.minX, A.maxX), z: cl(Pt.z - uz * 2.6, A.minZ, A.maxZ) }, dr = Math.hypot(R.x - here.x, R.z - here.z);
+        if (dr > 0.5) { walkTo(R.x, R.z, dt, dr < 1.5 ? 0.6 : 1); return true; }
+        if (moverFar()) return true;
+        nav.run = true;
+      }
+      const along = (here.x - Pt.x) * ux + (here.z - Pt.z) * uz;
+      if (along < -0.3) { steerTo(Math.atan2(-(Pt.x + ux * 2 - here.x), -(Pt.z + uz * 2 - here.z)), dt, 1); return true; }
+    } else {
+      if (d > 0.45) { walkTo(Pt.x, Pt.z, dt, d < 1.5 ? 0.6 : 1); return true; }
+      if (moverFar()) return true;
+    }
+    nav.run = false;
+    nav.L = navAI.landing(e, here, T); nav.dj = false; nav.wasHooked = false; nav.phase = 'air'; nav.airT = 0;
+    if (e.kind !== 'grapple') { input._pressed.add('jump'); input.autoJump = true; }
+    return true;
+  }
+  // en el aire
+  nav.airT += dt;
+  if (B.moving) nav.L = navAI.landing(e, here, T); // la plataforma se mueve: seguirla
+  const L = nav.L, lx = L.x - here.x, lz = L.z - here.z, ld = Math.hypot(lx, lz);
+  if (e.kind === 'grapple') {
+    const g = e.g; cam.yaw += angleDiff(Math.atan2(-(g.pos.x - here.x), -(g.pos.z - here.z)), cam.yaw) * Math.min(1, dt * 8);
+    if (!player.grapple && !nav.wasHooked) { input.move.x = input.move.y = 0; if (hookTarget === g || hookTarget) input._pressed.add('grapple'); if (nav.airT > 3) return fail(); return true; }
+    if (player.grapple) { nav.wasHooked = true; input.move.x = 0; input.move.y = 1; return true; }
+  }
+  if (e.kind === 'updraft' && here.y < e.u.y1 - 1.5 && nav.airT < 6) { // subir en la corriente, quieta en el centro
+    const ux = e.u.x - here.x, uz = e.u.z - here.z; const ud = Math.hypot(ux, uz);
+    if (ud > 0.5) steerTo(Math.atan2(-ux, -uz), dt, 0.5); else input.move.x = input.move.y = 0;
+    if (!nav.dj && player.vel.y < 1 && player.jumps < 2) { input._pressed.add('jump'); nav.dj = true; }
+    input.autoJump = true; return true;
+  }
+  if (e.kind === 'bounce' && nav.airT < 0.5 && player.vel.y < 6) { input.move.x = input.move.y = 0; input.autoJump = true; return true; } // espera el rebote
+  if (e.kind === 'bounce' && !nav.dj) { // sube avanzando; en la cima, salto doble
+    steerTo(Math.atan2(-lx, -lz), dt, 1); input.autoJump = true;
+    if (player.vel.y < 1.2) { input._pressed.add('jump'); nav.dj = true; }
+    return true;
+  }
+  // aterrizar en una seta elástica la hace rebotar: cuenta como llegada y encadena el siguiente tramo en el aire
+  if (B.bounce && player.bounced && player.vel.y > B.bounce * 0.7 && here.x > B.minX - 0.5 && here.x < B.maxX + 0.5 && here.z > B.minZ - 0.5 && here.z < B.maxZ + 0.5 && here.y < B.top + 2.5) {
+    nav.i++; auto.stats.edges++; auto.stats.kinds[e.kind] = (auto.stats.kinds[e.kind] || 0) + 1;
+    const N = P[nav.i];
+    if (N && N.kind === 'bounce' && N.from === B) { nav.L = navAI.landing(N, here, T); nav.dj = false; nav.airT = 0.5; nav.t = 0; }
+    else { nav.phase = 'go'; nav.t = 0; }
+    return true;
+  }
+  steerTo(Math.atan2(-lx, -lz), dt, ld < 0.8 ? 0.2 : 1);
+  if (!nav.dj && player.vel.y < 0.5 && e.kind !== 'walk') { input._pressed.add('jump'); nav.dj = true; }
+  // impulso aéreo cuando el planeo no alcanza el borde
+  if (player.canAirDash && !player.airDashUsed && player.jumps >= 2 && player.vel.y < -0.5 && e.kind !== 'walk') {
+    const gx = Math.max(0, B.minX - here.x, here.x - B.maxX), gz = Math.max(0, B.minZ - here.z, here.z - B.maxZ), gd = Math.hypot(gx, gz);
+    if (gd > 0.8 && (here.y - B.top) < gd / 1.4 + 0.3) {
+      const a = Math.atan2(-lx, -lz); cam.yaw = a; input.move.x = 0; input.move.y = 1; input._pressed.add('dodge');
+    }
+  }
+  // planear mientras falte distancia; soltar encima del sitio de aterrizaje
+  input.autoJump = player.vel.y > 0 || (player.canGlide && ld > 1.0); // mantener el salto: más altura y planeo
+  if (player.grounded && nav.airT > 0.15) {
+    input.autoJump = false;
+    if (onNode(B)) { nav.i++; nav.phase = 'go'; nav.t = 0; auto.stats.edges++; auto.stats.kinds[e.kind] = (auto.stats.kinds[e.kind] || 0) + 1; return true; }
+    return fail();
+  }
+  if (here.y < Math.min(e.from.low ?? e.from.top, B.low ?? B.top) - 5) return fail();
+  return true;
+}
+function startAutoFly(T, want, why = '') {
   const from = player.pos.clone(), d = Math.hypot(T.x - from.x, T.z - from.z);
   // aterriza en el objetivo (o un poco más allá si justo ahí no hay suelo), sobre lo que haya
   let to = null;
@@ -765,7 +944,7 @@ function startAutoFly(T, want) {
   }
   if (!to) to = new THREE.Vector3(T.x, T.y + 0.05, T.z);
   const apex = Math.max(from.y, to.y) + 2.5 + d * 0.08;
-  auto.fly = { from, to, apex, t: 0, dur: Math.max(0.9, d / 9) };
+  auto.fly = { from, to, apex, t: 0, dur: Math.max(0.9, d / 9) }; auto.stats.flights++; navLog.push(`VUELO (${why}) desde ${from.x.toFixed(1)},${from.y.toFixed(1)},${from.z.toFixed(1)} a ${to.x.toFixed(1)},${to.y.toFixed(1)},${to.z.toFixed(1)}`);
   player.facing = want; audio.play('glide'); auto.stuckT = 0;
 }
 function autoFly(dt) {
@@ -1023,7 +1202,7 @@ function simulate(dt) {
   // botón Z (táctil) / acción especial: garfio si hay un anillo a la vista, si no, pulso de luz
   if (input.pressed('special')) input._pressed.add(hookTarget && player.canGrapple ? 'grapple' : 'pulse');
   menuNav();
-  if (player.diff && player.diff.auto) autoPilot(dt);
+  if (player.diff && player.diff.auto) autoPilot(dt); else input.autoJump = false;
   updateMusic();
   if (challenge && state === 'play') updateChallenge(dt);
   if (input.pressed('pause') && (state === 'play' || state === 'dialog' || state === 'pause')) pause();
@@ -1110,7 +1289,7 @@ frame();
 // gancho para pruebas automáticas
 // step(n): avanza n pasos de 1/60 s sin depender de la velocidad de dibujo (para pruebas en máquinas lentas)
 window.__aethra = {
-  music, renderer, auto, autoTarget: () => autoTarget(), get focus() { return focus; },
+  music, renderer, auto, navLog, nav, autoTarget: () => autoTarget(), get focus() { return focus; },
   player, cam, world, input, get state() { return state; }, get save() { return save; }, startGame, newSave, loadZone,
   hold(on) { paused4test = on; }, S, combat, enterZone, choose, get zone() { return zone; }, get dialog() { return dialog; },
   step(n, press) {

@@ -98,6 +98,8 @@ export default {
     { id: 'ce_santuario', x: 3.5, y: 20, z: -129 },
   ],
   enemies: [
+    // avispas de cristal: vuelan junto a las corrientes de aire y los tramos de vuelo
+    { type: 'avispa', x: 0, y: 7, z: -31, r: 3.5, axis: 'x' },
     { type: 'automata', x: 3, z: -19 },
     { type: 'automata', x: -3, y: 6, z: -46 }, { type: 'automata', x: 3, y: 6, z: -50 }, { type: 'torreta', x: -6, y: 6, z: -53 },
     { type: 'torreta', x: 3.5, y: 6, z: -78.5 },

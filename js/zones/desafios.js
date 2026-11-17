@@ -4,7 +4,7 @@
 // los dos últimos usan el planeador y el garfio.
 
 // Plataforma del prototipo: [x, alto, z, ancho, fondo, movimiento?]
-function level({ id, name, sky, fog, plats, gems, enemies = [], portal, medals, abilities = {}, hidden, extra = {} }) {
+function level({ id, name, sky, fog, plats, gems, enemies = [], air = [], portal, medals, abilities = {}, hidden, extra = {} }) {
   const islands = [], movers = [], fragments = [], foes = [];
   plats.forEach(([x, top, z, w, d, mv]) => {
     if (mv) movers.push({ x, y: top, z, w, d, h: 0.8, axis: mv.ax, range: mv.r, speed: mv.s, color: 0x8a7ad8 });
@@ -12,6 +12,7 @@ function level({ id, name, sky, fog, plats, gems, enemies = [], portal, medals, 
   });
   gems.forEach(([x, y, z], i) => fragments.push({ id: `${id}_g${i}`, x, y: y - 1, z }));
   enemies.forEach(([i, type = 'brote']) => { const [x, top, z, , , mv] = plats[i]; if (!mv) foes.push({ type, x, y: top, z }); });
+  air.forEach(([x, y, z, r = 3, axis]) => foes.push({ type: 'avispa', x, y, z, r, axis })); // avispas de cristal
   return {
     id, title: name, subtitle: 'Desafío · Cristales del Cielo', challenge: true, seed: id.length * 7 + gems.length,
     sky: { top: sky, bottom: fog, fog, fogNear: 45, fogFar: 170 },
@@ -54,7 +55,7 @@ export const DESAFIOS = [
     abilities: { planeador: true },
     plats: [[0, 0, 0, 10, 10], [0, -1, -17, 6, 6], [8, -3, -29, 6, 6], [10, 7, -41, 6, 6], [0, 5, -54, 5, 5], [-3, 2, -68, 7, 7], [4, 12, -78, 8, 8]],
     gems: [[0, 3, -10], [0, 0, -17], [8, 3, -29], [8, 8, -29], [10, 8, -41], [0, 6, -54], [-3, 3, -68], [0, 17, -73]],
-    enemies: [[2], [5]], portal: [4, 12, -81], medals: [45, 70, 120],
+    enemies: [[2], [5]], air: [[8, 6, -29, 3.2], [5, 8, -48, 3, 'x'], [-3, 11, -68, 3.2]], portal: [4, 12, -81], medals: [45, 70, 120],
     extra: {
       light: { hemiSky: 0xffe2c0, hemiGround: 0x7a5a3a, sun: 0xffd09a }, palette: { top: 0xe8c890, side: 0xb8885a },
       more: {
@@ -69,7 +70,7 @@ export const DESAFIOS = [
     abilities: { planeador: true, garfio: true },
     plats: [[0, 0, 0, 10, 10], [0, 2, -24, 6, 6], [0, 2, -34, 4, 4, { ax: 'x', r: 5, s: 0.9 }], [0, 3, -46, 6, 6], [14, 8, -46, 5, 5], [14, 8, -60, 4, 4, { ax: 'y', r: 3, s: 0.8 }], [14, 10, -74, 7, 7], [0, 16, -86, 9, 9]],
     gems: [[0, 8, -13], [0, 3, -24], [0, 3, -34], [0, 4, -46], [14, 9, -46], [14, 12, -60], [14, 11, -74], [6, 19, -81]],
-    enemies: [[3], [6, 'espora'], [7]], portal: [0, 16, -89], medals: [50, 80, 130],
+    enemies: [[3], [6, 'espora'], [7]], air: [[0, 6, -18, 3, 'x'], [7, 14, -82, 2.5, 'x']], portal: [0, 16, -89], medals: [50, 80, 130],
     extra: {
       light: { hemiSky: 0xd8e0f0, hemiGround: 0x4a4a5a, sun: 0xfff0d0 }, palette: { top: 0x9aa4b0, side: 0x5a5a6a },
       more: {

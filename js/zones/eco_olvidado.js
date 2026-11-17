@@ -81,6 +81,8 @@ export default {
     { id: 'eo_arena', x: -9, y: 13, z: -96 },
   ],
   enemies: [
+    // avispas de cristal: vuelan junto a las corrientes de aire y los tramos de vuelo
+    { type: 'avispa', x: 4, y: 10, z: -62, r: 3.2 }, { type: 'avispa', x: 0, y: 16, z: -85, r: 3, axis: 'x' },
     { type: 'sombra', x: -3, z: -23 }, { type: 'sombra', x: 3, z: -19 },
     { type: 'centinela', x: -4.5, y: 3, z: -40 },
     { type: 'sombra', x: -3, y: 3, z: -62 }, { type: 'sombra', x: 2, y: 3, z: -58 },

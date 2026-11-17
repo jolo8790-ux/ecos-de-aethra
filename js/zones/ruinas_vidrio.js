@@ -100,6 +100,8 @@ export default {
     { id: 'rv_santuario', x: 3.5, y: 16, z: -117 },
   ],
   enemies: [
+    // avispas de cristal: vuelan junto a las corrientes de aire y los tramos de vuelo
+    { type: 'avispa', x: 4.5, y: 5, z: -52.5, r: 3.2 }, { type: 'avispa', x: 0, y: 15, z: -99.5, r: 3.4 },
     { type: 'brote_vidrio', x: 3, z: -22 }, { type: 'espora_vidrio', x: 5.5, z: -26 },
     { type: 'brote_vidrio', x: -3, y: -3, z: -46 }, { type: 'brote_vidrio', x: 3, y: -3, z: -44 }, { type: 'espora_vidrio', x: -6, y: -3, z: -53 },
     { type: 'brote_vidrio', x: -2, y: 8, z: -63 },

@@ -33,6 +33,7 @@ export class Player {
     this.attack = null; this.attackQueued = false; this.attackCd = 0;
     this.dodge = null; this.dodgeCd = 0; this.airDashUsed = false; this.launchT = 0;
     this.canGlide = false; this.gliding = false; this.glideT = 0; this.updrafts = [];
+    this.glideMax = 5; this.stamina = 5; this.tired = false; this.gust = null; this.gustCd = 2; // planeador: aguante y ráfagas de viento
     this.canGrapple = false; this.grapple = null;
     this.canShield = false; this.shielding = false; this.canPulse = false; this.pulseCd = 0;
     this.events = [];            // eventos para main (golpes, daño, muerte)
@@ -226,15 +227,32 @@ export class Player {
     if (!(this.dodge && this.dodge.air)) this.vel.y = Math.max(-32, this.vel.y - GRAVITY * dt);
 
     // ---- planeador: mantener salto mientras se cae ----
-    const wantGlide = this.canGlide && !this.grounded && !this.dodge && !locked && input.held('jump') && (this.gliding || this.vel.y < 0) && this.airTime > 0.15;
+    // aguante: se recupera en el suelo y dentro de las corrientes; al agotarse, el planeador se pliega
+    if (this.diff && this.diff.glide) this.glideMax = this.diff.glide;
+    if (this.grounded) { this.stamina = Math.min(this.glideMax, this.stamina + dt * 4); this.tired = false; this.gust = null; this.gustCd = Math.max(this.gustCd, 1.6); }
+    const wantGlide = this.canGlide && !this.grounded && !this.dodge && !locked && !this.tired && input.held('jump') && (this.gliding || this.vel.y < 0) && this.airTime > 0.15;
     if (wantGlide && !this.gliding) { this.gliding = true; this.audio.play('glide'); }
-    if (!wantGlide) this.gliding = false;
+    if (!wantGlide) { this.gliding = false; this.gust = null; }
     if (this.gliding) {
       this.glideT += dt;
       if (this.vel.y < -1.8) this.vel.y += (-1.8 - this.vel.y) * Math.min(1, dt * 9);
+      let lifted = false;
       for (const u of this.updrafts) { // corrientes de aire
         if (u.active === false) continue;
-        if (Math.hypot(this.pos.x - u.x, this.pos.z - u.z) < u.r && this.pos.y > u.y0 - 1 && this.pos.y < u.y1) this.vel.y = Math.min(this.vel.y + 46 * dt, 9);
+        if (Math.hypot(this.pos.x - u.x, this.pos.z - u.z) < u.r && this.pos.y > u.y0 - 1 && this.pos.y < u.y1) { this.vel.y = Math.min(this.vel.y + 46 * dt, 9); lifted = true; }
+      }
+      if (lifted) { this.stamina = Math.min(this.glideMax, this.stamina + dt * 2); this.gust = null; }
+      else if (!this.noStamina) {
+        this.stamina -= dt;
+        if (this.stamina <= 0) { this.stamina = 0; this.tired = true; this.gliding = false; this.audio.play('hurt'); this.events.push({ type: 'tired' }); }
+        // ráfagas de viento: se avisan con líneas de aire y empujan de lado
+        this.gustCd -= dt;
+        if (!this.gust && this.gustCd <= 0 && this.glideT > 0.6) { this.gustCd = 2.2 + Math.random() * 2.5; const a = Math.atan2(this.vel.x, this.vel.z) + (Math.random() < 0.5 ? 1 : -1) * Math.PI / 2; this.gust = { t: -0.7, x: Math.sin(a), z: Math.cos(a) }; this.events.push({ type: 'gustWarn', dir: this.gust }); }
+        if (this.gust) {
+          this.gust.t += dt;
+          if (this.gust.t > 0 && this.gust.t < 1.1) { const k = (this.diff && this.diff.gust) || 1; this.vel.x += this.gust.x * 9 * k * dt; this.vel.z += this.gust.z * 9 * k * dt; this.vel.y -= 2.5 * k * dt; }
+          if (this.gust.t >= 1.1) this.gust = null;
+        }
       }
     }
 

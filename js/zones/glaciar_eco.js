@@ -92,6 +92,8 @@ export default {
     { id: 'ge_santuario', x: 3.5, y: 7, z: -118 },
   ],
   enemies: [
+    // avispas de cristal: vuelan junto a las corrientes de aire y los tramos de vuelo
+    { type: 'avispa', x: 0, y: 9, z: -104, r: 2.5, axis: 'x' },
     { type: 'espora_hielo', x: -5.5, z: -26 },
     { type: 'brote_hielo', x: -3, z: -40 }, { type: 'brote_hielo', x: 4, z: -40 }, { type: 'espora_hielo', x: 6.5, z: -50 },
     { type: 'espora_hielo', x: -2, y: 5, z: -64 },

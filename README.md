@@ -4,7 +4,7 @@ Aventura 3D con historia para el navegador, hecha con [Three.js](https://threejs
 
 Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes para reunir los fragmentos del Corazón de Aethra y decidir el destino de su mundo.
 
-## Estado: versión 1.5
+## Estado: versión 1.6
 
 | Etapa | Contenido | Estado |
 | --- | --- | --- |
@@ -16,6 +16,8 @@ Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes
 | 6. Arte y sonido | 23 modelos 3D generados (2 tandas) con Hunyuan3D 2.1; música sintetizada para cada zona, jefe y final; ambiente | Lista |
 | 7. Pulido y versión final | Cámara que aclara el decorado, 3 dificultades, capítulos, créditos, memoria gráfica, recuperación de la GPU | Lista: versión 1.0 |
 | 8. Desafíos | Cristales del Cielo: el primer prototipo convertido en 5 niveles contrarreloj con medallas (3 originales + planeador + garfio) | Lista: versión 1.1 |
+| 9. Más juego | Dificultad Automático, objetos que se rompen con reliquias, controles táctiles y mando de PS4, personalización, 3 ranuras de guardado, capítulo extra «El Eco Olvidado» | Lista: versiones 1.3 a 1.5 |
+| 10. Vuelos con dificultad | Planeador con aguante (barra que se agota; las corrientes lo recargan), ráfagas de viento avisadas, avispas de cristal que vuelan entre islas; el modo Automático recorre los niveles de verdad (anda, salta, planea, rebota, usa corrientes, garfio e impulso) | Lista: versión 1.6 |
 
 ## Cómo jugar en tu computadora
 

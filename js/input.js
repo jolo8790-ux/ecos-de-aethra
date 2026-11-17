@@ -158,7 +158,7 @@ export class Input {
     } catch (e) {}
   }
   held(action) {
-    if (action === 'jump') return !!(this.keys.Space || this._padJump || this._held.has('jump'));
+    if (action === 'jump') return !!(this.keys.Space || this._padJump || this._held.has('jump') || this.autoJump);
     if (action === 'shield') return !!(this.keys.KeyV || this._padShield || this._held.has('shield'));
     return this._held.has(action);
   }
