@@ -37,6 +37,15 @@
   .btn.warn { background: linear-gradient(180deg, #ffd0a6, #ff9a4c); box-shadow: 0 5px 0 #a6581c; }
   .panel { background: rgba(12,22,40,.85); border-radius: 18px; padding: 20px 24px; width: min(520px, 92vw); text-align: left; }
   .padFocus { outline: 4px solid #ffe27a !important; outline-offset: 3px; }
+  .cwrap { display: flex; gap: 22px; align-items: center; justify-content: center; flex-wrap: wrap; }
+  #cPreview { width: 240px; height: 304px; border-radius: 18px; background: radial-gradient(ellipse at 50% 40%, rgba(160,210,255,.35), rgba(10,25,45,.4)); cursor: grab; touch-action: none; }
+  .copts { display: flex; flex-direction: column; gap: 10px; text-align: left; }
+  .copts .lbl { font-size: 14px; opacity: .8; margin-bottom: 4px; }
+  .copts .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .copts button { font: inherit; font-size: 14px; border: 2px solid transparent; border-radius: 12px; padding: 6px 10px; background: rgba(255,255,255,.14); color: #fff; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+  .copts button.sw { width: 34px; height: 34px; padding: 0; border-radius: 50%; }
+  .copts button.sel { border-color: #ffe27a; background: rgba(255,226,122,.22); }
+  @media (max-height: 520px) { #cPreview { width: 170px; height: 215px; } .copts button.sw { width: 28px; height: 28px; } .copts { gap: 6px; } }
   .btn.small { font-size: 16px; padding: 8px 20px; }
   .row2 { display: flex; gap: 10px; justify-content: center; }
   .tpanel { background: rgba(8,20,40,.72); border-radius: 18px; padding: 18px 26px; max-width: 560px; margin-top: 8px; }
@@ -166,12 +175,13 @@
 
 <div class="overlay" id="title">
   <h1>Ecos de Aethra</h1>
-  <p class="sub">Versión 1.3</p>
+  <p class="sub">Versión 1.4</p>
   <p class="sub" id="loading" style="margin-bottom:12px">Cargando personajes…</p>
   <div class="menu">
     <button class="btn" id="bContinue">Continuar</button>
     <button class="btn" id="bNew">Nueva partida</button>
     <button class="btn alt" id="bChallenges">Desafíos: Cristales del Cielo</button>
+    <button class="btn alt" id="bCustom">Personaje</button>
     <div class="row2"><button class="btn alt small" id="bChapters">Capítulos</button><button class="btn alt small" id="bCredits">Créditos</button></div>
     <label class="diffRow">Dificultad <select id="tDiff" class="diffSel"><option value="facil">Cuento (fácil)</option><option value="normal">Aventura (normal)</option><option value="dificil">Leyenda (difícil)</option><option value="auto">Automático (Lía juega sola)</option></select></label>
   </div>
@@ -217,11 +227,21 @@
   <p style="position:absolute;bottom:10px;font-size:12px;opacity:.55">Personajes: KayKit Adventurers de Kay Lousberg (CC0)</p>
 </div>
 
+<div class="overlay hidden" id="customize">
+  <h2>Personaje</h2>
+  <div class="cwrap">
+    <canvas id="cPreview" width="300" height="380"></canvas>
+    <div class="copts" id="cOpts"></div>
+  </div>
+  <div class="row2" style="margin-top:12px"><button class="btn small" id="bCustomOk">Listo</button><button class="btn alt small" id="bCustomReset">Original</button></div>
+</div>
+
 <div class="overlay hidden" id="pause">
   <h2>Pausa</h2>
   <div class="menu" id="pauseMain">
     <button class="btn" id="bResume">Continuar</button>
     <button class="btn alt hidden" id="bRestartCh">Reiniciar desafío</button>
+    <button class="btn alt" id="bCustomPause">Personaje</button>
     <button class="btn alt" id="bSettings">Ajustes</button>
     <button class="btn alt" id="bSaveMenu">Guardar o cargar partida</button>
     <button class="btn warn" id="bTitle">Volver al título</button>

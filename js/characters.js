@@ -39,8 +39,9 @@ function recolor(texture, rules) {
     c.getHSL(hsl);
     const deg = hsl.h * 360;
     for (const r of rules) {
-      if (hsl.s >= (r.minSat ?? 0.15) && hsl.s <= (r.maxSat ?? 1) && deg >= r.from[0] && deg <= r.from[1]) {
-        c.setHSL(r.to / 360, Math.min(1, r.setSat ?? hsl.s * (r.sat ?? 1)), Math.min(1, hsl.l * (r.light ?? 1)));
+      if (hsl.s >= (r.minSat ?? 0.15) && hsl.s <= (r.maxSat ?? 1) && deg >= r.from[0] && deg <= r.from[1] && hsl.l >= (r.minLight ?? 0) && hsl.l <= (r.maxLight ?? 1)) {
+        const h = r.shift != null ? ((deg + r.shift) % 360 + 360) % 360 : (r.to ?? deg); // shift: gira el tono conservando las variaciones
+        c.setHSL(h / 360, Math.min(1, r.setSat ?? hsl.s * (r.sat ?? 1)), Math.min(0.95, r.lightTo != null ? r.lightTo * hsl.l / r.lightRef : hsl.l * (r.light ?? 1)));
         px[i] = c.r * 255; px[i + 1] = c.g * 255; px[i + 2] = c.b * 255;
         break;
       }
@@ -71,16 +72,57 @@ export const LOOKS = {
 
 const findBone = (root, name) => { let b = null; root.traverse(o => { if (!b && o.isBone && o.name === name) b = o; }); return b; };
 
+// ---------- personalización de la protagonista ----------
+export const CUSTOM = {
+  estilos: [['lia', 'Exploradora'], ['kael', 'Encapuchada'], ['marta', 'Maga'], ['tomas', 'Caballera']],
+  ropa: [['verde', 'Verde', null, 0x0f8345], ['azul', 'Azul', 70, 0x1f5fb3], ['morado', 'Morado', 120, 0x6a2fb3], ['rojo', 'Rojo', 210, 0xb32f3a], ['naranja', 'Naranja', 245, 0xc8641e], ['turquesa', 'Turquesa', 30, 0x16a39a], ['negro', 'Negro', 'negro', 0x2a2a30]],
+  // pelo: [id, nombre, [tono, saturación, luz] destino o null = el del estilo, muestra]
+  pelo: [['natural', 'Natural', null, 0x9b5a45], ['castano', 'Castaño', [16, 0.42, 0.4], 0x8a4f38], ['negro', 'Negro', [20, 0.12, 0.15], 0x2a2420], ['rubio', 'Rubio', [42, 0.62, 0.64], 0xd8b25a], ['pelirrojo', 'Pelirrojo', [14, 0.78, 0.45], 0xc0451e], ['blanco', 'Blanco', [30, 0.06, 0.84], 0xe6e2dc], ['rosa', 'Rosa', [330, 0.62, 0.66], 0xe07ab0], ['azul', 'Azul', [215, 0.6, 0.55], 0x4a7ad8]],
+  piel: [['clara', 'Clara', 1, 0xf6c09c], ['media', 'Media', 0.86, 0xd8a07a], ['morena', 'Morena', 0.7, 0xb0784e], ['oscura', 'Oscura', 0.52, 0x7a4a2c]],
+  planeador: [['teal', 'Turquesa', 0x2f9fae], ['dorado', 'Dorado', 0xd8a83a], ['rojo', 'Rojo', 0xc8404a], ['violeta', 'Violeta', 0x8a5ad8], ['blanco', 'Blanco', 0xe8eef2]],
+};
+export const DEFAULT_CUSTOM = { estilo: 'lia', ropa: 'verde', pelo: 'natural', piel: 'clara', planeador: 'teal' };
+const pick = (list, id) => list.find(o => o[0] === id) || list[0];
+export function customLook(cfg = {}) {
+  const c = { ...DEFAULT_CUSTOM, ...cfg }, rules = [];
+  const base = LOOKS[pick(CUSTOM.estilos, c.estilo)[0]] || LOOKS.lia;
+  // piel: tonos anaranjados muy saturados y claros
+  const pk = pick(CUSTOM.piel, c.piel)[2];
+  if (pk !== 1) rules.push({ parts: ['Head', 'Arm', 'Body'], from: [14, 32], minSat: 0.7, minLight: 0.62, light: pk, sat: pk < 0.8 ? 0.85 : 1 });
+  // pelo: marrones de saturación media y oscuros
+  const hp = pick(CUSTOM.pelo, c.pelo)[2];
+  if (hp) { // el pelo de cada estilo es de otro color: castaño (exploradora), casi negro (maga) o rubio (caballera)
+    const [h, sat, l] = hp, t = { parts: ['Head'], to: h, setSat: sat, lightTo: l };
+    rules.push({ ...t, from: [8, 22], minSat: 0.3, maxSat: 0.6, maxLight: 0.56, lightRef: 0.44 });
+    rules.push({ ...t, from: [280, 340], minSat: 0.02, maxSat: 0.12, minLight: 0.06, maxLight: 0.3, lightRef: 0.21 });
+    rules.push({ ...t, from: [28, 36], minSat: 0.45, maxSat: 0.62, minLight: 0.6, maxLight: 0.72, lightRef: 0.67 });
+  }
+  // ropa: verdes, turquesas y amarillos de la paleta
+  const rp = pick(CUSTOM.ropa, c.ropa)[2];
+  if (rp === 'negro') rules.push({ from: [40, 300], minSat: 0.2, setSat: 0.12, light: 0.55 });
+  else if (rp != null) rules.push({ from: [40, 300], minSat: 0.2, shift: rp });
+  return { model: base.model, scale: 1.0, recolor: rules.length ? [...rules, ...(base.recolor || [])] : base.recolor, glider: pick(CUSTOM.planeador, c.planeador)[2] };
+}
+
+let texCache = new WeakMap();
 export function createCharacter(lib, lookName) {
-  const look = LOOKS[lookName] || LOOKS.lia;
+  texCache = new WeakMap(); // texturas teñidas compartidas entre las partes de este personaje
+  const look = typeof lookName === 'object' ? lookName : (LOOKS[lookName] || LOOKS.lia);
   const model = SkeletonUtils.clone(lib.models[look.model]);
   model.traverse(o => {
     if (o.isMesh) {
       o.castShadow = true; o.receiveShadow = false;
       o.frustumCulled = false; // los huesos mueven la malla fuera de su caja original
       if (look.recolor) {
-        o.material = o.material.clone();
-        if (o.material.map) o.material.map = recolor(o.material.map, look.recolor);
+        // reglas por parte: el pelo solo en la cabeza, la piel en cabeza y brazos (evita teñir el cuero del mismo tono)
+        const rules = look.recolor.filter(r => !r.parts || r.parts.some(p => (o.name || '').includes(p)));
+        if (rules.length && o.material.map) {
+          const key = JSON.stringify(rules);
+          texCache.set(o.material.map, texCache.get(o.material.map) || new Map());
+          const m = texCache.get(o.material.map);
+          if (!m.has(key)) m.set(key, recolor(o.material.map, rules));
+          o.material = o.material.clone(); o.material.map = m.get(key);
+        }
       }
     }
   });

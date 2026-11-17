@@ -43,9 +43,10 @@ export class Player {
   }
 
   // Cambia el personaje hecho con formas por el modelo animado (cuando termina de cargar).
-  useModel(lib) {
+  useModel(lib, look = 'lia') {
     const scene = this.mesh.parent;
-    const ch = createCharacter(lib, 'lia');
+    if (this.ch) this.ch.root.traverse(o => { if (o.isMesh && o.material && o.material.map && o.material.map.isCanvasTexture) o.material.map.dispose(); });
+    const ch = createCharacter(lib, look);
     scene.remove(this.mesh); scene.add(ch.root);
     this.ch = ch; this.mesh = ch.root; this.anim = new HeroModelAnimator(ch);
     this.staff = buildStaff();
@@ -53,6 +54,7 @@ export class Player {
     if (hand) { hand.add(this.staff); this.staff.rotation.y = Math.PI; } // igual que las armas originales del paquete
     this.staff.visible = this.canFight;
     this.glider = buildGlider(); ch.root.add(this.glider);
+    if (look && look.glider) this.glider.traverse(o => { if (o.isMesh && o.material && o.material.color && o.material.color.getHex() === 0x2f9fae) { o.material = o.material.clone(); o.material.color.setHex(look.glider); } });
     this.shieldMesh = buildShield(); ch.root.add(this.shieldMesh);
   }
   gesture(name, opts) { if (this.anim.gesture) this.anim.gesture(name, opts); }

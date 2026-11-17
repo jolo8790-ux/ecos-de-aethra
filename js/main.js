@@ -11,7 +11,7 @@ import { DESAFIOS, medalFor } from './zones/desafios.js';
 let challenge = null;
 const writeSave = s => challenge ? true : writeSaveRaw(s);
 import { FX } from './fx.js';
-import { loadCharacterLibrary } from './characters.js';
+import { loadCharacterLibrary, createCharacter, customLook, CUSTOM, DEFAULT_CUSTOM } from './characters.js';
 import { loadProps } from './props.js';
 import { newSave, loadSave, writeSave as writeSaveRaw, loadSettings, writeSettings, exportCode, importCode } from './save.js';
 import puertoBruma from './zones/puerto_bruma.js';
@@ -145,11 +145,11 @@ applySettings();
 // ---------- carga de personajes animados ----------
 let charsReady = false;
 $('bContinue').disabled = $('bNew').disabled = true;
-let pChars = 0, pProps = 0;
+let pChars = 0, pProps = 0, charLib = null;
 const showLoad = () => { $('loading').textContent = `Cargando personajes y escenarios… ${Math.round((pChars * 0.4 + pProps * 0.6) * 100)}%`; };
 Promise.all([
   loadCharacterLibrary(p => { pChars = p; showLoad(); })
-    .then(lib => { player.useModel(lib); world.chars = lib; combat.chars = lib; })
+    .then(lib => { charLib = lib; player.useModel(lib, customLook(settings.custom || {})); world.chars = lib; combat.chars = lib; })
     .catch(e => { console.warn('No se pudieron cargar los personajes animados; se usan los de formas simples.', e); }),
   loadProps(p => { pProps = p; showLoad(); }).catch(e => console.warn('Sin modelos de escenario', e)),
 ]).finally(() => { charsReady = true; $('loading').classList.add('hidden'); $('bContinue').disabled = $('bNew').disabled = false; });
@@ -830,6 +830,67 @@ $('bChallenges').onclick = () => {
 };
 $('bChallengesBack').onclick = () => titlePanel(null);
 $('bRestartCh').onclick = () => { if (challenge) { const i = challenge.i; resume(); startChallenge(i); } };
+
+// ---------- personalizar a la protagonista ----------
+const cust = { cfg: null, from: null, prev: null };
+function openCustom(from) {
+  if (!charLib) return;
+  cust.from = from; cust.cfg = { ...DEFAULT_CUSTOM, ...(settings.custom || {}) };
+  $(from).classList.add('hidden'); $('customize').classList.remove('hidden');
+  buildCustomOpts(); startPreview();
+}
+function closeCustom(save = true) {
+  if (save) { settings.custom = cust.cfg; writeSettings(settings); player.useModel(charLib, customLook(cust.cfg)); player.setFight(player.canFight); }
+  stopPreview(); $('customize').classList.add('hidden'); $(cust.from).classList.remove('hidden');
+}
+function buildCustomOpts() {
+  const box = $('cOpts'); box.innerHTML = '';
+  const group = (key, label, list, swatchIdx) => {
+    const g = document.createElement('div'); g.innerHTML = `<div class="lbl">${label}</div>`;
+    const row = document.createElement('div'); row.className = 'row';
+    for (const o of list) {
+      const b = document.createElement('button');
+      if (swatchIdx != null) { b.className = 'sw'; b.style.background = '#' + o[swatchIdx].toString(16).padStart(6, '0'); b.title = o[1]; b.setAttribute('aria-label', o[1]); }
+      else b.textContent = o[1];
+      if (cust.cfg[key] === o[0]) b.classList.add('sel');
+      b.onclick = () => { cust.cfg[key] = o[0]; buildCustomOpts(); refreshPreview(); audio.play('open'); };
+      row.appendChild(b);
+    }
+    g.appendChild(row); box.appendChild(g);
+  };
+  group('estilo', 'Estilo', CUSTOM.estilos);
+  group('ropa', 'Ropa', CUSTOM.ropa, 3);
+  group('pelo', 'Pelo', CUSTOM.pelo, 3);
+  group('piel', 'Piel', CUSTOM.piel, 3);
+  group('planeador', 'Planeador', CUSTOM.planeador, 2);
+}
+// vista previa: un renderizador pequeño solo mientras el panel está abierto
+let pv = null;
+function startPreview() {
+  const cv = $('cPreview');
+  const r = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true }); r.setPixelRatio(Math.min(devicePixelRatio, 2)); r.setSize(cv.clientWidth || 240, cv.clientHeight || 304, false);
+  r.outputColorSpace = THREE.SRGBColorSpace;
+  const sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight(0xffffff, 0x556070, 1.6)); const d = new THREE.DirectionalLight(0xfff1d6, 1.8); d.position.set(2, 4, 3); sc.add(d);
+  const cam = new THREE.PerspectiveCamera(30, (cv.clientWidth || 240) / (cv.clientHeight || 304), 0.1, 50); cam.position.set(0, 1.0, 6.2); cam.lookAt(0, 0.82, 0);
+  pv = { r, sc, cam, ch: null, rot: 0.4, drag: null, clock: new THREE.Clock(), raf: 0 };
+  cv.onpointerdown = e => { pv.drag = e.clientX; cv.setPointerCapture(e.pointerId); };
+  cv.onpointermove = e => { if (pv && pv.drag != null) { pv.rot += (e.clientX - pv.drag) * 0.012; pv.drag = e.clientX; } };
+  cv.onpointerup = () => { if (pv) pv.drag = null; };
+  refreshPreview();
+  const loop = () => { if (!pv) return; pv.raf = requestAnimationFrame(loop); const dt = pv.clock.getDelta(); if (pv.drag == null) pv.rot += dt * 0.5; if (pv.ch) { pv.ch.root.rotation.y = pv.rot; pv.ch.mixer.update(dt); } pv.r.render(pv.sc, pv.cam); };
+  loop();
+}
+function refreshPreview() {
+  if (!pv) return;
+  if (pv.ch) { pv.sc.remove(pv.ch.root); pv.ch.root.traverse(o => { if (o.isMesh && o.material.map && o.material.map.isCanvasTexture) o.material.map.dispose(); }); }
+  const look = customLook(cust.cfg); pv.ch = createCharacter(charLib, look); pv.sc.add(pv.ch.root);
+  const a = pv.ch.actions.Idle || Object.values(pv.ch.actions)[0]; if (a) { a.setEffectiveWeight(1); a.play(); }
+}
+function stopPreview() { if (!pv) return; cancelAnimationFrame(pv.raf); pv.r.dispose(); pv = null; }
+$('bCustom').onclick = () => openCustom('title');
+$('bCustomPause').onclick = () => openCustom('pause');
+$('bCustomOk').onclick = () => closeCustom(true);
+$('bCustomReset').onclick = () => { cust.cfg = { ...DEFAULT_CUSTOM }; buildCustomOpts(); refreshPreview(); };
 
 // ---------- capítulos y créditos ----------
 const CHAPTERS = [['puerto_bruma', 'Prólogo'], ['bosque_colgante', 'Capítulo 1'], ['ruinas_vidrio', 'Capítulo 2'], ['ciudad_engranajes', 'Capítulo 3'], ['glaciar_eco', 'Capítulo 4'], ['ciudadela_orden', 'Capítulo 5']];

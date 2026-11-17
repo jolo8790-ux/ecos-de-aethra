@@ -4,7 +4,7 @@ Aventura 3D con historia para el navegador, hecha con [Three.js](https://threejs
 
 Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes para reunir los fragmentos del Corazón de Aethra y decidir el destino de su mundo.
 
-## Estado: versión 1.3
+## Estado: versión 1.4
 
 | Etapa | Contenido | Estado |
 | --- | --- | --- |
@@ -45,6 +45,8 @@ python -m http.server 8000
 **Mando de PS4 en la notebook:** conéctalo por cable USB o por Bluetooth (en Windows: Configuración → Bluetooth → Agregar dispositivo, manteniendo PS + SHARE hasta que la luz parpadee). Abre el juego en Chrome o Edge y pulsa cualquier botón del mando: el juego lo detecta solo, muestra los símbolos ✕ ○ □ △ y vibra al recibir golpes.
 
 **Dificultad:** Cuento (fácil), Aventura (normal), Leyenda (difícil) y **Automático**: Lía recorre la historia y los desafíos sola (camina, planea hasta donde haga falta, resuelve los mecanismos y vence a los jefes); los desafíos jugados así no cuentan como récord.
+
+**Personaje:** en el título o en la pausa, botón *Personaje*: estilo (exploradora, encapuchada, maga o caballera), color de ropa, pelo y piel, y color del planeador, con vista previa en 3D que se puede girar.
 
 **Reliquias de Aethra:** cada zona esconde una geoda violeta que se rompe con el bastón; dentro hay una reliquia. Cada dos reliquias, un corazón más. Las vasijas pueden tener corazones, y en los desafíos un reloj de arena que resta 3 segundos.
 
