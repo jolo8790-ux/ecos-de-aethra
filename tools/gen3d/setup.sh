@@ -17,13 +17,14 @@ cd Hunyuan3D-2.1
 # sin la demo web, Blender ni deepspeed (no hacen falta para generar)
 grep -vE '^(bpy|gradio|fastapi|uvicorn|deepspeed|tb_nightly|pythreejs|--extra-index-url)' requirements.txt > /tmp/req.txt
 uv pip install -q -r /tmp/req.txt
-uv pip install -q sentencepiece protobuf fast_simplification setuptools wheel
+uv pip install -q sentencepiece protobuf fast_simplification 'setuptools<70' wheel hf_transfer
 # Blender (bpy) solo se usa para convertir a GLB; lo sustituye trimesh. Módulo vacío para que el import no falle.
 python -c "import bpy" 2>/dev/null || echo "# sustituto vacío de Blender" > $(python -c "import site;print(site.getsitepackages()[0])")/bpy.py
 echo "== dependencias listas"
 (cd hy3dpaint/custom_rasterizer && uv pip install -q -e . --no-build-isolation)
 echo "== rasterizador compilado"
-(cd hy3dpaint/DifferentiableRenderer && bash compile_mesh_painter.sh)
+# compila con el sufijo del Python del entorno (python3-config del sistema daría otro nombre de archivo)
+(cd hy3dpaint/DifferentiableRenderer && c++ -O3 -shared -std=c++11 -fPIC $(python -m pybind11 --includes) mesh_inpaint_processor.cpp -o mesh_inpaint_processor$(python -c "import sysconfig;print(sysconfig.get_config_var('EXT_SUFFIX'))") && python -c "import mesh_inpaint_processor")
 echo "== mesh painter compilado"
 mkdir -p hy3dpaint/ckpt
 [ -f hy3dpaint/ckpt/RealESRGAN_x4plus.pth ] || wget -q https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth -P hy3dpaint/ckpt
