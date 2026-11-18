@@ -18,6 +18,7 @@ export const MISIONES = [
   { id: 'm_heroes', icon: '☺', title: 'Muchas caras', desc: 'Juega con 3 héroes distintos.', goal: 3, prog: sv => n(sv, 'heroes') },
   { id: 'm_duelo', icon: '⚡', title: 'Gladiadora', desc: 'Gana 3 duelos en la Arena.', goal: 3, prog: sv => n(sv, 'duelos') },
   { id: 'm_oleada', icon: '⛨', title: 'Muro de Aethra', desc: 'Supera 5 oleadas en el modo cooperativo.', goal: 5, prog: sv => n(sv, 'oleadaMax') },
+  { id: 'm_infinito', icon: '∞', title: 'Sin fin', desc: 'Llega a 600 m en Aethra sin fin.', goal: 600, prog: sv => n(sv, 'infinitoMax') },
   { id: 'm_carrera', icon: '✦', title: 'Más rápida que el viento', desc: 'Gana 2 carreras de piezas.', goal: 2, prog: sv => n(sv, 'carreras') },
 ];
 export const PIECE_TOTAL = Object.keys(ZONE_PIECES).length + MISIONES.length;

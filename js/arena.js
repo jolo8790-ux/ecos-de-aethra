@@ -216,7 +216,7 @@ export class Arena {
   }
   exit() {
     const C = this.ctx;
-    this.active = false; this._chatClose(); C.powers.clear();
+    this.active = false; this._chatClose(); C.powers.clear(); C.player.frozen = false;
     for (const f of this.fighters) { f.player.iceT = f.player.liftT = f.player.levT = 0; C.powers.statusFx(f.player, 0); }
     for (const f of this.fighters) { if (f.plate) f.player.mesh.remove(f.plate); if (f.kind !== 'p1') { C.scene.remove(f.player.mesh); C.scene.remove(f.player.shadow); } }
     for (const d of this.decor) C.scene.remove(d); this.decor = [];

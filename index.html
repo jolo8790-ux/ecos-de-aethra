@@ -344,6 +344,10 @@
   body.split #arenaBoard { right: auto; left: calc(50% + 14px); top: 64px; }
   @media (max-width: 640px) { #arenaTop { top: 124px; padding: 4px 12px; } #arenaMode { font-size: 13px; } #arenaInfo { font-size: 11.5px; } }
   @media (orientation: portrait) { body.split #arenaTop { top: calc(50% - 58px); } body.split #splitLine { left: 0; right: 0; top: calc(50% - 2px); bottom: auto; width: auto; height: 4px; } body.split #tagP1 { bottom: calc(50% + 12px); } body.split #tagP2 { left: 16px; bottom: 16px; } body.split #arenaBoard { left: auto; right: 10px; top: calc(50% + 12px); } }
+  #endlessHud { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 2; background: rgba(10,16,30,.6); padding: 7px 16px; border-radius: 16px; font-weight: 700; font-size: 15px; pointer-events: none; white-space: nowrap; }
+  body.atTitle #endlessHud, body.cine #endlessHud { display: none !important; }
+  @media (max-width: 640px) { #endlessHud { top: 124px; font-size: 12.5px; padding: 5px 12px; } }
+  #soundHint { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 20; font: inherit; font-size: 14px; font-weight: 700; padding: 8px 16px; border-radius: 14px; border: 2px solid #ffd27a; background: rgba(10,16,30,.85); color: #fff; cursor: pointer; animation: bob 2.4s ease-in-out infinite; }
 </style>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
@@ -386,6 +390,8 @@
   <div id="arenaEnd" class="hidden"><h2 id="arenaEndTitle"></h2><div class="sub" id="arenaEndSub"></div><ul id="arenaEndList"></ul><div id="arenaEndRewards"></div>
     <div class="row2"><button class="btn" id="bArenaAgain">Otra ronda</button><button class="btn alt" id="bArenaEndLeave">Salir</button></div><div class="sub hidden" id="arenaEndWait">Esperando a que el anfitrión empiece otra ronda…</div></div>
 </div>
+<div id="endlessHud" class="hidden"></div>
+<button id="soundHint" class="hidden">🔇 El sonido está apagado: haz clic o toca aquí para activarlo</button>
 <div id="debug"></div>
 <div id="dialog" class="hidden"><div class="who" id="dWho"></div><div class="text" id="dText"></div><div class="choices hidden" id="dChoices"></div><div class="next" id="dNext">E / clic para continuar</div></div>
 
@@ -401,7 +407,7 @@
 
 <div class="overlay" id="title">
   <h1>Ecos de Aethra</h1>
-  <p class="sub">Versión 2.4.1</p>
+  <p class="sub">Versión 2.5</p>
   <p class="sub" id="loading" style="margin-bottom:12px">Cargando personajes…</p>
   <div class="menu" id="titleMain">
     <button class="btn" id="bContinue">Continuar</button>
@@ -442,6 +448,7 @@
     <div class="menu">
       <button class="btn" id="bHubPlay">Jugar</button>
       <button class="btn alt" id="bHubArena">⚔ Arena multijugador</button>
+      <button class="btn alt" id="bHubEndless">∞ Aethra sin fin: el mapa que nunca se acaba</button>
       <button class="btn alt" id="bHubCh">Desafíos: Cristales del Cielo</button>
       <div class="row2"><button class="btn alt small" id="bHubHeroes">Héroes</button><button class="btn alt small" id="bHubPow">Poderes</button><button class="btn alt small" id="bHubMis">Misiones</button></div>
       <div class="row2"><button class="btn alt small" id="bHubLogros">Logros</button><button class="btn alt small" id="bHubCustom">Aspecto</button></div>
@@ -523,6 +530,13 @@
   <button class="btn alt small" id="bPowBack" style="margin-top:14px">Volver</button>
 </div>
 
+<!-- Aethra sin fin: final de la carrera -->
+<div class="overlay hidden" id="endlessEnd">
+  <h2 id="endlessEndTitle">Fin del viaje</h2>
+  <p class="sub" id="endlessEndSub" style="max-width:560px;text-align:center"></p>
+  <div class="menu"><button class="btn" id="bEndlessAgain">Otra vez</button><button class="btn alt" id="bEndlessLeave">Salir</button></div>
+</div>
+
 <!-- Ofrecer una dificultad más baja -->
 <div class="overlay hidden" id="diffOffer">
   <h2>¿Te echamos una mano?</h2>
@@ -556,6 +570,7 @@
     <button class="btn alt" id="bPowPause">Poderes especiales</button>
     <button class="btn alt" id="bMisPause">Misiones y piezas</button>
     <button class="btn alt" id="bArenaPause">Arena multijugador</button>
+    <button class="btn alt" id="bEndlessPause">∞ Aethra sin fin</button>
     <button class="btn alt" id="bLogrosPause">Logros</button>
     <button class="btn alt" id="bSettings">Ajustes</button>
     <button class="btn alt" id="bControls">Controles</button>

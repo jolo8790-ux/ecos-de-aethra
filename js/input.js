@@ -131,8 +131,8 @@ export class Input {
       mx += lx; my -= ly;
       this.look.x += rx * 14; this.look.y += ry * 10;
       const b = i => pad.buttons[i] && pad.buttons[i].pressed;
-      const edge = (i, action) => { const now = b(i); if (now && !this._prevPad[i]) { this._pressed.add(action); this.usingGamepad = true; } this._prevPad[i] = now; };
-      edge(0, 'jump'); edge(2, 'attack'); edge(1, 'dodge'); edge(3, 'interact'); edge(9, 'pause'); edge(8, 'pause'); edge(5, 'grapple'); edge(7, 'grapple'); edge(6, 'pulse'); edge(12, 'choiceUp'); edge(13, 'choiceDown'); edge(14, 'navLeft'); edge(15, 'navRight'); edge(10, 'power1'); edge(11, 'power2'); edge(13, 'power3');
+      const edge = (i, action) => { const now = b(i), hit = now && !this._prevPad[i]; if (hit) { this._pressed.add(action); this.usingGamepad = true; if (this.onPad) this.onPad(); } this._prevPad[i] = now; return hit; };
+      edge(0, 'jump'); edge(2, 'attack'); edge(1, 'dodge'); edge(3, 'interact'); edge(9, 'pause'); edge(8, 'pause'); edge(5, 'grapple'); edge(7, 'grapple'); edge(6, 'pulse'); edge(12, 'choiceUp'); if (edge(13, 'choiceDown')) this._pressed.add('power3'); edge(14, 'navLeft'); edge(15, 'navRight'); edge(10, 'power1'); edge(11, 'power2');
       // la cruceta también mueve a Lía
       if (b(12)) my += 1; if (b(13)) my -= 1; if (b(14)) mx -= 1; if (b(15)) mx += 1;
       this.padName = pad.id || '';

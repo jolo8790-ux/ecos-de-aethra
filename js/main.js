@@ -33,10 +33,12 @@ import { ZONE_PIECES, MISIONES, PIECE_TOTAL, piecesOf, pieceCount, pieceHearts, 
 import { Arena, ARENA_MODES, wireChat } from './arena.js';
 import { Powers, POWERS, loadout, powerUnlocked, powerPoints, powerById, ENERGY_MAX } from './powers.js';
 import { Net } from './net.js';
+import { Endless, ENDLESS_ZONE } from './endless.js';
 
 const ZONES_BASE = { puerto_bruma: puertoBruma, bosque_colgante: bosqueColgante, ruinas_vidrio: ruinasVidrio, ciudad_engranajes: ciudadEngranajes, glaciar_eco: glaciarEco, ciudadela_orden: ciudadelaOrden, eco_olvidado: ecoOlvidado, forja_ignis: forjaIgnis, abismo_mareth: abismoMareth };
 applySenderos(ZONES_BASE); // cada zona de la historia gana su Sendero
 const ZONES = { ...ZONES_BASE }; for (const L of DESAFIOS) ZONES[L.id] = L;
+ZONES.infinito = ENDLESS_ZONE;
 const $ = id => document.getElementById(id);
 
 // ---------- motor ----------
@@ -107,6 +109,7 @@ const ZONE_AMB = { abismo_mareth: 'sea', forja_ignis: 'desert', eco_olvidado: 'i
 // los navegadores solo dejan sonar audio después de un gesto: el primero enciende todo
 const wakeAudio = () => { audio.unlock(); if (music.init() && state === 'title') music.play('title'); };
 addEventListener('pointerdown', wakeAudio); addEventListener('keydown', wakeAudio); addEventListener('touchstart', wakeAudio);
+let padWoke = false;
 let duckNow = 1;
 function updateMusic() {
   const d = state === 'pause' ? 0.35 : state === 'dialog' ? 0.6 : 1;
@@ -213,7 +216,7 @@ Promise.all([
 // ---------- zonas ----------
 function loadZone(id, checkpointId) {
   zone = ZONES[id];
-  player.inSub = false; player.swimming = false; clearSeaFx(); powers.clear(); player.iceT = player.liftT = player.levT = 0;
+  player.inSub = false; player.swimming = false; clearSeaFx(); powers.clear(); player.iceT = player.liftT = player.levT = 0; player.frozen = false;
   if (zone.sea && save && save.flags.mr_sub && !save.flags.mr_fosa) delete save.flags.mr_sub; // el submarino vuelve a su amarre
   if (zone.boss && zone.boss.type === 'eco') { // el Eco Sombrío es una copia oscura de la protagonista tal como la vistió el jugador
     const base = customLook((save && save.custom) || settings.custom || {});
@@ -292,6 +295,7 @@ function enterZone(id, checkpointId) {
 }
 
 function respawn(checkpointId) {
+  if (endless.active) { const s = endless.respawnPoint(); player.teleport(s.x, s.y, s.z, s.f); cam.snap(player); return; }
   const cp = world.checkpoints[checkpointId] || world.checkpoints[zone.start.id];
   player.teleport(cp.pos.x, cp.pos.y + 0.05, cp.pos.z, cp.facing);
   cam.snap(player);
@@ -866,6 +870,7 @@ function updateDeath(dt) {
   deadT += dt;
   player.update(dt, { move: { x: 0, y: 0 }, look: { x: 0, y: 0 }, pressed: () => false, held: () => false, walk: false }, cam.yaw);
   if (deadT > 1.0) $('fade').style.opacity = 1;
+  if (deadT > 1.7 && endless.active) { endlessOver(); return; } // sin corazones en Aethra sin fin: fin de la carrera
   if (deadT > 1.7 && world.sea) { restartSeaLevel(); return; } // sin corazones bajo el mar: el nivel empieza de nuevo
   if (deadT > 1.7) {
     combat.spawnZone(zone, save); bossActive = false; $('bossbar').classList.add('hidden');
@@ -1691,7 +1696,7 @@ $('bTrophyBack').onclick = () => { $('trophies').classList.add('hidden'); $(trop
 $('bSettingsBack').onclick = () => showPausePanel('main');
 $('bSaveMenu').onclick = () => { $('exportCode').value = exportCode(save); $('importCode').value = ''; $('saveMsg').textContent = ''; showPausePanel('save'); };
 $('bSaveBack').onclick = () => showPausePanel('main');
-$('bTitle').onclick = () => { writeSave(save); if (dialog) closeDialog(false); endChallenge(); state = 'title'; music.play('title'); music.ambient(null); $('objective').classList.add('hidden'); $('compass').classList.add('hidden'); marker.visible = false; showOverlay('title'); refreshTitle(); if (loadSave()) openHub(); };
+$('bTitle').onclick = () => { if (endless.active) stopEndless(); writeSave(save); if (dialog) closeDialog(false); endChallenge(); state = 'title'; music.play('title'); music.ambient(null); $('objective').classList.add('hidden'); $('compass').classList.add('hidden'); marker.visible = false; showOverlay('title'); refreshTitle(); if (loadSave()) openHub(); };
 $('bCopy').onclick = async () => {
   try { await navigator.clipboard.writeText($('exportCode').value); $('saveMsg').textContent = 'Código copiado.'; }
   catch (e) { $('exportCode').select(); $('saveMsg').textContent = 'No se pudo copiar solo: selecciona el texto y cópialo a mano.'; }
@@ -1866,8 +1871,11 @@ function simulate(dt) {
   }
 
   world.update(time, dt);
+  if (endless.active && state === 'play') { endless.update(dt, time); updateEndlessHud(); }
+  skyTick(dt);
   powers.update(dt); powers.statusFx(player, dt);
   if (state !== 'title') updatePowerHUD();
+  soundHintTick(dt);
   fx.update(dt);
   for (const p of pulseFx) { p.t += dt; const k = p.t / 0.45; p.m.scale.setScalar(0.5 + k * p.r); p.m.material.opacity = 0.5 * (1 - k); if (k >= 1) { scene.remove(p.m); p.done = true; } }
   for (let i = pulseFx.length - 1; i >= 0; i--) if (pulseFx[i].done) pulseFx.splice(i, 1);
@@ -2036,9 +2044,87 @@ const arena = new Arena({
   pulseFx: (pos, r) => { const sph = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshBasicMaterial({ color: 0xfff2a8, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending })); sph.position.copy(pos).setY(pos.y + 0.9); scene.add(sph); pulseFx.push({ m: sph, t: 0, r }); },
 });
 wireChat(arena);
+input.onPad = () => { if (!padWoke) { padWoke = true; wakeAudio(); } };
+// los navegadores no dejan encender el sonido con el mando: si sigue apagado, se avisa para tocar una vez
+let soundHintT = 0;
+function soundHintTick(dt) {
+  const on = audio.ctx && audio.ctx.state === 'running';
+  soundHintT = on ? 0 : soundHintT + dt;
+  $('soundHint').classList.toggle('hidden', on || soundHintT < 2.5 || (settings.volume ?? 0.7) <= 0);
+}
+$('soundHint').onclick = () => { wakeAudio(); $('soundHint').classList.add('hidden'); };
+
+// ---------- Aethra sin fin ----------
+const skyT = { top: new THREE.Color(), bottom: new THREE.Color(), fog: new THREE.Color(), on: false };
+function skyTick(dt) {
+  if (!skyT.on) return;
+  const k = Math.min(1, dt * 0.5);
+  skyMat.uniforms.top.value.lerp(skyT.top, k); skyMat.uniforms.bottom.value.lerp(skyT.bottom, k);
+  if (scene.fog) scene.fog.color.lerp(skyT.fog, k);
+  if (world.water && world.water.mesh) world.water.mesh.material.color.lerp(skyT.fog, k);
+}
+const endless = new Endless({
+  scene, world, physics, combat, fx, audio, player, toast, banner: (a, b) => banner(a, b),
+  setSky(top, bottom, fog, instant) {
+    skyT.top.setHex(top); skyT.bottom.setHex(bottom); skyT.fog.setHex(fog); skyT.on = true;
+    if (instant) { skyMat.uniforms.top.value.setHex(top); skyMat.uniforms.bottom.value.setHex(bottom); scene.fog.color.setHex(fog); }
+  },
+  setMusic(key) { ZONE_MUSIC.infinito = key; },
+});
+const endUI = { from: null };
+function startEndless(from) {
+  const sv = from === 'title' ? loadSave() : save; if (!sv) return;
+  if (from === 'title') { save = sv; storeOf(save); applyPartida(); applyHero(); }
+  endUI.from = from;
+  audio.unlock(); music.init(); goFull();
+  if (dialog) closeDialog(false);
+  showOverlay(null); $('endlessEnd').classList.add('hidden');
+  if (endless.active) endless.stop();
+  loadZone('infinito');
+  // en el mapa sin fin se juega con todo el equipo
+  player.setFight(true); player.canAirDash = player.canGlide = player.canShield = player.canPulse = true; player.canGrapple = false;
+  player.powerSlots = loadout(save); powerHudSig = '';
+  endless.start();
+  respawn(); player.hp = player.maxHp;
+  state = 'play'; lastGoal = '';
+  $('endlessHud').classList.remove('hidden');
+}
+function stopEndless() {
+  endless.stop(); skyT.on = false;
+  $('endlessHud').classList.add('hidden'); $('endlessEnd').classList.add('hidden');
+}
+function updateEndlessHud() {
+  const best = (save && storeOf(save).n.infinitoMax) || 0;
+  const txt = `📏 ${Math.round(endless.dist)} m · ✦ ${endless.chispas} · Récord ${Math.max(best, Math.round(endless.dist))} m · ${endless.biomeOf(endless.sectorNow).name}`;
+  if ($('endlessHud').textContent !== txt) $('endlessHud').textContent = txt;
+  // el mar de nubes acompaña siempre por debajo
+  const sec = endless.sectors.find(s => s.id === endless.sectorNow) || endless.sectors[0];
+  if (world.water && sec) { world.water.y = sec.minY - 14; world.water.mesh.position.set(player.pos.x, world.water.y, player.pos.z); }
+}
+function endlessOver() {
+  state = 'endlessEnd'; endless.over = true;
+  $('fade').style.opacity = 0;
+  const m = Math.round(endless.dist), prev = (storeOf(save).n.infinitoMax) || 0;
+  const best = isAutoMode() ? prev : bumpMaxL(save, 'infinitoMax', m);
+  if (!isAutoMode()) { storeOf(save).n.chispas = (storeOf(save).n.chispas || 0) + endless.chispas; checkMissions(); writeSave(save); }
+  $('endlessEndTitle').textContent = m > prev && !isAutoMode() ? '¡Nuevo récord!' : 'Fin del viaje';
+  $('endlessEndSub').textContent = `Llegaste a ${m} m (sector ${endless.sectorNow + 1}, ${endless.biomeOf(endless.sectorNow).name}) y juntaste ${endless.chispas} chispas. Tu récord: ${best} m.`;
+  music.stinger(m > prev ? 'victoria' : 'derrota');
+  $('endlessEnd').classList.remove('hidden');
+}
+$('bEndlessAgain').onclick = () => { $('endlessEnd').classList.add('hidden'); startEndless(endUI.from); };
+$('bEndlessLeave').onclick = () => {
+  stopEndless();
+  if (endUI.from === 'title') { state = 'title'; zone = null; music.play('title'); showOverlay('title'); openHub(); }
+  else { applyAbilities(); enterZone(save.zone, save.checkpoint); }
+};
+$('bEndlessPause').onclick = () => { if (challenge) { toast('Termina o sal del desafío primero'); return; } startEndless('pause'); };
+$('bHubEndless').onclick = () => { audio.unlock(); startEndless('title'); };
+
 const arenaUI = { from: null, mode: 'duelo', who: 'cpu', p2hero: 'kael', code: '' };
 const WHO = [['cpu', 'Contra la CPU', 'Tú contra un héroe controlado por el juego.'], ['local', '2 jugadores aquí', 'Pantalla dividida en este dispositivo: teclado compartido o mandos.'], ['online', 'Online', 'Cada uno desde su dispositivo, en tiempo real, viendo a los demás moverse.']];
 function openArena(from) {
+  if (endless.active && from === 'pause') stopEndless();
   const sv = from === 'title' ? loadSave() : save; if (!sv) return;
   if (from === 'title') { save = sv; storeOf(save); applyPartida(); applyHero(); }
   arenaUI.from = from;
@@ -2130,6 +2216,7 @@ window.__aethra = {
   openChallenges() { if (!loadSave()) { nueva.name = 'Prueba'; nueva.diff = DIFF[settings.difficulty] ? settings.difficulty : 'normal'; nueva.slot = freeSlot() || 1; const sv = newSave({ name: 'Prueba', difficulty: nueva.diff, custom: settings.custom || {} }); setSlot(nueva.slot); writeSlot(nueva.slot, sv); } $('bHubCh').click(); },
   playCredits: (then) => playCredits(save, then || (() => {})), showChapterEnd, startEnding, openTrophies, offerLowerDifficulty, get lossStreak() { return lossStreak; },
   arena, openArena, openHeroes, openMisiones, openPoderes, powers, leaveArena, checkMissions, get arenaUI() { return arenaUI; }, Net,
+  endless, startEndless, stopEndless,
   hold(on) { paused4test = on; }, S, combat, enterZone, choose, get zone() { return zone; }, get dialog() { return dialog; },
   step(n, press) {
     for (let i = 0; i < n; i++) { if (press && i === 0) input._pressed.add(press); simulate(1 / 60); input.endFrame(); }

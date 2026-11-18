@@ -16,11 +16,11 @@ export const POWERS = [
 ];
 export const powerById = id => POWERS.find(p => p.id === id);
 export const ENERGY_MAX = 100;
-// puntos de poder: piezas + duelos y carreras ganados + la mitad de las oleadas superadas
+// puntos de poder: piezas + duelos y carreras ganados + la mitad de las oleadas superadas + 1 cada 300 m en Aethra sin fin
 export function powerPoints(sv) {
   if (!sv) return 0;
   const n = storeOf(sv).n;
-  return (sv.piezas || []).length + (n.duelos || 0) + (n.carreras || 0) + Math.floor((n.oleadaMax || 0) / 2);
+  return (sv.piezas || []).length + (n.duelos || 0) + (n.carreras || 0) + Math.floor((n.oleadaMax || 0) / 2) + Math.floor((n.infinitoMax || 0) / 300);
 }
 export const powerUnlocked = (p, sv) => powerPoints(sv) >= p.need;
 export function loadout(sv) {

@@ -4,7 +4,7 @@ Aventura 3D con historia para el navegador, hecha con [Three.js](https://threejs
 
 Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes para reunir los fragmentos del Corazón de Aethra y decidir el destino de su mundo.
 
-## Estado: versión 2.4.1 (botón «Menú de inicio» también en el aviso de dificultad)
+## Estado: versión 2.5
 
 | Etapa | Contenido | Estado |
 | --- | --- | --- |
@@ -27,6 +27,7 @@ Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes
 | 17. Héroes, piezas y Arena | Cambio de héroe en cualquier momento (H o pausa): siete héroes con ventajas propias (Nerea, Brasa e Ilan se desbloquean con piezas); 16 Piezas especiales (una escondida en cada zona dentro de una vasija con destellos dorados y una por misión) que dan corazones extra; siete misiones; Arena multijugador con Duelo, Cooperativo por oleadas con jefes y Carrera de piezas, contra la CPU, a dos jugadores en la misma pantalla u online en tiempo real con un código de sala | Lista: versión 2.2 |
 | 18. Poderes, chat y salas grandes | Siete poderes especiales con energía (ráfaga de fuego, furia de golpes, ráfaga de hielo que congela, levitación, telequinesis que levanta y estrella al rival, rayo de los ojos y lluvia de miles de flechas) que se desbloquean con puntos de poder (piezas + victorias en la Arena) y se usan con 1, 2 y 3 en la historia y en la Arena; chat en vivo en la Arena online con frases rápidas y filtro de palabrotas; salas para muchos jugadores (aparición en anillos, objetivo y oleadas que crecen con el número de jugadores, marcador de los mejores); aura de color y título en la personalización | Lista: versión 2.3 |
 | 19. Cámara de cada jugador | Online y contra la CPU la cámara sigue siempre a tu personaje y ves a los demás moverse en el mundo; con dos jugadores en un mismo dispositivo, pantalla dividida (lado a lado en horizontal, arriba y abajo en vertical), cada uno con su cámara | Lista: versión 2.4 |
+| 20. Aethra sin fin | Mapa que nunca se acaba: sectores de unos 150 m que se crean por delante mientras avanzas y se borran por detrás (islas, escaleras, plataformas móviles, rocas que se desploman, corrientes de aire, chorros de fuego, péndulos, enemigos, vasijas, islotes laterales con chispas e islas lejanas de fondo); cinco paisajes que cambian cada 2 sectores; banderas de control, récord de distancia y misión «Sin fin». También: el mando enciende el sonido o avisa de que hay que tocar una vez, y ya no se queda congelada la heroína al salir de la Arena en su pantalla final | Lista: versión 2.5 |
 
 ## Cómo jugar en tu computadora
 
