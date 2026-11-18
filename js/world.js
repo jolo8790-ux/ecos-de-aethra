@@ -568,6 +568,22 @@ export class World {
     this.interactables.push({ id, type: 'relic', pos: pos.clone(), radius: 1.2, mesh: g, auto: true });
   }
 
+  // Pieza especial: engranaje dorado con una gema, gira y brilla hasta que se recoge
+  spawnPieza(id, pos) {
+    const g = new THREE.Group(); g.position.copy(pos); this.root.add(g);
+    const gold = mat(0xffd84a, { emissive: 0xff9a10, emissiveIntensity: 1.1, metalness: 0.7, roughness: 0.2, flatShading: true });
+    const gem = new THREE.MeshStandardMaterial({ color: 0x9ff0ff, emissive: 0x3ad8ff, emissiveIntensity: 1.6, flatShading: true });
+    const spin = new THREE.Group(); spin.position.y = 1.0; g.add(spin);
+    const ring = this._mesh(new THREE.TorusGeometry(0.32, 0.09, 6, 8), gold, 0, 0, 0, spin);
+    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; this._mesh(new THREE.BoxGeometry(0.14, 0.14, 0.12), gold, Math.cos(a) * 0.44, Math.sin(a) * 0.44, 0, spin).rotation.z = a; }
+    this._mesh(new THREE.OctahedronGeometry(0.17, 0), gem, 0, 0, 0, spin);
+    const halo = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.75, 32), new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+    halo.position.y = 1.0; g.add(halo);
+    void ring;
+    this.animated.push(t => { spin.rotation.y = t * 2.2; spin.position.y = 1.0 + Math.sin(t * 3) * 0.12; halo.position.y = spin.position.y; halo.lookAt(this.playerPos.x, halo.getWorldPosition(new THREE.Vector3()).y, this.playerPos.z); halo.material.opacity = 0.25 + Math.sin(t * 4) * 0.12; });
+    this.interactables.push({ id, type: 'pieza', pos: pos.clone(), radius: 1.3, mesh: g, auto: true });
+  }
+
   // Barriles, cajas y puestos de mercado (solo con modelo; si no hay modelo, piezas sencillas)
   _prop({ kind, x, z, y = 0, rot = 0, s = 1 }) {
     const K = { barril: { h: 1.0, box: [0.8, 1.0, 0.8], col: 0x8a5a32 }, caja: { h: 0.9, box: [0.9, 0.9, 0.9], col: 0xa07040 }, puesto: { h: 2.6, box: [2.6, 1.1, 1.4], col: 0xc8563c } }[kind];

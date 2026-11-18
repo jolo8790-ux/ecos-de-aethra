@@ -37,6 +37,7 @@ export class Player {
     this.canGrapple = false; this.grapple = null;
     this.canShield = false; this.shielding = false; this.canPulse = false; this.pulseCd = 0;
     this.events = [];            // eventos para main (golpes, daño, muerte)
+    this.mods = {};              // ventajas del héroe elegido (velocidad, daño, planeo...)
 
     this.shadow = new THREE.Mesh(new THREE.CircleGeometry(0.4, 20), new THREE.MeshBasicMaterial({ color: 0, transparent: true, opacity: 0.25, depthWrite: false }));
     this.shadow.rotation.x = -Math.PI / 2; scene.add(this.shadow);
@@ -139,7 +140,7 @@ export class Player {
     this.pulseCd -= dt;
     if (!locked && this.canPulse && input.pressed('pulse') && this.pulseCd <= 0 && !this.dodge) {
       this.pulseCd = 1.1; this.attack = null;
-      this.events.push({ type: 'pulse', pos: this.pos.clone(), radius: 6.5 });
+      this.events.push({ type: 'pulse', pos: this.pos.clone(), radius: 6.5 * (this.mods.pulseR || 1), by: this });
       this.audio.play('pulse');
       this.anim.gesture && this.anim.gesture('Spellcast_Raise', { speed: 1.8, fadeIn: 0.05, fadeOut: 0.2 });
       this.fx && this.fx.ring(this.pos.clone().setY(this.pos.y + 0.8), 0xfff2a8);
@@ -155,7 +156,7 @@ export class Player {
       A.t += dt;
       const k = A.t / A.dur;
       if (k >= A.def.hit[0] && k <= A.def.hit[1] && !A.swung) { A.swung = true; this.events.push({ type: 'swing', def: A.def, idx: A.idx, hitList: A.hits }); this.audio.play('swing'); }
-      if (A.swung && k <= A.def.hit[1]) this.events.push({ type: 'hitcheck', def: A.def, hitList: A.hits, range: ATTACK_RANGE, angle: ATTACK_ANGLE });
+      if (A.swung && k <= A.def.hit[1]) this.events.push({ type: 'hitcheck', def: A.def, dmg: A.def.dmg + (this.mods.dmg || 0), hitList: A.hits, range: ATTACK_RANGE, angle: ATTACK_ANGLE });
       if (k > 0.62 && this.attackQueued && A.idx < COMBO.length - 1) { this.attackQueued = false; this._startAttack(A.idx + 1, targets, dirX, dirZ); }
       else if (k >= 1) { this.attack = null; this.attackQueued = false; this.attackCd = A.idx === COMBO.length - 1 ? 0.35 : 0.1; }
     }
@@ -166,7 +167,7 @@ export class Player {
       if (Math.hypot(dx, dz) < 0.2) { dx = -Math.sin(this.facing); dz = -Math.cos(this.facing); }
       const l = Math.hypot(dx, dz); dx /= l; dz /= l;
       if (this.grounded) {
-        this.dodge = { t: 0, dur: 0.38, iframes: 0.32, dx, dz, speed: 11, air: false };
+        this.dodge = { t: 0, dur: 0.38, iframes: 0.32, dx, dz, speed: 11 * (this.mods.dodge || 1), air: false };
         this.attack = null; this.facing = Math.atan2(-dx, -dz);
         this.anim.gesture && this.anim.gesture('Dodge_Forward', { speed: 1.25, fadeIn: 0.04, fadeOut: 0.15 });
         this.audio.play('dodge'); this.fx && this.fx.dust(this.pos, 6, 0.8);
@@ -192,7 +193,7 @@ export class Player {
       const atk = this.attack;
       if (this.launchT > 0) this.launchT -= dt;
       const launching = this.launchT > 0 && !this.grounded; // tras el garfio se conserva el impulso
-      const speed = Math.max((input.walk ? WALK : RUN) * (atk ? 0.15 : 1) * (this.shielding ? 0.35 : 1), launching ? Math.hypot(this.vel.x, this.vel.z) : 0);
+      const speed = Math.max((input.walk ? WALK : RUN) * (this.mods.speed || 1) * (atk ? 0.15 : 1) * (this.shielding ? 0.35 : 1), launching ? Math.hypot(this.vel.x, this.vel.z) : 0);
       const wx = dirX * speed, wz = dirZ * speed;
       const a = (this.grounded ? ACCEL : this.gliding ? AIR_ACCEL * 1.6 : AIR_ACCEL) * dt;
       if (this.hurtT <= 0) {
@@ -215,11 +216,11 @@ export class Player {
     if (!locked && !this.attack && input.pressed('jump')) this.buffer = BUFFER; else this.buffer -= dt;
     if (this.buffer > 0 && !this.dodge) {
       if (this.coyote > 0) {
-        this.vel.y = JUMP_V; this.grounded = false; this.coyote = 0; this.buffer = 0; this.jumps = 1;
+        this.vel.y = JUMP_V * (this.mods.jump || 1); this.grounded = false; this.coyote = 0; this.buffer = 0; this.jumps = 1;
         this.audio.play('jump'); this._jumped = true;
         if (this.fx) this.fx.dust(this.pos, 5, 0.6);
       } else if (this.jumps < 2) {
-        this.vel.y = DOUBLE_JUMP_V; this.buffer = 0; this.jumps = 2;
+        this.vel.y = DOUBLE_JUMP_V * (this.mods.jump || 1); this.buffer = 0; this.jumps = 2;
         this.audio.play('djump'); this._dj = true;
         if (this.fx) this.fx.colorRing(this.pos.clone().setY(this.pos.y + 0.2), 0.5 + Math.random() * 0.1);
       }
@@ -229,7 +230,7 @@ export class Player {
 
     // ---- planeador: mantener salto mientras se cae ----
     // aguante: se recupera en el suelo y dentro de las corrientes; al agotarse, el planeador se pliega
-    if (this.diff && this.diff.glide) this.glideMax = this.diff.glide;
+    if (this.diff && this.diff.glide) this.glideMax = this.diff.glide * (this.mods.glide || 1);
     if (this.grounded) { this.stamina = Math.min(this.glideMax, this.stamina + dt * 4); this.tired = false; this.gust = null; this.gustCd = Math.max(this.gustCd, 1.6); }
     const wantGlide = this.canGlide && !this.grounded && !this.dodge && !locked && !this.tired && input.held('jump') && (this.gliding || this.vel.y < 0) && this.airTime > 0.15;
     if (wantGlide && !this.gliding) { this.gliding = true; this.audio.play('glide'); }
@@ -301,7 +302,7 @@ export class Player {
     if (!locked) { mx = input.move.x; my = input.move.y; up = (input.held('jump') ? 1 : 0) - (input.held('dodge') ? 1 : 0); }
     const fx = -Math.sin(camYaw), fz = -Math.cos(camYaw), rx = Math.cos(camYaw), rz = -Math.sin(camYaw);
     const dirX = fx * my + rx * mx, dirZ = fz * my + rz * mx;
-    const sp = this.inSub ? 8.5 : (input.walk ? 2.4 : 4.4);
+    const sp = this.inSub ? 8.5 : (input.walk ? 2.4 : 4.4) * (this.mods.swim || 1);
     const tx = dirX * sp, tz = dirZ * sp;
     let ty = up * sp * 0.8 + (this.inSub ? 0 : -0.35); // sin nadar, se hunde despacio
     if (this.drowning) ty = -1.4;

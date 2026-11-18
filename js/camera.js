@@ -39,8 +39,9 @@ export class FollowCamera {
     const cp = Math.cos(this.pitch);
     const dx = Math.sin(this.yaw) * cp, dy = Math.sin(this.pitch), dz = Math.cos(this.yaw) * cp;
     const t = this.target;
-    const hit = this.physics.raycast(t.x, t.y, t.z, dx, dy, dz, this.dist + 0.3);
-    const wantDist = Math.max(1.2, Math.min(this.dist, hit - 0.35));
+    const D = this.distOverride || this.dist; // en la Arena con dos jugadores la cámara se aleja para verlos a ambos
+    const hit = this.physics.raycast(t.x, t.y, t.z, dx, dy, dz, D + 0.3);
+    const wantDist = Math.max(1.2, Math.min(D, hit - 0.35));
     // acercarse rápido, alejarse suave
     this.curDist += (wantDist - this.curDist) * (wantDist < this.curDist ? 1 : Math.min(1, dt * 3));
     this.camera.position.set(t.x + dx * this.curDist, t.y + dy * this.curDist, t.z + dz * this.curDist);

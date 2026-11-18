@@ -238,7 +238,7 @@ class Brote extends Enemy {
     if (this.aura) { this.aura.scale.setScalar(1 + Math.sin(this.t * 4) * 0.05); this.aura.rotation.y += dt; }
     const dx = pl.pos.x - this.pos.x, dz = pl.pos.z - this.pos.z, dist = Math.hypot(dx, dz), dy = Math.abs(pl.pos.y - this.pos.y);
     const toP = Math.atan2(-dx, -dz);
-    const sees = dist < 10 && dy < 2.5 && pl.hp > 0;
+    const sees = dist < (this.sight || 10) && dy < 2.5 && pl.hp > 0;
     let hop = 0, shake = 0, glow = 0.6;
     switch (this.state) {
       case 'idle':
@@ -253,7 +253,7 @@ class Brote extends Enemy {
         if (this.st <= 0) { this.state = 'chase'; this.mark.visible = false; }
         break;
       case 'chase': {
-        if (!sees || this.pos.distanceTo(this.home) > 15) { this.state = 'idle'; break; }
+        if (!sees || this.pos.distanceTo(this.home) > (this.leash || 15)) { this.state = 'idle'; break; }
         this.facing += angDiff(toP, this.facing) * damp(6, dt);
         const sp = dist > 2.3 ? 2.8 : 0;
         this.vel.x = -Math.sin(this.facing) * sp; this.vel.z = -Math.cos(this.facing) * sp;
@@ -1344,7 +1344,7 @@ export class Combat {
       let hit = false;
       for (const e of this.enemies) {
         if (!e.alive || ev.hitList.has(e) || !inArc(e.pos, e.radius)) continue;
-        ev.hitList.add(e); e.hurt(ev.def.dmg, pl.pos, ev.def.push); hit = true;
+        ev.hitList.add(e); e.hurt(ev.dmg || ev.def.dmg, pl.pos, ev.def.push); hit = true;
         this.fx.sparkle(e.pos.clone().setY(e.pos.y + 0.6), 8, 0xffffff);
       }
       for (const b of this.breakables || []) { // vasijas y geodas
@@ -1372,10 +1372,14 @@ export class Combat {
     pl.events = pl.events.filter(e => e.type === 'hurt' || e.type === 'dead' || e.type === 'airdash' || e.type === 'pulse' || e.type === 'block');
   }
 
-  update(dt, pl) {
-    for (const e of this.enemies) e.update(dt, pl);
+  // others: más jugadores (Arena). Cada enemigo persigue al más cercano; solo los jugadores locales reciben daño aquí.
+  update(dt, pl, others = []) {
+    const tg = others.length ? [pl, ...others].filter(t => t && t.hp > 0 && !t.koed) : null;
+    const near = p => { let b = pl, bd = Infinity; for (const t of tg) { const d = (t.pos.x - p.x) ** 2 + (t.pos.z - p.z) ** 2 + (t.pos.y - p.y) ** 2 * 2; if (d < bd) { bd = d; b = t; } } return b; };
+    for (const e of this.enemies) e.update(dt, tg && tg.length ? near(e.pos) : pl);
     this.enemies = this.enemies.filter(e => e.alive);
     if (this.boss) this.boss.update(dt, pl);
+    const locals = [pl, ...others.filter(o => o && !o.remote)];
     // proyectiles
     for (const p of this.projectiles) {
       if (p.life <= 0) continue;
@@ -1386,9 +1390,12 @@ export class Combat {
       }
       p.pos.addScaledVector(p.v, dt); p.m.rotation.x += dt * 5;
       if (!p.reflected) {
-        const d = p.pos.distanceTo(new THREE.Vector3(pl.pos.x, pl.pos.y + 0.9, pl.pos.z));
-        if (pl.shielding && d < 1.35 + p.radius && pl.blocks(p.pos)) this.reflect(p, pl);
-        else if (d < 0.55 + p.radius && pl.damage(1, p.pos)) p.life = 0;
+        for (const L of locals) {
+          if (L.koed) continue;
+          const d = p.pos.distanceTo(new THREE.Vector3(L.pos.x, L.pos.y + 0.9, L.pos.z));
+          if (L.shielding && d < 1.35 + p.radius && L.blocks(p.pos)) { this.reflect(p, L); break; }
+          else if (d < 0.55 + p.radius && L.damage(1, p.pos)) { p.life = 0; break; }
+        }
       } else {
         for (const e of this.enemies) if (e.alive && p.pos.distanceTo(e.pos.clone().setY(e.pos.y + 0.7)) < e.radius + p.radius + 0.2) { if (e.dispel) e.dispel(); e.hurt(2, p.pos, 5); p.life = 0; break; }
         const b = this.boss;
@@ -1403,9 +1410,11 @@ export class Combat {
     // curaciones
     for (const h of this.heals) {
       h.t += dt; h.m.rotation.y += dt * 3; h.m.position.y = Math.sin(h.t * 3) * 0.1;
-      const d = Math.hypot(pl.pos.x - h.pos.x, pl.pos.z - h.pos.z);
-      if (d < 3 && pl.hp < pl.maxHp) h.pos.lerp(new THREE.Vector3(pl.pos.x, pl.pos.y + 0.7, pl.pos.z), damp(4, dt)); // se acercan solas
-      if (d < 0.8 && Math.abs(pl.pos.y + 0.6 - h.pos.y) < 1.2 && pl.hp < pl.maxHp) { pl.heal(1); h.done = true; this.root.remove(h.g); this.audio.play('heal'); this.fx.sparkle(h.pos, 10, 0x9cff8a); this.onHeal && this.onHeal(); }
+      let hp = pl, hd = Infinity; // la jugadora local más cercana que necesite vida
+      for (const L of locals) { if (L.koed || L.hp >= L.maxHp) continue; const dd = Math.hypot(L.pos.x - h.pos.x, L.pos.z - h.pos.z); if (dd < hd) { hd = dd; hp = L; } }
+      const d = Math.hypot(hp.pos.x - h.pos.x, hp.pos.z - h.pos.z);
+      if (d < 3 && hp.hp < hp.maxHp) h.pos.lerp(new THREE.Vector3(hp.pos.x, hp.pos.y + 0.7, hp.pos.z), damp(4, dt)); // se acercan solas
+      if (d < 0.8 && Math.abs(hp.pos.y + 0.6 - h.pos.y) < 1.2 && hp.hp < hp.maxHp) { hp.heal(1); h.done = true; this.root.remove(h.g); this.audio.play('heal'); this.fx.sparkle(h.pos, 10, 0x9cff8a); this.onHeal && this.onHeal(); }
       if (h.t > 20) { h.done = true; this.root.remove(h.g); }
     }
     this.heals = this.heals.filter(h => !h.done);

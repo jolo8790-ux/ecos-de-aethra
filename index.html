@@ -230,6 +230,74 @@
   body.cine #bossbar { display: none; }
   .touch #bossbar { bottom: auto; top: 110px; }
   #debug { position: fixed; bottom: 6px; left: 8px; font: 11px monospace; opacity: .6; pointer-events: none; z-index: 2; }
+
+  /* ---- héroes ---- */
+  .heroWrap { display: flex; gap: 18px; align-items: flex-start; justify-content: center; flex-wrap: wrap; width: min(980px, 96vw); }
+  #heroPreview { width: 220px; height: 280px; border-radius: 20px; background: radial-gradient(circle at 50% 35%, rgba(255,255,255,.18), rgba(255,255,255,.03) 70%); flex: none; }
+  .heroGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; flex: 1; min-width: 280px; }
+  .heroCard { font: inherit; text-align: left; color: #fff; padding: 12px 14px; border-radius: 16px; border: 2px solid rgba(255,255,255,.12); background: rgba(255,255,255,.07); cursor: pointer; display: flex; gap: 12px; align-items: flex-start; position: relative; }
+  .heroCard:hover, .heroCard:focus { border-color: #ffe27a; outline: none; transform: translateY(-2px); }
+  .heroCard.sel { border-color: #7ad7ff; background: rgba(122,215,255,.16); }
+  .heroCard.locked { opacity: .55; cursor: not-allowed; }
+  .heroCard .em { width: 42px; height: 42px; border-radius: 50%; flex: none; display: grid; place-items: center; font-weight: 700; font-size: 20px; color: #10213a; border: 2px solid #fff; }
+  .heroCard b { font-size: 17px; display: block; } .heroCard .perk { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #ffd27a; display: block; margin: 1px 0 3px; }
+  .heroCard small { font-size: 13px; opacity: .8; line-height: 1.3; display: block; }
+  .heroCard .tag { position: absolute; top: 8px; right: 10px; font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #7ad7ff; color: #10213a; font-weight: 700; }
+  /* ---- misiones y piezas ---- */
+  .misBox { width: min(860px, 94vw); display: grid; gap: 12px; text-align: left; }
+  .misHead { display: flex; gap: 14px; align-items: center; justify-content: center; flex-wrap: wrap; }
+  .misHead .big { font-size: 40px; color: #ffd84a; text-shadow: 0 0 18px rgba(255,200,60,.6); animation: bob 2.4s ease-in-out infinite; }
+  .misHead b { font-size: 26px; } .misHead small { display: block; opacity: .8; }
+  .perks { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .perks span { font-size: 13px; padding: 5px 11px; border-radius: 12px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); }
+  .perks span.on { background: rgba(255,215,110,.2); border-color: rgba(255,215,110,.6); }
+  .misList { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+  .mis { padding: 11px 13px; border-radius: 14px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); display: grid; grid-template-columns: 36px 1fr; gap: 4px 10px; align-items: center; }
+  .mis .ic { grid-row: span 3; width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,.12); display: grid; place-items: center; font-size: 18px; }
+  .mis.done { border-color: rgba(255,215,110,.55); background: radial-gradient(circle at 10% 30%, rgba(255,215,110,.2), rgba(255,255,255,.04) 70%); }
+  .mis.done .ic { background: #ffd84a; color: #3a2606; }
+  .mis b { font-size: 15px; } .mis small { font-size: 12.5px; opacity: .78; }
+  .mis .bar { height: 6px; border-radius: 4px; background: rgba(255,255,255,.15); overflow: hidden; } .mis .bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffd84a, #ff9a4c); }
+  .zonePieces { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .zonePieces span { font-size: 13px; padding: 6px 11px; border-radius: 12px; background: rgba(255,255,255,.06); border: 1px dashed rgba(255,255,255,.25); }
+  .zonePieces span.got { border-style: solid; border-color: #ffd84a; background: rgba(255,215,110,.16); }
+  .misBox h3 { font-size: 15px; letter-spacing: .12em; text-transform: uppercase; opacity: .7; text-align: center; margin-top: 4px; }
+  /* ---- arena ---- */
+  .arenaSteps { width: min(760px, 94vw); display: grid; gap: 14px; }
+  .modeCards, .whoCards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .modeCards button, .whoCards button { font: inherit; text-align: left; padding: 14px; border-radius: 16px; border: 2px solid rgba(255,255,255,.14); background: rgba(255,255,255,.08); color: #fff; cursor: pointer; }
+  .modeCards button.sel, .whoCards button.sel { border-color: #ffd27a; background: rgba(255,210,122,.16); }
+  .modeCards button:focus, .whoCards button:focus { outline: none; border-color: #7ad7ff; }
+  .modeCards .ic { font-size: 26px; display: block; } .modeCards b, .whoCards b { font-size: 17px; display: block; } .modeCards small, .whoCards small { font-size: 12.5px; opacity: .8; display: block; line-height: 1.3; margin-top: 3px; }
+  .arenaRow { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
+  .arenaRow input { font: inherit; font-size: 20px; letter-spacing: .2em; text-transform: uppercase; width: 160px; text-align: center; padding: 8px 12px; border-radius: 12px; border: 2px solid rgba(255,255,255,.3); background: rgba(0,0,0,.3); color: #fff; }
+  .p2heroes { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+  .p2heroes button { font: inherit; font-size: 14px; padding: 6px 12px; border-radius: 12px; border: 2px solid rgba(255,255,255,.2); background: rgba(255,255,255,.08); color: #fff; cursor: pointer; }
+  .p2heroes button.sel { border-color: #ff7a5a; background: rgba(255,122,90,.2); }
+  .p2heroes button:disabled { opacity: .4; cursor: not-allowed; }
+  .keysNote { font-size: 13px; opacity: .78; line-height: 1.5; }
+  .keysNote kbd { font: inherit; font-size: 12px; padding: 1px 6px; border-radius: 6px; background: rgba(255,255,255,.18); }
+  #arenaHud { position: fixed; inset: 0; pointer-events: none; z-index: 3; }
+  #arenaTop { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); text-align: center; background: rgba(10,16,30,.55); padding: 6px 16px; border-radius: 16px; }
+  #arenaMode { font-size: 15px; font-weight: 700; } #arenaInfo { font-size: 13px; opacity: .85; }
+  #arenaBoard { position: absolute; top: 70px; right: 14px; display: grid; gap: 6px; }
+  #arenaBoard .ar { display: flex; gap: 8px; align-items: center; background: rgba(10,16,30,.55); padding: 5px 12px; border-radius: 14px; font-size: 14px; }
+  #arenaBoard .dot { width: 12px; height: 12px; border-radius: 50%; } #arenaBoard .hp { color: #ff6a7a; letter-spacing: -1px; } #arenaBoard .hp i { color: rgba(255,255,255,.25); font-style: normal; }
+  #arenaBoard .sc { font-weight: 700; font-size: 18px; min-width: 22px; text-align: right; color: #ffd27a; }
+  #arenaMsg { position: absolute; top: 34%; left: 0; right: 0; text-align: center; font-size: clamp(40px, 8vw, 90px); font-weight: 800; opacity: 0; text-shadow: 0 6px 24px rgba(0,0,0,.5); }
+  #arenaMsg.pop { animation: arenaPop 1.1s ease-out; }
+  @keyframes arenaPop { 0% { opacity: 0; transform: scale(.4); } 20% { opacity: 1; transform: scale(1.12); } 70% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1); } }
+  #arenaBoss { position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%); width: min(420px, 70vw); text-align: center; font-size: 13px; }
+  #arenaBoss .tr { height: 12px; border-radius: 8px; background: rgba(0,0,0,.45); overflow: hidden; border: 1px solid rgba(255,255,255,.3); margin-top: 3px; } #arenaBossFill { height: 100%; background: linear-gradient(90deg, #b07aff, #ff5a8a); }
+  #arenaExit { position: absolute; top: 12px; right: 14px; pointer-events: auto; }
+  #arenaPauseBox, #arenaEnd { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: rgba(5,10,25,.72); pointer-events: auto; text-align: center; padding: 20px; }
+  #arenaEnd h2 { font-size: clamp(34px, 6vw, 60px); }
+  #arenaEndList { list-style: none; display: grid; gap: 6px; min-width: 240px; }
+  #arenaEndList li { display: flex; justify-content: space-between; gap: 20px; background: rgba(255,255,255,.08); padding: 6px 14px; border-radius: 12px; }
+  #arenaEndList li:first-child { background: rgba(255,215,110,.22); }
+  #arenaEndRewards { color: #ffd27a; font-size: 15px; }
+  body.inArena #objective, body.inArena #compass, body.inArena #hudFrag { display: none !important; }
+  @media (max-width: 640px) { .modeCards, .whoCards { grid-template-columns: 1fr; } #arenaBoard { top: 64px; right: 6px; } }
 </style>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
@@ -241,7 +309,7 @@
   <button id="glReload" class="hidden" onclick="location.reload()" style="font:inherit;padding:10px 22px;border-radius:12px;border:0;background:#7fd3ff;color:#10213a;cursor:pointer">Recargar desde el último punto guardado</button>
 </div>
 <div id="glideBar" class="hidden"><div id="glideFill"></div></div>
-<div id="hud" class="hidden"><div class="chip" id="hudHearts"></div><div class="chip" id="hudFrag">◆ 0/0</div></div>
+<div id="hud" class="hidden"><div class="chip" id="hudHearts"></div><div class="chip" id="hudFrag">◆ 0/0</div><div class="chip" id="hudPieza" title="Piezas especiales">⚙ 0</div></div>
 <div id="chTimer" class="hidden">⏱ 0:00.0</div>
 <div id="bossbar" class="hidden"><div class="bname" id="bossName"></div><div class="btrack"><div class="bfill" id="bossFill"></div></div></div>
 <div id="objective" class="hidden"><div class="lbl">Objetivo</div><div class="txt" id="objText"></div><div class="dist" id="objDist"></div></div>
@@ -258,6 +326,16 @@
 <div id="blackout"></div>
 <div id="airBar" class="hidden"><span class="ic">○</span><div class="track"><div id="airFill"></div></div></div>
 <div id="achv"><span id="achvIcon"></span><span><small>Logro conseguido</small><b id="achvTitle"></b><em id="achvDesc"></em></span></div>
+<div id="arenaHud" class="hidden">
+  <div id="arenaTop"><div id="arenaMode"></div><div id="arenaInfo"></div></div>
+  <button class="btn alt small" id="arenaExit">✕ Salir</button>
+  <div id="arenaBoard"></div>
+  <div id="arenaMsg"></div>
+  <div id="arenaBoss" class="hidden">Jefe de la oleada<div class="tr"><div id="arenaBossFill"></div></div></div>
+  <div id="arenaPauseBox" class="hidden"><h2>Arena</h2><div class="sub" id="arenaPauseNote"></div><button class="btn" id="bArenaResume">Seguir</button><button class="btn warn" id="bArenaLeave">Salir de la Arena</button></div>
+  <div id="arenaEnd" class="hidden"><h2 id="arenaEndTitle"></h2><div class="sub" id="arenaEndSub"></div><ul id="arenaEndList"></ul><div id="arenaEndRewards"></div>
+    <div class="row2"><button class="btn" id="bArenaAgain">Otra ronda</button><button class="btn alt" id="bArenaEndLeave">Salir</button></div><div class="sub hidden" id="arenaEndWait">Esperando a que el anfitrión empiece otra ronda…</div></div>
+</div>
 <div id="debug"></div>
 <div id="dialog" class="hidden"><div class="who" id="dWho"></div><div class="text" id="dText"></div><div class="choices hidden" id="dChoices"></div><div class="next" id="dNext">E / clic para continuar</div></div>
 
@@ -272,7 +350,7 @@
 
 <div class="overlay" id="title">
   <h1>Ecos de Aethra</h1>
-  <p class="sub">Versión 2.1</p>
+  <p class="sub">Versión 2.2</p>
   <p class="sub" id="loading" style="margin-bottom:12px">Cargando personajes…</p>
   <div class="menu" id="titleMain">
     <button class="btn" id="bContinue">Continuar</button>
@@ -312,8 +390,10 @@
     <div class="hubHead" id="hubHead"></div>
     <div class="menu">
       <button class="btn" id="bHubPlay">Jugar</button>
+      <button class="btn alt" id="bHubArena">⚔ Arena multijugador</button>
       <button class="btn alt" id="bHubCh">Desafíos: Cristales del Cielo</button>
-      <div class="row2"><button class="btn alt small" id="bHubLogros">Logros</button><button class="btn alt small" id="bHubCustom">Personaje</button></div>
+      <div class="row2"><button class="btn alt small" id="bHubHeroes">Héroes</button><button class="btn alt small" id="bHubMis">Misiones y piezas</button></div>
+      <div class="row2"><button class="btn alt small" id="bHubLogros">Logros</button><button class="btn alt small" id="bHubCustom">Aspecto</button></div>
       <div class="row2 hidden" id="hubExtras"></div>
       <div class="row2"><button class="btn warn small" id="bHubDelete">Borrar partida</button><button class="btn alt small" id="bHubBack">Volver</button></div>
     </div>
@@ -334,6 +414,52 @@
   <div class="shelf" id="trophyShelf"></div>
   <div class="medalRow" id="medalRow"></div>
   <button class="btn alt small" id="bTrophyBack">Volver</button>
+</div>
+
+
+<!-- Héroes -->
+<div class="overlay hidden" id="heroes">
+  <h2>Elige tu héroe</h2>
+  <div class="sub" id="heroSub">Cada héroe tiene su propia ventaja. Reúne Piezas especiales para desbloquear más.</div>
+  <div class="heroWrap"><canvas id="heroPreview"></canvas><div class="heroGrid" id="heroGrid"></div></div>
+  <button class="btn alt small" id="bHeroesBack" style="margin-top:14px">Volver</button>
+</div>
+
+<!-- Misiones y piezas especiales -->
+<div class="overlay hidden" id="misiones">
+  <h2>Misiones y piezas</h2>
+  <div class="misBox">
+    <div class="misHead"><span class="big">⚙</span><span><b id="misCount"></b><small>Las piezas dan beneficios para toda la partida</small></span></div>
+    <div class="perks" id="misPerks"></div>
+    <h3>Misiones</h3>
+    <div class="misList" id="misList"></div>
+    <h3>Piezas escondidas en el mundo</h3>
+    <div class="sub" style="margin:0;text-align:center;font-size:14px">Una en cada zona, dentro de una vasija o geoda que suelta destellos dorados.</div>
+    <div class="zonePieces" id="misZones"></div>
+  </div>
+  <button class="btn alt small" id="bMisBack" style="margin-top:14px">Volver</button>
+</div>
+
+<!-- Arena multijugador -->
+<div class="overlay hidden" id="arenaMenu">
+  <h2>Arena de Aethra</h2>
+  <div class="sub">Batallas en tiempo real. Ganar duelos, carreras y oleadas cumple misiones que dan Piezas especiales.</div>
+  <div class="arenaSteps">
+    <div class="modeCards" id="arenaModes"></div>
+    <div class="whoCards" id="arenaWho"></div>
+    <div id="arenaLocalOpts" class="hidden">
+      <div class="sub" style="margin-bottom:6px;font-size:15px">Héroe del Jugador 2</div>
+      <div class="p2heroes" id="p2Heroes"></div>
+      <div class="keysNote" style="margin-top:8px">Jugador 1: <kbd>WASD</kbd> mover · <kbd>Espacio</kbd> saltar · <kbd>F</kbd> golpe · <kbd>G</kbd> esquivar · <kbd>V</kbd> escudo · <kbd>Z</kbd> pulso<br>Jugador 2: <kbd>Flechas</kbd> mover · <kbd>-</kbd> saltar · <kbd>.</kbd> golpe · <kbd>,</kbd> esquivar · <kbd>N</kbd> escudo · <kbd>M</kbd> pulso — o un mando</div>
+    </div>
+    <div id="arenaOnlineOpts" class="hidden">
+      <div class="arenaRow"><input id="arenaCode" maxlength="8" placeholder="CÓDIGO" autocomplete="off"><button class="btn alt small" id="bArenaNewCode">Código nuevo</button></div>
+      <div class="keysNote" style="margin-top:8px">Comparte el código: quien abra este juego en claude.ai y escriba el mismo código entra en tu sala. El primero en entrar es el anfitrión y elige el modo.</div>
+      <div class="sub" id="arenaNetMsg" style="margin:6px 0 0;font-size:14px"></div>
+    </div>
+    <div class="arenaRow"><button class="btn alt small" id="bArenaHero">Mi héroe: …</button></div>
+    <div class="arenaRow"><button class="btn" id="bArenaGo">¡A la Arena!</button><button class="btn alt small" id="bArenaBack">Volver</button></div>
+  </div>
 </div>
 
 <!-- Ofrecer una dificultad más baja -->
@@ -364,7 +490,10 @@
   <div class="menu" id="pauseMain">
     <button class="btn" id="bResume">Continuar</button>
     <button class="btn alt hidden" id="bRestartCh">Reiniciar desafío</button>
-    <button class="btn alt" id="bCustomPause">Personaje</button>
+    <button class="btn alt" id="bHeroesPause">Cambiar de héroe</button>
+    <button class="btn alt" id="bCustomPause">Aspecto</button>
+    <button class="btn alt" id="bMisPause">Misiones y piezas</button>
+    <button class="btn alt" id="bArenaPause">Arena multijugador</button>
     <button class="btn alt" id="bLogrosPause">Logros</button>
     <button class="btn alt" id="bSettings">Ajustes</button>
     <button class="btn alt" id="bControls">Controles</button>
@@ -392,6 +521,7 @@
     <b>Mantener V</b><span>Escudo: bloquea y devuelve proyectiles (cuando lo tengas)</span>
     <b>Z</b><span>Pulso de luz (cuando lo tengas)</span>
     <b>Ratón</b><span>Clic y arrastra para girar la cámara · rueda para acercar</span>
+    <b>H</b><span>Cambiar de héroe</span>
     <b>Esc / P</b><span>Pausa, ajustes y guardado</span>
     <b>Mando PS4</b><span>✕ saltar · □ golpear · ○ esquivar · △ usar · L1 escudo · R1 garfio · L2 luz · OPTIONS pausa · cruceta en los menús</span>
   </div>

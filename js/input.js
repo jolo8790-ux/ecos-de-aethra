@@ -13,13 +13,15 @@ export class Input {
     this.gamepadIndex = null;
     this.usingGamepad = false;
     this._prevPad = {};
+    this.arenaKeys = false; this.excludePad = null;
 
     addEventListener('keydown', e => {
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
       if (e.repeat) return;
       this.keys[e.code] = true;
       this.usingGamepad = false;
-      const a = KEYMAP[e.code];
+      // Arena con dos jugadores en un teclado: el jugador 1 golpea con F y esquiva con G (las flechas son del jugador 2)
+      const a = this.arenaKeys ? (ARENA_P1[e.code] || (P2_CODES.has(e.code) ? null : KEYMAP[e.code])) : KEYMAP[e.code];
       if (a) this._pressed.add(a);
     });
     addEventListener('keyup', e => { this.keys[e.code] = false; });
@@ -107,18 +109,20 @@ export class Input {
   poll() {
     let mx = 0, my = 0;
     const k = this.keys;
-    if (k.KeyW || k.ArrowUp) my += 1;
-    if (k.KeyS || k.ArrowDown) my -= 1;
-    if (k.KeyA || k.ArrowLeft) mx -= 1;
-    if (k.KeyD || k.ArrowRight) mx += 1;
+    const ar = !this.arenaKeys;
+    if (k.KeyW || (ar && k.ArrowUp)) my += 1;
+    if (k.KeyS || (ar && k.ArrowDown)) my -= 1;
+    if (k.KeyA || (ar && k.ArrowLeft)) mx -= 1;
+    if (k.KeyD || (ar && k.ArrowRight)) mx += 1;
     if (k.KeyQ) this.look.x -= 6;
     if (k.KeyR) this.look.x += 6;
-    this.walk = !!(k.ShiftLeft || k.ShiftRight);
+    this.walk = !this.arenaKeys && !!(k.ShiftLeft || k.ShiftRight);
     mx += this._joy.x; my += this._joy.y;
 
     // mando
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-    const pad = this.gamepadIndex !== null ? pads[this.gamepadIndex] : [...pads].find(p => p);
+    let pad = this.gamepadIndex !== null ? pads[this.gamepadIndex] : [...pads].find(p => p);
+    if (pad && this.excludePad != null && pad.index === this.excludePad) pad = [...pads].find(p => p && p.index !== this.excludePad); // ese mando es del jugador 2
     if (pad) {
       const dz = v => Math.abs(v) < 0.15 ? 0 : v;
       const lx = dz(pad.axes[0] || 0), ly = dz(pad.axes[1] || 0), rx = dz(pad.axes[2] || 0), ry = dz(pad.axes[3] || 0);
@@ -160,6 +164,7 @@ export class Input {
   held(action) {
     if (action === 'jump') return !!(this.keys.Space || this._padJump || this._held.has('jump') || this.autoJump);
     if (action === 'shield') return !!(this.keys.KeyV || this._padShield || this._held.has('shield'));
+    if (this.arenaKeys && action === 'dodge') return !!(this.keys.KeyG || this._padDodge);
     if (action === 'dodge') return !!(this.keys.KeyK || this.keys.KeyL || this.keys.ShiftRight || this._padDodge || this._held.has('dodge') || this.autoDown); // bajar nadando (también modo Automático)
     return this._held.has(action);
   }
@@ -170,5 +175,7 @@ export class Input {
 
 const KEYMAP = {
   Space: 'jump', KeyE: 'interact', Enter: 'interact', KeyF: 'interact', KeyJ: 'attack', KeyK: 'dodge', KeyL: 'dodge', KeyG: 'grapple', KeyC: 'grapple', KeyZ: 'pulse', KeyX: 'pulse', Digit1: 'choice1', Digit2: 'choice2', Numpad1: 'choice1', Numpad2: 'choice2',
-  Escape: 'pause', KeyP: 'pause', ArrowUp: 'choiceUp', ArrowDown: 'choiceDown',
+  Escape: 'pause', KeyP: 'pause', ArrowUp: 'choiceUp', ArrowDown: 'choiceDown', KeyH: 'heroes',
 };
+const ARENA_P1 = { KeyF: 'attack', KeyG: 'dodge' };
+const P2_CODES = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Slash', 'Minus', 'Period', 'Comma', 'KeyM', 'KeyN', 'ControlRight', 'Numpad0', 'Numpad1', 'Numpad2', 'Numpad3', 'Numpad5', 'Enter', 'KeyJ', 'KeyK', 'KeyL']);

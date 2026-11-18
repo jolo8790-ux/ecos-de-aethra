@@ -28,6 +28,10 @@ import { Combat, DIFF } from './combat.js';
 import { LOGROS, storeOf, unlock, bump as bumpL, addTo as addToL } from './logros.js';
 import { runCredits } from './credits.js';
 import { applySenderos, SENDEROS } from './zones/senderos.js';
+import { HEROES, heroById, heroLook, heroUnlocked } from './heroes.js';
+import { ZONE_PIECES, MISIONES, PIECE_TOTAL, piecesOf, pieceCount, pieceHearts, pieceBreakable, newlyDone, givePiece, bumpMax as bumpMaxL } from './piezas.js';
+import { Arena, ARENA_MODES } from './arena.js';
+import { Net } from './net.js';
 
 const ZONES_BASE = { puerto_bruma: puertoBruma, bosque_colgante: bosqueColgante, ruinas_vidrio: ruinasVidrio, ciudad_engranajes: ciudadEngranajes, glaciar_eco: glaciarEco, ciudadela_orden: ciudadelaOrden, eco_olvidado: ecoOlvidado, forja_ignis: forjaIgnis, abismo_mareth: abismoMareth };
 applySenderos(ZONES_BASE); // cada zona de la historia gana su Sendero
@@ -192,6 +196,7 @@ function loadZone(id, checkpointId) {
   world.build(zone, save); music.ambient(ZONE_AMB[zone.id]);
   player.updrafts = world.updrafts;
   combat.spawnZone(zone, save); combat.breakables = world.breakables;
+  pieceBk = save && !zone.challenge ? pieceBreakable(zone) : null;
   bossActive = false; hintClang = false; hintStun = false; hintAura = false; $('bossbar').classList.add('hidden');
   applyAbilities(); player.hp = player.maxHp;
   respawn(checkpointId);
@@ -210,7 +215,8 @@ function applyAbilities() {
   player.canPulse = !!save.flags.pulso;
   $('tY').classList.toggle('off', !player.canShield);
   $('tZ').classList.toggle('off', !(player.canGrapple || player.canPulse));
-  player.maxHp = 4 + Math.floor(save.fragments.length / 5) + Math.floor((save.relics || []).length / 2);
+  player.maxHp = 4 + Math.floor(save.fragments.length / 5) + Math.floor((save.relics || []).length / 2) + pieceHearts(save) + (player.mods.hp || 0);
+  $('hudPieza').textContent = `⚙ ${pieceCount(save)}`;
 }
 
 // Entrar en una zona (al empezar, al continuar o al cambiar de capítulo), con su introducción la primera vez.
@@ -247,6 +253,7 @@ function updateInteractions() {
     if (d > it.radius || Math.abs(dy) > 2.2) continue;
     if (it.type === 'fragment') { collectFragment(it); continue; }
     if (it.type === 'relic') { collectRelic(it); continue; }
+    if (it.type === 'pieza') { collectPieza(it); continue; }
     if (it.type === 'lantern') {
       if (save.checkpoint !== it.id) lightLantern(it);
       continue;
@@ -262,13 +269,47 @@ function updateInteractions() {
 
 // ---------- objetos rompibles y reliquias ----------
 const RELIC_TOTAL = 8;
+let pieceBk = null, pieceHintT = 0; // vasija o geoda que guarda la Pieza especial de la zona
 combat.onBreak = B => {
   world.breakObject(B);
   audio.play('shatter'); fx.sparkle(B.pos, 18, B.kind === 'cofre' ? 0xc8a8ff : 0xffc890); combat.shake(0.08, 0.15); input.rumble(90, 0.4);
   if (B.loot === 'reliquia') world.spawnRelic(B.id, B.pos.clone().setY(B.pos.y - 0.45));
   else if (B.loot === 'corazon') combat.spawnHeal(B.pos.x, B.pos.y - 0.45, B.pos.z);
   else if (B.loot === 'reloj' && challenge) { challenge.t = Math.max(0, challenge.t - 3); audio.play('unlock'); toast('⏳ ¡Reloj de arena! −3 segundos'); }
+  if (!challenge && save && !isAutoMode()) bump('rotos');
+  const pid = zone && 'pz_' + zone.id;
+  if (B.id === pieceBk && save && !piecesOf(save).includes(pid)) { world.spawnPieza(pid, B.pos.clone().setY(B.pos.y - 0.45)); fx.sparkle(B.pos, 30, 0xffe08a); toast('¡Algo dorado brilla entre los pedazos!'); }
 };
+// Pieza especial: beneficios para toda la partida
+function collectPieza(it) {
+  world.interactables.splice(world.interactables.indexOf(it), 1);
+  world.root.remove(it.mesh);
+  if (!givePiece(save, it.id)) return;
+  music.stinger('hallazgo'); fx.sparkle(it.pos.clone().setY(it.pos.y + 1), 34, 0xffe08a); audio.play('fragment');
+  player.gesture('Cheer', { speed: 1.2, fadeOut: 0.3 });
+  announcePiece(`${ZONE_PIECES[zone.id] || 'Pieza especial'}`);
+  writeSave(save);
+}
+// avisa de la pieza y de lo que desbloquea
+function announcePiece(name) {
+  const n = pieceCount(save), before = player.maxHp;
+  applyAbilities(); if (player.maxHp > before) player.hp = player.maxHp;
+  const extra = [];
+  if (n % 4 === 0) extra.push('¡un corazón más!');
+  const h = HEROES.find(x => x.need === n); if (h) extra.push(`¡${h.name} se une a tu equipo!`);
+  toast(`⚙ ${name} (${n}/${PIECE_TOTAL})${extra.length ? ' · ' + extra.join(' ') : ''}`);
+  if (h) achvQ.push({ icon: '☺', title: `Nuevo héroe: ${h.name}`, desc: `${h.perk}. Cámbialo con H o desde la pausa.`, kicker: 'Héroe desbloqueado' });
+}
+// misiones cumplidas: cada una da una pieza
+function checkMissions() {
+  if (!save || challenge || isAutoMode()) return;
+  for (const M of newlyDone(save)) {
+    givePiece(save, 'pz_' + M.id);
+    achvQ.push({ icon: M.icon, title: M.title, desc: '+1 Pieza especial', kicker: 'Misión cumplida' });
+    announcePiece(`Misión «${M.title}»`);
+    writeSave(save);
+  }
+}
 function collectRelic(it) {
   world.interactables.splice(world.interactables.indexOf(it), 1);
   world.root.remove(it.mesh);
@@ -629,6 +670,7 @@ function handleHazards(dt) {
   }
   if (state !== 'play') return;
   for (const h of hits) {
+    if (h.kind === 'fire' && player.mods.fire && Math.random() > player.mods.fire) { player.vel.copy(h.push); player.invuln = 0.6; continue; } // Brasa: el fuego a veces no le quema
     if (player.damage(h.dmg, h.from)) {
       player.vel.copy(h.push); player.grounded = false; player.gliding = false;
       if (h.kind === 'fire') { fx.flare(player.pos); toast('¡Fuego! Espera a que se apague el chorro'); } else combat.shake(0.12, 0.2);
@@ -665,7 +707,7 @@ function seaBefore(dt) {
   if (player.air == null) player.air = 1;
 }
 function seaAfter(dt) {
-  const sea = world.sea, p = player.pos, cap = (player.diff && player.diff.air) || 22;
+  const sea = world.sea, p = player.pos, cap = ((player.diff && player.diff.air) || 22) * (player.mods.air || 1);
   const head = p.y + 1.55 < sea.surface && !sea.inDome(p);
   if (player.inSub) player.air = Math.min(1, player.air + dt);
   else if (head && player.swimming) player.air = Math.max(0, player.air - dt / cap);
@@ -820,7 +862,11 @@ combat.onBossDefeated = () => {
   setTimeout(() => { startDialog(zone.story.bossDefeated, '', null, () => { zone.story.onBossDefeated && zone.story.onBossDefeated(S); player.gesture('Cheer', { speed: 1.2 }); }); }, 300);
 };
 combat.onBossClang = () => { if (!hintClang) { hintClang = true; toast({ bosque_colgante: 'El tronco es demasiado duro. ¡Golpea los nudos brillantes de las raíces!', ruinas_vidrio: 'Su caparazón es irrompible. Haz que choque contra un pilar.', ciudad_engranajes: 'El latón es demasiado duro. Espera a que se atasque tras el puñetazo.', glaciar_eco: 'Está demasiado alto. Devuélvele un orbe de hielo con el escudo (mantén V).', ciudadela_orden: 'La barrera de sombra lo protege. Rómpela con el pulso de luz (Z) o devolviéndole un orbe con el escudo.' }[zone.id] || 'Demasiado duro'); } };
-combat.onKill = e => { if (e.constructor.name === 'Avispa' && !isAutoMode() && bump('avispas') >= 10) logro('cazavispas'); };
+combat.onKill = e => {
+  if (arena.active) { arena.onKill(e); return; }
+  if (!isAutoMode() && !challenge) bump('enemigos');
+  if (e.constructor.name === 'Avispa' && !isAutoMode() && bump('avispas') >= 10) logro('cazavispas');
+};
 combat.onBossPhase = b => toast((b && b.phaseMsg) || '¡El guardián está furioso!');
 combat.onLockHit = L => { world.openLock(L); if (L.flag) S.set(L.flag); audio.play('unlock'); fx.sparkle(L.pos, 30, 0xbff4ff); toast('¡La cerradura de hielo se rompe!'); };
 combat.onAuraClang = () => { if (!hintAura) { hintAura = true; toast(player.canPulse ? 'Un aura de sombra lo protege. ¡Usa el pulso de luz (Z)!' : 'Un aura de sombra lo protege.'); } };
@@ -860,13 +906,15 @@ const partida = () => (challenge ? challenge.owner : save);
 function persistPartida() { const sv = partida(); if (!sv) return; if (challenge) writeSlot(getSlot(), sv); else writeSave(save); }
 function logro(id) { const L = unlock(partida(), id, isAutoMode()); if (L) { achvQ.push(L); persistPartida(); } }
 const bump = (k, by) => bumpL(partida(), k, by), addTo = (k, v) => addToL(partida(), k, v);
+let misT = 0;
 function logrosTick(dt) {
+  if ((misT -= dt) <= 0) { misT = 1; if (state === 'play' || state === 'arena') checkMissions(); }
   glideRun = player.gliding && !player.grounded ? glideRun + dt : 0;
   if (glideRun >= 12) logro('ave');
   if (achvT > 0 && (achvT -= dt) <= 0) $('achv').classList.remove('show');
   if (achvT <= -0.5 && achvQ.length) {
     const L = achvQ.shift(); achvT = 3.4;
-    $('achvIcon').textContent = L.icon; $('achvTitle').textContent = L.title; $('achvDesc').textContent = L.desc;
+    $('achvIcon').textContent = L.icon; $('achvTitle').textContent = L.title; $('achvDesc').textContent = L.desc; $('achv').querySelector('small').textContent = L.kicker || 'Logro conseguido';
     $('achv').classList.add('show'); audio.play('unlock');
   }
   if (achvT <= 0) achvT = Math.max(-1, achvT - dt);
@@ -918,7 +966,15 @@ function titlePanel(id) {
 function applySlotLook() {
   if (!charLib) return;
   const sv = loadSave(); const cfg = (sv && sv.custom) || {};
-  player.useModel(charLib, customLook(cfg)); player.setFight(player.canFight);
+  player.useModel(charLib, heroLook(sv && sv.hero, cfg)); player.setFight(player.canFight);
+}
+// héroe elegido: aspecto y ventajas
+function applyHero() {
+  if (!save) return;
+  const h = heroUnlocked(heroById(save.hero), pieceCount(save)) ? heroById(save.hero) : HEROES[0];
+  save.hero = h.id; player.mods = { ...h.mods };
+  if (charLib) { player.useModel(charLib, heroLook(h.id, save.custom)); player.setFight(player.canFight); }
+  if (!isAutoMode() && !challenge) addTo('heroes', h.id);
 }
 function refreshTitle() {
   $('bContinue').classList.toggle('hidden', listSaves().length === 0);
@@ -1020,7 +1076,7 @@ function startGame(s) {
   audio.unlock(); music.init(); goFull();
   if (!s.custom && settings.custom) s.custom = settings.custom; // partidas antiguas: el aspecto que había elegido
   save = s; storeOf(save); applyPartida();
-  if (charLib) { player.useModel(charLib, customLook(s.custom || {})); player.setFight(player.canFight); }
+  applyHero();
   writeSave(save);
   showOverlay(null);
   enterZone(save.zone, save.checkpoint);
@@ -1453,7 +1509,7 @@ function closeCustom(save = true) {
   if (save) {
     settings.custom = cust.cfg; writeSettings(settings);
     const sv = cust.from === 'title' ? loadSave() : (challenge ? null : save);
-    if (sv) { sv.custom = cust.cfg; if (cust.from === 'title') { unlock(sv, 'estilo', sv.difficulty === 'auto'); writeSaveRaw(sv); } else { logro('estilo'); writeSave(sv); } }
+    if (sv) { sv.custom = cust.cfg; sv.hero = 'lia'; if (cust.from === 'title') { unlock(sv, 'estilo', sv.difficulty === 'auto'); writeSaveRaw(sv); } else { logro('estilo'); writeSave(sv); if (sv === save) { player.mods = {}; applyAbilities(); } } } // personalizar es para tu heroína
     player.useModel(charLib, customLook(cust.cfg)); player.setFight(player.canFight);
     if (cust.from === 'title') openHub();
   }
@@ -1671,6 +1727,9 @@ function simulate(dt) {
   updateMusic();
   if (challenge && state === 'play') updateChallenge(dt);
   if (input.pressed('pause') && (state === 'play' || state === 'dialog' || state === 'pause')) pause();
+  else if (input.pressed('pause') && state === 'arena') arena.togglePause();
+  if (input.pressed('heroes') && state === 'play' && !challenge) openHeroes('play');
+  if (state === 'arena') arena.update(dt);
 
   if (state === 'play' || state === 'dialog') {
     save.playTime += dt; talkCooldown -= dt;
@@ -1708,6 +1767,11 @@ function simulate(dt) {
     if (combat.shakeAmt > 0) camera.position.add(new THREE.Vector3((Math.random() - 0.5) * combat.shakeAmt, (Math.random() - 0.5) * combat.shakeAmt, (Math.random() - 0.5) * combat.shakeAmt));
   }
   if (state === 'play' || state === 'dialog') updateGoal(dt);
+  if (state === 'play' && pieceBk && (pieceHintT -= dt) <= 0) { // destellos dorados alrededor de la vasija con la pieza
+    pieceHintT = 0.9;
+    const B = world.breakables.find(b => b.id === pieceBk);
+    if (B && !B.broken && !piecesOf(save).includes('pz_' + zone.id) && B.pos.distanceTo(player.pos) < 32) fx.sparkle(B.pos.clone().setY(B.pos.y + 0.5 + Math.random() * 0.4), 3, 0xffe08a);
+  }
   if (state === 'cutscene') updateCutscene(dt);
   if (state === 'dead') updateDeath(dt);
   if (state !== 'title') updateCombatHUD();
@@ -1752,6 +1816,179 @@ function titleScene() {
   respawn(save.checkpoint);
 }
 
+
+// ---------- héroes ----------
+const heroUI = { from: null, pv: null };
+function heroPreview(cv) { // vista previa 3D pequeña del héroe
+  const r = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true }); r.setPixelRatio(Math.min(devicePixelRatio, 2)); r.setSize(cv.clientWidth || 220, cv.clientHeight || 280, false); r.outputColorSpace = THREE.SRGBColorSpace;
+  const sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight(0xffffff, 0x556070, 1.6)); const d = new THREE.DirectionalLight(0xfff1d6, 1.8); d.position.set(2, 4, 3); sc.add(d);
+  const cam = new THREE.PerspectiveCamera(30, (cv.clientWidth || 220) / (cv.clientHeight || 280), 0.1, 50); cam.position.set(0, 1.0, 6.4); cam.lookAt(0, 0.82, 0);
+  const P = { r, sc, cam, ch: null, rot: 0.4, clock: new THREE.Clock(), raf: 0 };
+  P.set = look => {
+    if (P.ch) sc.remove(P.ch.root);
+    P.ch = createCharacter(charLib, look); sc.add(P.ch.root);
+    const a = P.ch.actions.Cheer || P.ch.actions.Idle || Object.values(P.ch.actions)[0]; if (a) { a.setEffectiveWeight(1); a.play(); }
+  };
+  P.stop = () => { cancelAnimationFrame(P.raf); r.dispose(); };
+  const loop = () => { P.raf = requestAnimationFrame(loop); const dt = P.clock.getDelta(); P.rot += dt * 0.6; if (P.ch) { P.ch.root.rotation.y = P.rot; P.ch.mixer.update(dt); } r.render(sc, cam); };
+  loop(); return P;
+}
+function openHeroes(from) {
+  const sv = from === 'title' ? loadSave() : save; if (!sv || !charLib) return;
+  heroUI.from = from; heroUI.sv = sv;
+  if (from === 'play') state = 'pause';
+  if (from !== 'play') $(from).classList.add('hidden');
+  $('heroes').classList.remove('hidden');
+  heroUI.pv = heroPreview($('heroPreview'));
+  buildHeroGrid();
+}
+function buildHeroGrid() {
+  const sv = heroUI.sv, n = pieceCount(sv), grid = $('heroGrid'); grid.innerHTML = '';
+  const cur = heroById(sv.hero);
+  heroUI.pv.set(heroLook(cur.id, sv.custom));
+  $('heroSub').textContent = `Cada héroe tiene su propia ventaja. Tienes ${n} de ${PIECE_TOTAL} Piezas especiales.`;
+  for (const h of HEROES) {
+    const ok = heroUnlocked(h, n), b = document.createElement('button');
+    b.className = 'heroCard' + (h.id === cur.id ? ' sel' : '') + (ok ? '' : ' locked');
+    const col = '#' + h.color.toString(16).padStart(6, '0');
+    b.innerHTML = `<span class="em" style="background:${col}">${h.id === 'lia' ? '★' : h.name[0]}</span><span><b>${h.id === 'lia' ? escapeHtml(sv.name || h.name) : h.name}</b><span class="perk">${h.perk}</span><small>${ok ? h.desc : `🔒 Reúne ${h.need} Piezas especiales (${n}/${h.need})`}</small></span>${h.id === cur.id ? '<span class="tag">En juego</span>' : ''}`;
+    b.onmouseenter = b.onfocus = () => heroUI.pv.set(heroLook(h.id, sv.custom));
+    b.onmouseleave = () => heroUI.pv.set(heroLook(heroById(sv.hero).id, sv.custom));
+    b.onclick = () => {
+      if (!ok) { audio.play('hurt'); return; }
+      sv.hero = h.id; audio.play('open');
+      if (sv === save) { applyHero(); applyAbilities(); if (player.hp > player.maxHp) player.hp = player.maxHp; fx.sparkle(player.pos.clone().setY(player.pos.y + 1), 24, h.color); writeSave(save); toast(`Ahora juegas con ${h.id === 'lia' ? (sv.name || 'tu heroína') : h.name}: ${h.perk}`); }
+      else { writeSaveRaw(sv); applySlotLook(); }
+      buildHeroGrid();
+      if (heroUI.from === 'play' || heroUI.from === 'arenaMenu') closeHeroes();
+    };
+    grid.appendChild(b);
+  }
+}
+function closeHeroes() {
+  if (heroUI.pv) { heroUI.pv.stop(); heroUI.pv = null; }
+  $('heroes').classList.add('hidden');
+  if (heroUI.from === 'play') { state = 'play'; return; }
+  $(heroUI.from).classList.remove('hidden');
+  if (heroUI.from === 'arenaMenu') refreshArenaMenu();
+}
+$('bHeroesBack').onclick = closeHeroes;
+$('bHeroesPause').onclick = () => { if (challenge) { toast('En los desafíos no se cambia de héroe'); return; } openHeroes('pause'); };
+$('bHubHeroes').onclick = () => openHeroes('title');
+
+// ---------- misiones y piezas ----------
+const misUI = { from: null };
+function openMisiones(from) {
+  const sv = from === 'title' ? loadSave() : save; if (!sv) return;
+  misUI.from = from;
+  const got = new Set(piecesOf(sv)), n = got.size;
+  $('misCount').textContent = `${n} de ${PIECE_TOTAL} Piezas especiales`;
+  const perks = [`♥ +${pieceHearts(sv)} corazones (uno cada 4 piezas)`, ...HEROES.filter(h => h.need).map(h => `${n >= h.need ? '✓' : '🔒'} ${h.name} con ${h.need} piezas`)];
+  $('misPerks').innerHTML = perks.map((t, i) => `<span class="${i === 0 ? (pieceHearts(sv) ? 'on' : '') : (t.startsWith('✓') ? 'on' : '')}">${t}</span>`).join('');
+  $('misList').innerHTML = MISIONES.map(M => {
+    const v = Math.min(M.goal, M.prog(sv)), done = got.has('pz_' + M.id);
+    return `<div class="mis${done ? ' done' : ''}"><span class="ic">${done ? '✓' : M.icon}</span><b>${M.title}</b><small>${M.desc} · Premio: 1 pieza</small><span class="bar"><i style="width:${v / M.goal * 100}%"></i></span></div>`;
+  }).join('');
+  $('misZones').innerHTML = Object.entries(ZONE_PIECES).map(([zid, name]) => { const Z = ZONES_BASE[zid]; const ok = got.has('pz_' + zid); return `<span class="${ok ? 'got' : ''}">${ok ? '⚙ ' + name : '? ' + (Z ? Z.title : zid)}</span>`; }).join('');
+  $(from).classList.add('hidden'); $('misiones').classList.remove('hidden');
+}
+$('bMisBack').onclick = () => { $('misiones').classList.add('hidden'); $(misUI.from).classList.remove('hidden'); };
+$('bMisPause').onclick = () => openMisiones('pause');
+$('bHubMis').onclick = () => openMisiones('title');
+
+// ---------- Arena multijugador ----------
+const arena = new Arena({
+  scene, physics, world, combat, fx, audio, music, input, cam, player,
+  charLib: () => charLib, getSave: () => save, toast,
+  loadArenaZone(Z) {
+    zone = Z; player.inSub = false; player.swimming = false; clearSeaFx();
+    skyMat.uniforms.top.value.setHex(Z.sky.top); skyMat.uniforms.bottom.value.setHex(Z.sky.bottom);
+    scene.fog = new THREE.Fog(Z.sky.fog, Z.sky.fogNear, Z.sky.fogFar);
+    hemi.color.setHex(Z.light.hemiSky); hemi.groundColor.setHex(Z.light.hemiGround); sun.color.setHex(Z.light.sun);
+    world.build(Z, save || newSave()); music.ambient('desert');
+    player.updrafts = world.updrafts; combat.spawnZone(Z, save || newSave()); combat.breakables = world.breakables;
+    pieceBk = null; bossActive = false; $('bossbar').classList.add('hidden');
+    marker.visible = false; $('objective').classList.add('hidden'); $('compass').classList.add('hidden'); $('prompt').classList.add('hidden');
+    banner(Z.subtitle, Z.title);
+  },
+  bump: k => (isAutoMode() ? 0 : bump(k)), bumpMax: (k, v) => (save && !isAutoMode() ? bumpMaxL(save, k, v) : v),
+  checkMissions: () => { checkMissions(); if (save) writeSave(save); },
+  pulseFx: (pos, r) => { const sph = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshBasicMaterial({ color: 0xfff2a8, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending })); sph.position.copy(pos).setY(pos.y + 0.9); scene.add(sph); pulseFx.push({ m: sph, t: 0, r }); },
+});
+const arenaUI = { from: null, mode: 'duelo', who: 'cpu', p2hero: 'kael', code: '' };
+const WHO = [['cpu', 'Contra la CPU', 'Tú contra un héroe controlado por el juego.'], ['local', '2 jugadores', 'En esta pantalla: teclado compartido o con mando.'], ['online', 'Online', 'En tiempo real con quien entre en tu sala.']];
+function openArena(from) {
+  const sv = from === 'title' ? loadSave() : save; if (!sv) return;
+  if (from === 'title') { save = sv; storeOf(save); applyPartida(); applyHero(); }
+  arenaUI.from = from;
+  $(from).classList.add('hidden'); $('arenaMenu').classList.remove('hidden');
+  if (!arenaUI.code) arenaUI.code = randomCode();
+  $('arenaCode').value = arenaUI.code; $('arenaNetMsg').textContent = '';
+  refreshArenaMenu();
+}
+const randomCode = () => Array.from({ length: 4 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
+function refreshArenaMenu() {
+  const mk = (box, list, key) => {
+    box.innerHTML = '';
+    for (const [id, name, desc, ic] of list) {
+      const b = document.createElement('button'); if (arenaUI[key] === id) b.classList.add('sel');
+      b.innerHTML = `${ic ? `<span class="ic">${ic}</span>` : ''}<b>${name}</b><small>${desc}</small>`;
+      b.onclick = () => { arenaUI[key] = id; audio.play('open'); refreshArenaMenu(); };
+      box.appendChild(b);
+    }
+  };
+  mk($('arenaModes'), Object.entries(ARENA_MODES).map(([id, M]) => [id, M.name, M.desc, M.icon]), 'mode');
+  mk($('arenaWho'), WHO, 'who');
+  $('arenaLocalOpts').classList.toggle('hidden', arenaUI.who !== 'local');
+  $('arenaOnlineOpts').classList.toggle('hidden', arenaUI.who !== 'online');
+  const n = pieceCount(save), row = $('p2Heroes'); row.innerHTML = '';
+  for (const h of HEROES) {
+    const b = document.createElement('button'); b.textContent = h.id === 'lia' ? 'Exploradora' : h.name; b.disabled = !heroUnlocked(h, n);
+    if (arenaUI.p2hero === h.id) b.classList.add('sel');
+    b.onclick = () => { arenaUI.p2hero = h.id; refreshArenaMenu(); };
+    row.appendChild(b);
+  }
+  const me = heroById(save.hero);
+  $('bArenaHero').textContent = `Mi héroe: ${me.id === 'lia' ? (save.name || 'tu heroína') : me.name} · cambiar`;
+}
+$('bArenaHero').onclick = () => openHeroes('arenaMenu');
+$('bArenaNewCode').onclick = () => { arenaUI.code = randomCode(); $('arenaCode').value = arenaUI.code; };
+$('arenaCode').onkeydown = e => e.stopPropagation();
+$('bArenaBack').onclick = () => { $('arenaMenu').classList.add('hidden'); $(arenaUI.from).classList.remove('hidden'); };
+$('bArenaGo').onclick = async () => {
+  audio.unlock(); music.init(); goFull();
+  let net = null;
+  if (arenaUI.who === 'online') {
+    const code = ($('arenaCode').value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+    if (code.length < 3) { $('arenaNetMsg').textContent = 'Escribe un código de al menos 3 letras o números.'; return; }
+    arenaUI.code = code; $('arenaNetMsg').textContent = 'Conectando…'; $('bArenaGo').disabled = true;
+    try { net = await Net.open(code); } catch (e) { net = null; }
+    $('bArenaGo').disabled = false;
+    if (!net) { $('arenaNetMsg').textContent = 'No se pudo abrir la sala. Prueba otra vez.'; return; }
+    if (net.kind === 'local') toast('Sala local: funciona entre pestañas de este navegador. En claude.ai se conecta con otras personas.');
+  }
+  if (state === 'pause') writeSave(save);
+  $('arenaMenu').classList.add('hidden'); showOverlay(null);
+  if (dialog) closeDialog(false);
+  state = 'arena';
+  arena.start({ mode: arenaUI.mode, players: arenaUI.who, net, p2hero: arenaUI.p2hero, from: arenaUI.from, code: arenaUI.code });
+};
+function leaveArena() {
+  if (!arena.active) return;
+  const from = arena.from;
+  arena.exit();
+  applyPartida(); applyHero();
+  if (from === 'title') { state = 'title'; zone = null; music.play('title'); showOverlay('title'); openHub(); }
+  else { state = 'play'; enterZone(save.zone, save.checkpoint); }
+}
+$('arenaExit').onclick = () => arena.togglePause();
+$('bArenaResume').onclick = () => arena.togglePause();
+$('bArenaLeave').onclick = leaveArena;
+$('bArenaEndLeave').onclick = leaveArena;
+$('bArenaAgain').onclick = () => arena.again();
+$('bArenaPause').onclick = () => { if (challenge) { toast('Termina o sal del desafío antes de ir a la Arena'); return; } openArena('pause'); };
+$('bHubArena').onclick = () => { audio.unlock(); openArena('title'); };
+
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
@@ -1769,6 +2006,7 @@ window.__aethra = {
   testNewGame(name = 'Prueba', difficulty = settings.difficulty, opts = {}) { nueva.name = name; nueva.diff = DIFF[difficulty] ? difficulty : 'normal'; nueva.slot = freeSlot() || getSlot() || 1; createPartida(settings.custom || {}); if (opts.sellos !== false) for (const id of Object.keys(SENDEROS)) save.flags['sello_' + id] = true; }, // las pruebas de capítulos saltan los Senderos
   openChallenges() { if (!loadSave()) { nueva.name = 'Prueba'; nueva.diff = DIFF[settings.difficulty] ? settings.difficulty : 'normal'; nueva.slot = freeSlot() || 1; const sv = newSave({ name: 'Prueba', difficulty: nueva.diff, custom: settings.custom || {} }); setSlot(nueva.slot); writeSlot(nueva.slot, sv); } $('bHubCh').click(); },
   playCredits: (then) => playCredits(save, then || (() => {})), showChapterEnd, startEnding, openTrophies, offerLowerDifficulty, get lossStreak() { return lossStreak; },
+  arena, openArena, openHeroes, openMisiones, leaveArena, checkMissions, get arenaUI() { return arenaUI; }, Net,
   hold(on) { paused4test = on; }, S, combat, enterZone, choose, get zone() { return zone; }, get dialog() { return dialog; },
   step(n, press) {
     for (let i = 0; i < n; i++) { if (press && i === 0) input._pressed.add(press); simulate(1 / 60); input.endFrame(); }

@@ -4,7 +4,7 @@ Aventura 3D con historia para el navegador, hecha con [Three.js](https://threejs
 
 Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes para reunir los fragmentos del Corazón de Aethra y decidir el destino de su mundo.
 
-## Estado: versión 2.1
+## Estado: versión 2.2
 
 | Etapa | Contenido | Estado |
 | --- | --- | --- |
@@ -24,6 +24,7 @@ Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes
 | 14. Niveles el doble de largos | Cada zona de la historia y los capítulos extra 1 y 2 tienen un «Sendero» de unos 150 m (saltos, rocas que caen, plataformas móviles, mazas, fuego, planeo, corrientes y garfio según el capítulo); una barrera de luz cierra el camino hasta tocar el Sello del final | Lista: versión 2.0 |
 | 15. Las Profundidades de Mareth | Capítulo extra 3 submarino: nadar en 3D, aire que se acaba (burbujas, cúpulas, superficie), pantalla roja con latidos cada vez más lentos, borrosa y oscura al ahogarse; sin corazones el nivel empieza de nuevo; medusas, corrientes, algas, peces, ciudad hundida, Nerea la buzo y un submarino que rompe muros de coral | Lista: versión 2.0 |
 | 16. Gráficos mejorados | Submarino nuevo (casco amarillo con remaches, cúpula de cristal con Lía pilotando, ojos de buey, periscopio, hélice carenada y estela de burbujas); dirigible rehecho (globo de gajos, góndola-barco con cabina iluminada, tres motores, banderines) que ahora gira y zarpa con la proa por delante; islas con texturas de tierra y roca, rocas colgantes irregulares, hierba que se mece con el viento, flores y piedras; luz de contorno en los personajes | Lista: versión 2.1 |
+| 17. Héroes, piezas y Arena | Cambio de héroe en cualquier momento (H o pausa): siete héroes con ventajas propias (Nerea, Brasa e Ilan se desbloquean con piezas); 16 Piezas especiales (una escondida en cada zona dentro de una vasija con destellos dorados y una por misión) que dan corazones extra; siete misiones; Arena multijugador con Duelo, Cooperativo por oleadas con jefes y Carrera de piezas, contra la CPU, a dos jugadores en la misma pantalla u online en tiempo real con un código de sala | Lista: versión 2.2 |
 
 ## Cómo jugar en tu computadora
 
