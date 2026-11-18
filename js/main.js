@@ -1656,7 +1656,7 @@ function refreshPreview() {
   const look = customLook(cust.cfg); pv.ch = createCharacter(charLib, look); pv.sc.add(pv.ch.root);
   const a = pv.ch.actions.Idle || Object.values(pv.ch.actions)[0]; if (a) { a.setEffectiveWeight(1); a.play(); }
 }
-function stopPreview() { if (!pv) return; cancelAnimationFrame(pv.raf); pv.r.dispose(); pv = null; }
+function stopPreview() { if (!pv) return; cancelAnimationFrame(pv.raf); pv.r.dispose(); pv.r.forceContextLoss(); pv = null; }
 $('bCustomPause').onclick = () => openCustom('pause');
 $('bCustomOk').onclick = () => closeCustom(true);
 $('bCustomReset').onclick = () => { cust.cfg = { ...DEFAULT_CUSTOM }; buildCustomOpts(); refreshPreview(); };
@@ -1757,7 +1757,7 @@ function applyQuality() {
     scene.traverse(o => { const m = o.material; if (m) (Array.isArray(m) ? m : [m]).forEach(x => x.needsUpdate = true); });
   }
   if (sun.shadow.mapSize.x !== Q.map) { sun.shadow.mapSize.set(Q.map, Q.map); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
-  fx.density = Q.fx;
+  fx.density = Q.fx; world.detail = k === 'alta' ? 1 : k === 'media' ? 0.55 : 0.25;
   if (Q.bloom) ensureBloom(); else if (composer) composer.setPixelRatio(renderer.getPixelRatio());
 }
 // Resplandor (bloom) en calidad Alta: el fuego, los cristales y los fragmentos brillan de verdad.
@@ -1792,12 +1792,12 @@ function renderScene() {
 }
 // En «Automática», si el juego va lento un buen rato, baja un nivel (y lo recuerda para la próxima vez).
 
-function autoQualityTick(dt) {
-  if ((settings.quality || 'auto') !== 'auto' || state !== 'play' || document.hidden) { aq.t = aq.n = 0; return; }
-  aq.t += dt; aq.n++;
-  if (aq.t < 4) return;
+function autoQualityTick(realDt) {
+  if ((settings.quality || 'auto') !== 'auto' || !(state === 'play' || state === 'arena') || document.hidden) { aq.t = aq.n = 0; return; }
+  aq.t += Math.min(realDt, 0.5); aq.n++;
+  if (aq.t < 3) return;
   const f = aq.n / aq.t; aq.t = aq.n = 0;
-  aq.slow = f < 28 ? aq.slow + 1 : 0;
+  aq.slow = f < 40 ? aq.slow + 1 : 0;
   if (aq.slow >= 2) {
     const cur = qualityLevel(), down = cur === 'alta' ? 'media' : cur === 'media' ? 'baja' : null;
     aq.slow = 0;
@@ -1815,11 +1815,13 @@ let fpsAcc = 0, fpsN = 0, fps = 0;
 let frameErrors = 0;
 function frame() {
   requestAnimationFrame(frame);
-  const dt = Math.min(clock.getDelta(), 1 / 30);
+  const realDt = Math.min(clock.getDelta(), 0.25);
   if (glLost) return;
   if (paused4test) { renderScene(); return; }
+  autoQualityTick(realDt);
+  const steps = Math.min(3, Math.max(1, Math.ceil(realDt / (1 / 30) - 0.05))), dt = Math.min(realDt / steps, 1 / 30);
   try {
-    simulate(dt);
+    for (let i = 0; i < steps; i++) { simulate(dt); if (i < steps - 1) input.endFrame(); } // las pulsaciones cuentan una sola vez
     if (state !== 'credits') renderScene();
   } catch (e) { // un error en un fotograma no debe congelar el juego
     if (frameErrors++ < 5) console.error('Error en el fotograma', e);
@@ -1914,7 +1916,6 @@ function simulate(dt) {
   updateGlideBar();
   if (bannerT > 0 && (bannerT -= dt) <= 0) $('zoneBanner').style.opacity = 0;
 
-  autoQualityTick(dt);
   if (settings.debug) {
     fpsAcc += dt; fpsN++;
     if (fpsAcc > 0.5) { fps = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; }
@@ -1947,7 +1948,7 @@ function heroPreview(cv) { // vista previa 3D pequeña del héroe
     P.ch = createCharacter(charLib, look); sc.add(P.ch.root);
     const a = P.ch.actions.Cheer || P.ch.actions.Idle || Object.values(P.ch.actions)[0]; if (a) { a.setEffectiveWeight(1); a.play(); }
   };
-  P.stop = () => { cancelAnimationFrame(P.raf); r.dispose(); };
+  P.stop = () => { cancelAnimationFrame(P.raf); r.dispose(); r.forceContextLoss(); };
   const loop = () => { P.raf = requestAnimationFrame(loop); const dt = P.clock.getDelta(); P.rot += dt * 0.6; if (P.ch) { P.ch.root.rotation.y = P.rot; P.ch.mixer.update(dt); } r.render(sc, cam); };
   loop(); return P;
 }

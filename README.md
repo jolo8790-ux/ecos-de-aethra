@@ -4,7 +4,7 @@ Aventura 3D con historia para el navegador, hecha con [Three.js](https://threejs
 
 Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes para reunir los fragmentos del Corazón de Aethra y decidir el destino de su mundo.
 
-## Estado: versión 2.6.1 (menús con la palanca del mando, cursor que no salta al principio, ✕ acepta, también en la Arena)
+## Estado: versión 2.6.2 (sin cámara lenta en equipos lentos; la calidad automática ahora sí baja cuando hace falta)
 
 | Etapa | Contenido | Estado |
 | --- | --- | --- |

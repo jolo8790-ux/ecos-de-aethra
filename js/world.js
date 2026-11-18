@@ -207,7 +207,7 @@ export class World {
     const R = seeded((z.seed || 7) * 1.37), spots = [];
     for (const I of z.islands || []) {
       if (I.w < 3 || I.d < 3) continue;
-      const n = Math.min(160, Math.floor(I.w * I.d * (kind === 'grass' ? 0.32 : 0.1)));
+      const n = Math.min(160, Math.floor(I.w * I.d * (kind === 'grass' ? 0.32 : 0.1) * (this.detail ?? 1)));
       for (let i = 0; i < n; i++) spots.push([I.x + (R() - 0.5) * (I.w - 0.6), I.top, I.z + (R() - 0.5) * (I.d - 0.6)]);
     }
     if (!spots.length) return;
