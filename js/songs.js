@@ -198,6 +198,21 @@ SONGS.forja = {
       'E5 - F5 - G5 - B5 -', 'A5 - - - G5 - F5 -', 'G5 - F5 - E5 - D5 -', 'E5 - - - - - . .'] },
   ],
 };
+// Créditos: fiesta bailable (fa mayor, con palmas y bajo saltarín)
+SONGS.creditos = {
+  bpm: 124, vol: 0.9, chords: ['F', 'Dm', 'Bb', 'C', 'F', 'Dm', 'Gm', 'C'],
+  tracks: [
+    { type: 'pad', inst: 'pad', oct: 3, vol: 0.25 },
+    { type: 'bass', inst: 'bass', oct: 2, pattern: 'R . O . R R O . R . O . R R O R', vol: 0.5 },
+    { type: 'drum', inst: 'kick', pattern: 'X...X...X...X...', vol: 0.6 },
+    { type: 'drum', inst: 'clap', pattern: '....x.......x...', vol: 0.45 },
+    { type: 'drum', inst: 'shaker', pattern: 'x.x.x.x.x.x.x.x.', vol: 0.3 },
+    { type: 'stab', inst: 'strings', oct: 4, pattern: '..x...x...x...x.', vol: 0.3 },
+    { type: 'mel', inst: 'brass', from: 2, vol: 0.45, notes: [
+      'F5 - A5 - C6 - A5 -', 'D6 - C6 - A5 - F5 -', 'D5 - F5 - Bb5 - D6 -', 'C6 - - - G5 - - -',
+      'A5 - C6 - F6 - C6 -', 'D6 - F6 - D6 - A5 -', 'G5 - Bb5 - D6 - Bb5 -', 'C6 - E6 - G6 - - -'] },
+  ],
+};
 SONGS.boss_eco = { ...SONGS.vaelor, transpose: 2, bpm: 132 };
 
 // Fanfarrias cortas. 'nota:duración en tiempos', '+' para acordes.

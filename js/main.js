@@ -14,7 +14,7 @@ const writeSave = s => challenge ? true : writeSaveRaw(s);
 import { FX } from './fx.js';
 import { loadCharacterLibrary, createCharacter, customLook, CUSTOM, DEFAULT_CUSTOM } from './characters.js';
 import { loadProps } from './props.js';
-import { newSave, loadSave, peekSave, getSlot, setSlot, SLOTS, writeSave as writeSaveRaw, loadSettings, writeSettings, exportCode, importCode } from './save.js';
+import { newSave, loadSave, peekSave, getSlot, setSlot, SLOTS, freeSlot, listSaves, writeSlot, deleteSave, writeSave as writeSaveRaw, loadSettings, writeSettings, exportCode, importCode } from './save.js';
 import puertoBruma from './zones/puerto_bruma.js';
 import bosqueColgante from './zones/bosque_colgante.js';
 import ruinasVidrio from './zones/ruinas_vidrio.js';
@@ -24,7 +24,8 @@ import ciudadelaOrden from './zones/ciudadela_orden.js';
 import ecoOlvidado from './zones/eco_olvidado.js';
 import forjaIgnis from './zones/forja_ignis.js';
 import { Combat, DIFF } from './combat.js';
-import { LOGROS, loadLogros, unlock, bump, addTo } from './logros.js';
+import { LOGROS, storeOf, unlock, bump as bumpL, addTo as addToL } from './logros.js';
+import { runCredits } from './credits.js';
 
 const ZONES_BASE = { puerto_bruma: puertoBruma, bosque_colgante: bosqueColgante, ruinas_vidrio: ruinasVidrio, ciudad_engranajes: ciudadEngranajes, glaciar_eco: glaciarEco, ciudadela_orden: ciudadelaOrden, eco_olvidado: ecoOlvidado, forja_ignis: forjaIgnis };
 const ZONES = { ...ZONES_BASE }; for (const L of DESAFIOS) ZONES[L.id] = L;
@@ -118,6 +119,8 @@ const pulseFx = [];
 
 let settings = loadSettings();
 let save = null;
+let navI = 0, navSig = ''; // navegación de menús con mando
+let lossStreak = 0; // rondas de vidas perdidas sin avanzar (para ofrecer bajar la dificultad)
 let state = 'title';
 let zone = null;
 let time = 0;
@@ -290,7 +293,7 @@ function collectFragment(it) {
 function lightLantern(it) {
   for (const o of world.interactables) if (o.type === 'lantern' && o !== it && !(save.flags.lit || []).includes(o.id)) o.light(false);
   save.flags.lit = [...new Set([...(save.flags.lit || []), it.id])];
-  save.checkpoint = it.id;
+  save.checkpoint = it.id; lossStreak = 0;
   it.light(true);
   fx.sparkle(it.pos.clone().setY(it.pos.y + 2), 10, 0xffd27a);
   for (const o of world.interactables) if (o.type === 'lantern' && save.flags.lit.includes(o.id)) o.light(true);
@@ -395,7 +398,7 @@ function updateGoal(dt) {
   $('objective').classList.toggle('hidden', state === 'title');
   if (g.text !== lastGoal) {
     if (lastGoal) { const o = $('objective'); o.classList.remove('flash'); void o.offsetWidth; o.classList.add('flash'); audio.play('open'); }
-    lastGoal = g.text; $('objText').textContent = g.text;
+    lastGoal = g.text; $('objText').textContent = g.text; lossStreak = 0;
   }
   if (g.at) {
     const d = Math.hypot(player.pos.x - g.at[0], player.pos.z - g.at[2]);
@@ -439,7 +442,7 @@ function startFinale(kind) {
   state = 'cutscene'; document.body.classList.add('cine');
   save.flags['final_' + kind] = true; save.flags.juego_completado = true; writeSave(save);
   logro('un_final'); if (Object.keys(save.flags).filter(k => k.startsWith('final_')).length >= 2) logro('dos_finales');
-  if (settings.difficulty === 'dificil') logro('leyenda');
+  if (save.difficulty === 'dificil') logro('leyenda');
   const F = zone.finale[kind];
   cutscene = { t: 0, finale: true, kind, F, top0: skyMat.uniforms.top.value.clone(), bot0: skyMat.uniforms.bottom.value.clone(), fog0: scene.fog.color.clone() };
   player.frozen = true;
@@ -461,6 +464,13 @@ function updateFinale(dt) {
     cutscene = null; state = 'end';
     let all = 0; for (const z of Object.values(ZONES_BASE)) all += z.fragments.length;
     const other = c.kind === 'a' ? 'b' : 'a';
+    $('fade').style.opacity = 0;
+    if (maybeCredits(() => showFinaleCard(c, F, all, other))) return;
+    showFinaleCard(c, F, all, other);
+  }
+}
+function showFinaleCard(c, F, all, other) {
+  {
     showEndCard({
       kicker: 'Final', title: F.title,
       stats: `Tiempo de juego: ${fmtTime(save.playTime)}<br>Fragmentos encontrados: ${save.fragments.length}/${all}<br>Finales vistos: ${['a', 'b'].filter(x => save.flags['final_' + x]).length}/2`,
@@ -470,6 +480,64 @@ function updateFinale(dt) {
     $('fade').style.opacity = 0;
   }
 }
+// ---------- si se pierden dos rondas de vidas sin avanzar, ofrecer una dificultad más baja ----------
+const LOWER = { dificil: 'normal', normal: 'facil' };
+function offerLowerDifficulty() {
+  lossStreak = 0;
+  const cur = save.difficulty || 'normal', low = LOWER[cur]; if (!low) return;
+  state = 'offer'; player.frozen = true;
+  $('diffOfferText').textContent = `Este tramo se está resistiendo: ya perdiste todas tus vidas dos veces. ¿Quieres seguir en ${diffName(low)} en vez de ${diffName(cur)}? Podrás seguir igual que ahora, solo será un poco más fácil.`;
+  $('bDiffLower').textContent = `Bajar a ${diffName(low)}`; $('bDiffKeep').textContent = `Seguir en ${diffName(cur)}`;
+  $('diffOffer').classList.remove('hidden'); navSig = '';
+  const close = lower => {
+    $('diffOffer').classList.add('hidden'); player.frozen = false; state = 'play';
+    if (lower) { save.difficulty = low; applyPartida(); writeSave(save); toast(`Dificultad: ${diffName(low)}`); }
+  };
+  $('bDiffLower').onclick = () => close(true); $('bDiffKeep').onclick = () => close(false);
+}
+// ---------- créditos finales: al terminar la historia y los dos capítulos extra ----------
+function maybeCredits(then) {
+  if (!save || challenge || save.flags.creditos) return false;
+  if (!(save.flags.juego_completado && save.flags.fragmento_eco && save.flags.corazon_forja)) return false;
+  playCredits(save, then); return true;
+}
+let creditsRun = null;
+function playCredits(sv, then) {
+  const nick = escapeHtml(slotName(sv, getSlot()));
+  const got = Object.keys(storeOf(sv).got).length;
+  let all = 0; for (const z of Object.values(ZONES_BASE)) all += z.fragments.length;
+  $('creditsRoll').innerHTML = `
+    <h3>Think Animation Studio presenta</h3>
+    <p class="big">Ecos de Aethra</p>
+    <h3>Producción ejecutiva</h3><p>Jorge Chaparro</p><p class="small">CEO de Think Animation Studio</p>
+    <h3>Una producción de</h3><p>Think Animation Studio</p>
+    <h3>Protagonista</h3><p>${nick} como Lía</p>
+    <h3>Reparto</h3><p>Lía</p><p>Capitana Marta</p><p>Kael</p><p>Tomás</p><p>Ilan, el eco del abuelo</p><p>Brasa, la herrera de Ignis</p><p>Vaelor y el Eco Sombrío</p>
+    <h3>Historia, diseño, programación y música</h3><p>Creados con Claude (Anthropic)</p>
+    <h3>Personajes y animaciones</h3><p>KayKit Adventurers</p><p class="small">Kay Lousberg (CC0)</p>
+    <h3>Jefes, enemigos y decorados</h3><p>Hunyuan3D 2.1 (Tencent)</p><p class="small">a partir de imágenes de SDXL</p>
+    <h3>Motor 3D</h3><p>three.js</p>
+    <h3>Tipografía</h3><p>Fredoka</p>
+    <h3>Tu aventura</h3><p class="small">Tiempo de juego: ${fmtTime(sv.playTime || 0)} · Fragmentos: ${sv.fragments.length}/${all} · Logros: ${got}/${LOGROS.length}</p>
+    <h3>&nbsp;</h3><p class="big" style="font-size:clamp(26px,4vw,40px)">¡Gracias por jugar, ${nick}!</p>
+    <p class="small">© Think Animation Studio</p>`;
+  const prev = state; state = 'credits';
+  $('credits').classList.remove('hidden'); $('bCreditsSkip').classList.add('hidden');
+  setTimeout(() => $('bCreditsSkip').classList.remove('hidden'), 2500);
+  music.play('creditos', { fade: 1 });
+  const looks = [customLook(sv.custom || {}), 'marta', 'kael', 'tomas', 'ilan', 'brasa'];
+  const finish = () => {
+    if (!creditsRun) return; creditsRun = null;
+    $('credits').classList.add('hidden'); sv.flags.creditos = true;
+    if (sv === save) writeSave(save); else writeSlot(getSlot(), sv);
+    state = prev === 'credits' ? 'end' : prev; music.play('finale', { fade: 2 });
+    then && then();
+  };
+  if (!charLib) { creditsRun = { stop() {} }; setTimeout(finish, 20000); return; }
+  creditsRun = runCredits({ canvas: $('creditsCanvas'), roll: $('creditsRoll'), lib: charLib, looks, duration: 60, onDone: finish });
+}
+$('bCreditsSkip').onclick = () => { if (creditsRun) creditsRun.stop(); };
+addEventListener('keydown', e => { if (e.key === 'Escape' && creditsRun && !$('bCreditsSkip').classList.contains('hidden')) creditsRun.stop(); });
 function updateCutscene(dt) {
   if (cutscene.finale) return updateFinale(dt);
   const c = cutscene; c.t += dt;
@@ -510,6 +578,7 @@ function showEndCard({ kicker, title, stats, sub, next }) {
   $('endcard').classList.remove('hidden');
 }
 function showChapterEnd() {
+  if (maybeCredits(showChapterEnd)) return;
   state = 'end'; document.body.classList.add('cine');
   music.stinger('capitulo'); music.play('finale', { fade: 2.5 });
   const total = zone.fragments.length, ce = zone.chapterEnd || {};
@@ -589,6 +658,7 @@ function updateDeath(dt) {
     respawn(save.checkpoint);
     $('fade').style.opacity = 0; state = 'play';
     toast('Lía se levanta junto al farol');
+    if (!challenge && !isAutoMode() && ++lossStreak >= 2) offerLowerDifficulty();
   }
 }
 // Garfio: elige el anillo más cercano delante de la cámara y lo marca en pantalla.
@@ -674,7 +744,11 @@ function toast(msg) { $('toast').textContent = msg; $('toast').style.opacity = 1
 // ---------- logros ----------
 const isAutoMode = () => !!(player.diff && player.diff.auto);
 const achvQ = []; let achvT = 0, glideRun = 0, bossHurt = false;
-function logro(id) { const L = unlock(id, isAutoMode()); if (L) achvQ.push(L); }
+// los logros son de la partida en juego (durante un desafío, de la partida desde la que se abrió)
+const partida = () => (challenge ? challenge.owner : save);
+function persistPartida() { const sv = partida(); if (!sv) return; if (challenge) writeSlot(getSlot(), sv); else writeSave(save); }
+function logro(id) { const L = unlock(partida(), id, isAutoMode()); if (L) { achvQ.push(L); persistPartida(); } }
+const bump = (k, by) => bumpL(partida(), k, by), addTo = (k, v) => addToL(partida(), k, v);
 function logrosTick(dt) {
   glideRun = player.gliding && !player.grounded ? glideRun + dt : 0;
   if (glideRun >= 12) logro('ave');
@@ -694,58 +768,151 @@ function banner(a, b) { $('zbT1').textContent = a; $('zbT2').textContent = b; $(
 function showOverlay(id) {
   for (const o of ['title', 'pause']) $(o).classList.toggle('hidden', o !== id);
   $('hud').classList.toggle('hidden', id === 'title');
+  document.body.classList.toggle('atTitle', id === 'title'); // en el título no se ve el HUD del juego
 }
 function showPausePanel(p) {
   $('pauseMain').classList.toggle('hidden', p !== 'main');
+  $('controlsPanel').classList.toggle('hidden', p !== 'controls');
   $('settingsPanel').classList.toggle('hidden', p !== 'settings');
   $('savePanel').classList.toggle('hidden', p !== 'save');
 }
 
-// ranuras de partida en el título: resumen de cada una
-function renderSlots() {
-  const row = $('slotRow'); row.innerHTML = '';
-  for (let n = 1; n <= SLOTS; n++) {
-    const sv = peekSave(n), b = document.createElement('button');
-    b.className = 'slot' + (n === getSlot() ? ' sel' : '');
-    const look = { ...DEFAULT_CUSTOM, ...((sv && sv.custom) || (n === 1 ? settings.custom : null) || {}) };
-    const col = '#' + ((CUSTOM.ropa.find(o => o[0] === look.ropa) || CUSTOM.ropa[0])[3]).toString(16).padStart(6, '0');
-    const Z = sv && (ZONES_BASE[sv.zone] || ZONES[sv.zone]);
-    b.innerHTML = `<span class="dot" style="background:${sv ? col : 'transparent'}"></span><span><b>Partida ${n}</b><small>${sv ? `${Z ? Z.subtitle : ''} · ${fmtTime(sv.playTime || 0)}<br>◆ ${sv.fragments.length} · ✦ ${(sv.relics || []).length}` : 'Vacía'}</small></span>`;
-    b.onclick = () => { setSlot(n); refreshTitle(); applySlotLook(); audio.play('open'); };
-    row.appendChild(b);
-  }
+// ---------- pantalla de título: Continuar / Nueva partida ----------
+const DIFF_INFO = [
+  ['facil', 'Cuento', 'Más corazones de ventaja, los golpes duelen la mitad y caer no hace daño.', '☁'],
+  ['normal', 'Aventura', 'La experiencia pensada para el juego.', '⚔'],
+  ['dificil', 'Leyenda', 'Los enemigos pegan el doble y los jefes aguantan más.', '♜'],
+  ['auto', 'Automático', 'Lía juega sola y tú miras. No cuenta para logros ni récords.', '★'],
+];
+const diffName = k => (DIFF_INFO.find(d => d[0] === k) || DIFF_INFO[1])[1];
+const lookColor = sv => { const look = { ...DEFAULT_CUSTOM, ...((sv && sv.custom) || {}) }; return '#' + ((CUSTOM.ropa.find(o => o[0] === look.ropa) || CUSTOM.ropa[0])[3]).toString(16).padStart(6, '0'); };
+const slotName = (sv, n) => (sv && sv.name) || `Partida ${n}`;
+function slotCard(n, sv, onclick) {
+  const b = document.createElement('button'); b.className = 'slot';
+  const Z = ZONES_BASE[sv.zone] || ZONES[sv.zone], got = Object.keys(storeOf(sv).got).length;
+  b.innerHTML = `<span class="dot" style="background:${lookColor(sv)}"></span><span style="flex:1"><b>${escapeHtml(slotName(sv, n))}</b><small>${Z ? Z.subtitle + ' · ' + Z.title : ''}</small>`
+    + `<span class="meta"><span>⏱ ${fmtTime(sv.playTime || 0)}</span><span>◆ ${sv.fragments.length}</span><span>✦ ${(sv.relics || []).length}</span><span>🏆 ${got}/${LOGROS.length}</span></span></span><span class="dd">${diffName(sv.difficulty || settings.difficulty)}</span>`;
+  b.onclick = onclick; return b;
+}
+function escapeHtml(t) { return String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+const TITLE_PANELS = ['namePanel', 'replacePanel', 'diffPanel', 'slotsPanel', 'hubPanel', 'challengesPanel'];
+function titlePanel(id) {
+  for (const p of TITLE_PANELS) $(p).classList.toggle('hidden', p !== id);
+  $('titleMain').classList.toggle('hidden', !!id);
+  navSig = '';
+  const f = id && $(id).querySelector('input, button:not(:disabled)'); if (f && !input.isTouch) setTimeout(() => f.focus(), 30);
 }
 // cada partida guarda su propio aspecto de personaje
 function applySlotLook() {
   if (!charLib) return;
-  const sv = loadSave(); const cfg = (sv && sv.custom) || settings.custom || {};
+  const sv = loadSave(); const cfg = (sv && sv.custom) || {};
   player.useModel(charLib, customLook(cfg)); player.setFight(player.canFight);
 }
 function refreshTitle() {
-  renderSlots();
-  const existing = loadSave();
-  $('bContinue').classList.toggle('hidden', !existing);
-  $('bChapters').classList.toggle('hidden', !existing);
-  $('bNew').textContent = 'Nueva partida';
-  $('bNew').dataset.confirm = '';
+  $('bContinue').classList.toggle('hidden', listSaves().length === 0);
+  titlePanel(null);
 }
 refreshTitle();
+
+// --- Nueva partida: nombre → dificultad → personaje ---
+const nueva = { name: '', slot: 0, diff: 'normal' };
+$('bNew').onclick = () => { audio.unlock(); $('nickInput').value = ''; $('nameMsg').textContent = ''; titlePanel('namePanel'); };
+$('bNameBack').onclick = () => titlePanel(null);
+$('nickInput').onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') $('bNameOk').click(); };
+$('bNameOk').onclick = () => {
+  const name = $('nickInput').value.trim().replace(/\s+/g, ' ');
+  if (!name && !input.usingGamepad) { $('nameMsg').textContent = 'Escribe un nombre para tu partida.'; return; }
+  nueva.name = (name || `Jugador ${freeSlot() || 1}`).slice(0, 16); // con mando no se puede escribir: nombre por defecto
+  nueva.slot = freeSlot();
+  if (!nueva.slot) { // no queda sitio: elegir una para reemplazar
+    const list = $('replaceList'); list.innerHTML = '';
+    for (const { n, s: sv } of listSaves()) {
+      const b = slotCard(n, sv, () => {
+        if (!b.dataset.ok) { b.dataset.ok = '1'; b.querySelector('b').textContent = `¿Reemplazar «${slotName(sv, n)}»? Pulsa otra vez`; return; }
+        nueva.slot = n; showDiffPanel();
+      });
+      list.appendChild(b);
+    }
+    titlePanel('replacePanel'); return;
+  }
+  showDiffPanel();
+};
+$('bReplaceBack').onclick = () => titlePanel('namePanel');
+function showDiffPanel() {
+  const box = $('diffCards'); box.innerHTML = '';
+  for (const [k, name, desc, ic] of DIFF_INFO) {
+    const b = document.createElement('button');
+    b.innerHTML = `<span class="ic">${ic}</span><b>${name}</b><small>${desc}</small>`;
+    b.onclick = () => { nueva.diff = k; audio.play('open'); openCustom('new'); };
+    box.appendChild(b);
+  }
+  titlePanel('diffPanel');
+}
+$('bDiffBack').onclick = () => titlePanel('namePanel');
+function createPartida(custom) {
+  const sv = newSave({ name: nueva.name, difficulty: nueva.diff, custom });
+  storeOf(sv); // logros vacíos de la partida (hereda los antiguos solo si los había)
+  sv.logros = { got: {}, n: {} };
+  setSlot(nueva.slot); writeSlot(nueva.slot, sv);
+  startGame(sv);
+}
+
+// --- Continuar: lista de partidas y menú de cada una ---
+$('bContinue').onclick = () => {
+  audio.unlock();
+  const list = $('slotList'); list.innerHTML = '';
+  for (const { n, s: sv } of listSaves()) list.appendChild(slotCard(n, sv, () => { setSlot(n); applySlotLook(); audio.play('open'); openHub(); }));
+  titlePanel('slotsPanel');
+};
+$('bSlotsBack').onclick = () => titlePanel(null);
+function openHub() {
+  const sv = loadSave(); if (!sv) { refreshTitle(); return; }
+  const Z = ZONES_BASE[sv.zone] || ZONES[sv.zone];
+  $('hubHead').innerHTML = `<span class="dot" style="background:${lookColor(sv)}"></span><span><b>${escapeHtml(slotName(sv, getSlot()))}</b><small>${Z ? Z.subtitle + ' · ' + Z.title : ''} · ${diffName(sv.difficulty || settings.difficulty)} · ⏱ ${fmtTime(sv.playTime || 0)}</small></span>`;
+  $('bHubDelete').textContent = 'Borrar partida'; delete $('bHubDelete').dataset.ok;
+  const ex = $('hubExtras'); ex.innerHTML = '';
+  if (sv.flags.juego_completado) {
+    for (const [id, label] of [['eco_olvidado', 'Extra: El Eco Olvidado'], ['forja_ignis', 'Extra: Las Forjas de Ignis']]) {
+      const b = document.createElement('button'); b.className = 'btn alt small'; b.textContent = label;
+      b.onclick = () => { audio.unlock(); music.init(); goFull(); save = sv; applyPartida(); showOverlay(null); enterZone(id); };
+      ex.appendChild(b);
+    }
+  }
+  if (sv.flags.creditos) { const b = document.createElement('button'); b.className = 'btn alt small'; b.textContent = 'Ver créditos'; b.onclick = () => playCredits(sv, () => { showOverlay('title'); openHub(); }); ex.appendChild(b); }
+  ex.classList.toggle('hidden', !ex.children.length);
+  titlePanel('hubPanel');
+}
+$('bHubPlay').onclick = () => startGame(loadSave() || newSave());
+$('bHubBack').onclick = () => $('bContinue').click();
+$('bHubLogros').onclick = () => openTrophies('title');
+$('bHubCustom').onclick = () => openCustom('title');
+$('bHubDelete').onclick = () => {
+  const b = $('bHubDelete');
+  if (!b.dataset.ok) { b.dataset.ok = '1'; b.textContent = '¿Seguro? Pulsa otra vez para borrarla'; return; }
+  deleteSave(getSlot()); audio.play('open'); toast('Partida borrada');
+  if (listSaves().length) $('bContinue').click(); else refreshTitle();
+};
 
 // En el teléfono: pantalla completa y horizontal al empezar a jugar
 function goFull() {
   if (!input.isTouch) return;
   try { const r = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); if (r && r.then) r.then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {})).catch(() => {}); } catch (e) {}
 }
+// dificultad y aspecto de la partida en juego
+function applyPartida() {
+  const dk = DIFF[save && save.difficulty] ? save.difficulty : (DIFF[settings.difficulty] ? settings.difficulty : 'normal');
+  if (save && !save.difficulty) save.difficulty = dk;
+  player.diff = DIFF[dk]; combat.difficulty = dk; lossStreak = 0;
+}
 function startGame(s) {
   audio.unlock(); music.init(); goFull();
-  if (!s.custom && settings.custom) s.custom = settings.custom; // la partida nueva se lleva el aspecto elegido
-  save = s;
+  if (!s.custom && settings.custom) s.custom = settings.custom; // partidas antiguas: el aspecto que había elegido
+  save = s; storeOf(save); applyPartida();
   if (charLib) { player.useModel(charLib, customLook(s.custom || {})); player.setFight(player.canFight); }
   writeSave(save);
   showOverlay(null);
   enterZone(save.zone, save.checkpoint);
 }
-$('bContinue').onclick = () => startGame(loadSave() || newSave());
 // ---------- modo automático: Lía supera los retos sola ----------
 // Camina hacia el objetivo; si hay un hueco, una subida o se atasca, vuela con el planeador hasta él.
 // Al llegar habla, recoge, enciende cristales, rompe cerraduras o barreras, y en los jefes los derrota poco a poco.
@@ -1047,7 +1214,6 @@ function autoFly(dt) {
 }
 
 // ---------- menús con el mando: cruceta para elegir, ✕/A para aceptar, ○/B para volver ----------
-let navI = 0, navSig = '';
 function menuNav() {
   if (!input.usingGamepad) { document.querySelectorAll('.padFocus').forEach(e => e.classList.remove('padFocus')); return; }
   if (state === 'play' || state === 'dialog' || state === 'dead' || state === 'cutscene') return;
@@ -1071,14 +1237,19 @@ function menuNav() {
 }
 
 // ---------- desafíos: Cristales del Cielo ----------
-const CH_KEY = 'aethra_desafios_v1';
-const loadCh = () => { try { return JSON.parse(localStorage.getItem(CH_KEY)) || {}; } catch (e) { return {}; } };
+const CH_KEY = 'aethra_desafios_v1'; // récords antiguos (comunes); ahora cada partida guarda los suyos
+const loadChOld = () => { try { return JSON.parse(localStorage.getItem(CH_KEY)) || {}; } catch (e) { return {}; } };
+function chOwner() { return challenge ? challenge.owner : loadSave(); }
+function loadCh() { const sv = chOwner(); if (!sv) return {}; if (!sv.desafios) sv.desafios = { ...loadChOld() }; return sv.desafios; }
+function saveCh(rec) { const sv = chOwner(); if (!sv) return; sv.desafios = rec; writeSlot(getSlot(), sv); }
 const fmtT = t => `${Math.floor(t / 60)}:${(t % 60).toFixed(1).padStart(4, '0')}`;
 const MEDAL = { oro: '🥇 Oro', plata: '🥈 Plata', bronce: '🥉 Bronce' };
 function startChallenge(i) {
   const L = DESAFIOS[i];
-  challenge = { i, L, t: 0, done: false };
+  const owner = (challenge && challenge.owner) || loadSave();
+  challenge = { i, L, t: 0, done: false, owner };
   save = newSave(); save.zone = L.id;
+  player.diff = DIFF[owner && owner.difficulty === 'auto' ? 'auto' : 'normal']; combat.difficulty = owner && owner.difficulty === 'auto' ? 'auto' : 'normal'; // los desafíos se juegan en Aventura (o solos en Automático)
   Object.assign(save.flags, { baston: true, impulso: true, brujula: true }, L.abilities);
   audio.unlock(); music.init(); goFull();
   showOverlay(null); titlePanel(null);
@@ -1086,7 +1257,7 @@ function startChallenge(i) {
   state = 'play'; lastGoal = '';
   $('chTimer').classList.remove('hidden');
 }
-function endChallenge() { if (!challenge) return; challenge = null; $('chTimer').classList.add('hidden'); save = loadSave() || newSave(); }
+function endChallenge() { if (!challenge) return; writeSlot(getSlot(), challenge.owner); challenge = null; $('chTimer').classList.add('hidden'); save = loadSave() || newSave(); applyPartida(); }
 function updateChallenge(dt) {
   const C = challenge; if (C.done) return;
   C.t += dt;
@@ -1099,8 +1270,8 @@ function updateChallenge(dt) {
 function finishChallenge() {
   const C = challenge; C.done = true;
   const rec = loadCh(), prev = rec[C.L.id], isAuto = !!(player.diff && player.diff.auto), best = !isAuto && (!prev || prev.t == null || C.t < prev.t);
-  if (best) { rec[C.L.id] = { t: C.t }; try { localStorage.setItem(CH_KEY, JSON.stringify(rec)); } catch (e) {} }
-  else if (isAuto && !prev) { rec[C.L.id] = { t: null }; try { localStorage.setItem(CH_KEY, JSON.stringify(rec)); } catch (e) {} } // desbloquea el siguiente, sin tiempo
+  if (best) { rec[C.L.id] = { t: C.t }; saveCh(rec); }
+  else if (isAuto && !prev) { rec[C.L.id] = { t: null }; saveCh(rec); } // desbloquea el siguiente, sin tiempo
   const m = isAuto ? null : medalFor(C.L, C.t), next = DESAFIOS[C.i + 1];
   if (m === 'oro') logro('oro');
   if (DESAFIOS.every(L => rec[L.id] && rec[L.id].t != null && medalFor(L, rec[L.id].t) === 'oro')) logro('todo_oro');
@@ -1115,7 +1286,7 @@ function finishChallenge() {
   });
   $('bKeepExploring').classList.add('hidden');
 }
-$('bChallenges').onclick = () => {
+$('bHubCh').onclick = () => {
   const rec = loadCh(), list = $('challengeList'); list.innerHTML = '';
   DESAFIOS.forEach((L, i) => {
     const r = rec[L.id], open = i === 0 || rec[DESAFIOS[i - 1].id], m = r && r.t != null && medalFor(L, r.t);
@@ -1126,25 +1297,33 @@ $('bChallenges').onclick = () => {
   });
   titlePanel('challengesPanel');
 };
-$('bChallengesBack').onclick = () => titlePanel(null);
+$('bChallengesBack').onclick = () => openHub();
 $('bRestartCh').onclick = () => { if (challenge) { const i = challenge.i; resume(); startChallenge(i); } };
 
 // ---------- personalizar a la protagonista ----------
 const cust = { cfg: null, from: null, prev: null };
 function openCustom(from) {
   if (!charLib) return;
-  const sv = from === 'title' ? loadSave() : save;
-  cust.from = from; cust.cfg = { ...DEFAULT_CUSTOM, ...((sv && sv.custom) || settings.custom || {}) };
-  $(from).classList.add('hidden'); $('customize').classList.remove('hidden');
+  const sv = from === 'title' ? loadSave() : from === 'new' ? null : save;
+  cust.from = from; cust.cfg = { ...DEFAULT_CUSTOM, ...((sv && sv.custom) || (from === 'new' ? {} : settings.custom) || {}) };
+  const host = from === 'new' ? 'title' : from;
+  $(host).classList.add('hidden'); $('customize').classList.remove('hidden');
+  $('bCustomOk').textContent = from === 'new' ? '¡A jugar!' : 'Listo'; $('bCustomBack').classList.toggle('hidden', from !== 'new');
   buildCustomOpts(); startPreview();
 }
 function closeCustom(save = true) {
+  if (cust.from === 'new') { // último paso de la partida nueva
+    stopPreview(); $('customize').classList.add('hidden');
+    if (save) { player.useModel(charLib, customLook(cust.cfg)); createPartida({ ...cust.cfg }); }
+    else { $('title').classList.remove('hidden'); showDiffPanel(); }
+    return;
+  }
   if (save) {
-    settings.custom = cust.cfg; writeSettings(settings); logro('estilo'); // también es el aspecto por defecto de las partidas nuevas
-    const sv = cust.from === 'title' ? loadSave() : (challenge ? null : window.__aethra && window.__aethra.save);
-    if (sv) { sv.custom = cust.cfg; if (cust.from === 'title') writeSaveRaw(sv); else writeSave(sv); }
+    settings.custom = cust.cfg; writeSettings(settings);
+    const sv = cust.from === 'title' ? loadSave() : (challenge ? null : save);
+    if (sv) { sv.custom = cust.cfg; if (cust.from === 'title') { unlock(sv, 'estilo', sv.difficulty === 'auto'); writeSaveRaw(sv); } else { logro('estilo'); writeSave(sv); } }
     player.useModel(charLib, customLook(cust.cfg)); player.setFight(player.canFight);
-    if (cust.from === 'title') renderSlots();
+    if (cust.from === 'title') openHub();
   }
   stopPreview(); $('customize').classList.add('hidden'); $(cust.from).classList.remove('hidden');
 }
@@ -1192,52 +1371,11 @@ function refreshPreview() {
   const a = pv.ch.actions.Idle || Object.values(pv.ch.actions)[0]; if (a) { a.setEffectiveWeight(1); a.play(); }
 }
 function stopPreview() { if (!pv) return; cancelAnimationFrame(pv.raf); pv.r.dispose(); pv = null; }
-$('bCustom').onclick = () => openCustom('title');
 $('bCustomPause').onclick = () => openCustom('pause');
 $('bCustomOk').onclick = () => closeCustom(true);
 $('bCustomReset').onclick = () => { cust.cfg = { ...DEFAULT_CUSTOM }; buildCustomOpts(); refreshPreview(); };
-
-// ---------- capítulos y créditos ----------
-const CHAPTERS = [['puerto_bruma', 'Prólogo'], ['bosque_colgante', 'Capítulo 1'], ['ruinas_vidrio', 'Capítulo 2'], ['ciudad_engranajes', 'Capítulo 3'], ['glaciar_eco', 'Capítulo 4'], ['ciudadela_orden', 'Capítulo 5'], ['eco_olvidado', 'Capítulo extra'], ['forja_ignis', 'Capítulo extra 2']];
-function titlePanel(id) {
-  for (const p of ['chaptersPanel', 'creditsPanel', 'challengesPanel', 'logrosPanel']) $(p).classList.toggle('hidden', p !== id);
-  document.querySelector('#title .menu').classList.toggle('hidden', !!id);
-  document.querySelector('#title .keys').classList.toggle('hidden', !!id);
-  $('slotRow').classList.toggle('hidden', !!id); // más sitio para el panel abierto
-}
-$('bChapters').onclick = () => {
-  const sv = loadSave(), list = $('chapterList'); list.innerHTML = '';
-  for (const [id, label] of CHAPTERS) {
-    const Z = ZONES[id], reached = sv && (sv.zone === id || sv.flags[id === 'puerto_bruma' ? 'intro' : 'intro_' + id] || ((id === 'eco_olvidado' || id === 'forja_ignis') && sv.flags.juego_completado));
-    const got = sv ? Z.fragments.filter(f => sv.fragments.includes(f.id)).length : 0;
-    const b = document.createElement('button');
-    b.innerHTML = `<span>${label} · ${Z.title}</span><span>${reached ? `◆ ${got}/${Z.fragments.length} · ${(sv.relics || []).includes('reliquia_' + id) ? '✦ reliquia' : '✧ reliquia'}` : '🔒'}</span>`;
-    b.disabled = !reached;
-    b.onclick = () => { titlePanel(null); audio.unlock(); music.init(); save = sv; showOverlay(null); enterZone(id); };
-    list.appendChild(b);
-  }
-  titlePanel('chaptersPanel');
-};
-$('bChaptersBack').onclick = () => titlePanel(null);
-$('bCredits').onclick = () => titlePanel('creditsPanel');
-$('bLogros').onclick = () => {
-  const d = loadLogros(), list = $('logrosList'); list.innerHTML = '';
-  let n = 0;
-  for (const L of LOGROS) {
-    const got = !!d.got[L.id]; if (got) n++;
-    const el = document.createElement('div'); el.className = 'logro' + (got ? ' got' : '');
-    el.innerHTML = `<span class="li">${got ? L.icon : '🔒'}</span><span><b>${L.title}</b><small>${L.desc}</small></span>`;
-    list.appendChild(el);
-  }
-  $('logrosCount').textContent = `${n} de ${LOGROS.length} conseguidos${d.n.avispas ? ` · avispas vencidas: ${d.n.avispas}` : ''}`;
-  titlePanel('logrosPanel');
-};
-$('bLogrosBack').onclick = () => titlePanel(null);
-$('bCreditsBack').onclick = () => titlePanel(null);
-$('bNew').onclick = () => {
-  if (loadSave() && !$('bNew').dataset.confirm) { $('bNew').dataset.confirm = '1'; $('bNew').textContent = '¿Borrar la partida actual? Pulsa otra vez'; return; }
-  startGame(newSave());
-};
+$('bCustomBack').onclick = () => closeCustom(false);
+$('customize').addEventListener('keydown', e => { if (e.key === 'Escape') closeCustom(false); });
 
 function pause() {
   if (state === 'play' || state === 'dialog') {
@@ -1249,10 +1387,53 @@ function pause() {
 function resume() { state = dialog ? 'dialog' : 'play'; showOverlay(null); }
 $('bResume').onclick = resume;
 $('bSettings').onclick = () => showPausePanel('settings');
+$('bControls').onclick = () => showPausePanel('controls');
+$('bControlsBack').onclick = () => showPausePanel('main');
+$('bLogrosPause').onclick = () => openTrophies('pause');
+
+// ---------- vitrina de logros de la partida ----------
+const TIER = { trofeo: 'Trofeo', medalla: 'Medalla', insignia: 'Insignia' };
+function prizeSVG(tier, got) {
+  const g1 = got ? '#fff3b0' : '#ddd', g2 = got ? '#f0b400' : '#999', g3 = got ? '#a86f00' : '#555';
+  const id = `g_${tier}_${got ? 1 : 0}`;
+  const grad = `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${g1}"/><stop offset=".55" stop-color="${g2}"/><stop offset="1" stop-color="${g3}"/></linearGradient></defs>`;
+  if (tier === 'trofeo') return `<svg class="cup" viewBox="0 0 70 78">${grad}<path d="M18 8h34v14c0 13-7 22-17 22S18 35 18 22z" fill="url(#${id})"/><path d="M18 12H8c0 12 5 17 12 18M52 12h10c0 12-5 17-12 18" stroke="url(#${id})" stroke-width="5" fill="none"/><rect x="31" y="44" width="8" height="12" fill="url(#${id})"/><rect x="20" y="56" width="30" height="8" rx="2" fill="url(#${id})"/><rect x="16" y="64" width="38" height="8" rx="3" fill="${got ? '#7a3d1a' : '#444'}"/></svg>`;
+  if (tier === 'medalla') return `<svg class="cup" viewBox="0 0 70 78">${grad}<path d="M20 2h12l6 22H26zM50 2H38l-6 22h12z" fill="${got ? '#e0475e' : '#666'}"/><circle cx="35" cy="48" r="22" fill="url(#${id})"/><circle cx="35" cy="48" r="16" fill="none" stroke="${got ? '#fff6' : '#fff2'}" stroke-width="2"/></svg>`;
+  return `<svg class="cup" viewBox="0 0 70 78">${grad}<path d="M35 6l24 10v20c0 18-12 30-24 36C23 66 11 54 11 36V16z" fill="url(#${id})"/></svg>`;
+}
+const trophyFrom = { from: null };
+function openTrophies(from) {
+  const sv = from === 'title' ? loadSave() : partida(); if (!sv) return;
+  const d = storeOf(sv), shelf = $('trophyShelf'); shelf.innerHTML = '';
+  let n = 0;
+  const order = { trofeo: 0, medalla: 1, insignia: 2 };
+  for (const L of [...LOGROS].sort((a, b) => order[a.tier] - order[b.tier])) {
+    const got = !!d.got[L.id]; if (got) n++;
+    const el = document.createElement('div'); el.className = 'tro' + (got ? ' got' : '');
+    let prog = '';
+    if (!got && L.goal) { const v = Array.isArray(d.n[L.key]) ? d.n[L.key].length : (d.n[L.key] || 0); prog = `<span class="bar"><i style="width:${Math.min(100, v / L.goal * 100)}%"></i></span><small>${Math.min(v, L.goal)} / ${L.goal}</small>`; }
+    const sparks = got ? [0, 1, 2].map(i => `<span class="spark" style="left:${18 + i * 26}%;top:${10 + (i % 2) * 30}%;animation-delay:${i * 0.6}s"></span>`).join('') : '';
+    el.innerHTML = `<span class="kind">${TIER[L.tier]}</span><span class="prize">${prizeSVG(L.tier, got)}<span class="gl">${L.icon}</span></span><b>${L.title}</b><small>${L.desc}</small>${prog}${got ? '<span class="shine"></span>' + sparks : '<span class="lock">🔒</span>'}`;
+    shelf.appendChild(el);
+  }
+  $('trophyTitle').textContent = `Logros de ${slotName(sv, getSlot())}`;
+  $('trophyCount').textContent = `${n} de ${LOGROS.length} conseguidos`;
+  // medallas de los desafíos de esta partida
+  const rec = sv.desafios || {}, row = $('medalRow'); row.innerHTML = '';
+  DESAFIOS.forEach((L, i) => {
+    const r = rec[L.id], m = r && r.t != null ? medalFor(L, r.t) : null;
+    const el = document.createElement('div'); el.className = 'md ' + (m || 'none');
+    el.innerHTML = `<div class="disc">${i + 1}</div>${m ? m[0].toUpperCase() + m.slice(1) : 'Desafío ' + (i + 1)}`;
+    row.appendChild(el);
+  });
+  trophyFrom.from = from;
+  $(from).classList.add('hidden'); $('trophies').classList.remove('hidden');
+}
+$('bTrophyBack').onclick = () => { $('trophies').classList.add('hidden'); $(trophyFrom.from).classList.remove('hidden'); };
 $('bSettingsBack').onclick = () => showPausePanel('main');
 $('bSaveMenu').onclick = () => { $('exportCode').value = exportCode(save); $('importCode').value = ''; $('saveMsg').textContent = ''; showPausePanel('save'); };
 $('bSaveBack').onclick = () => showPausePanel('main');
-$('bTitle').onclick = () => { writeSave(save); if (dialog) closeDialog(false); endChallenge(); state = 'title'; music.play('title'); music.ambient(null); $('objective').classList.add('hidden'); $('compass').classList.add('hidden'); marker.visible = false; showOverlay('title'); refreshTitle(); };
+$('bTitle').onclick = () => { writeSave(save); if (dialog) closeDialog(false); endChallenge(); state = 'title'; music.play('title'); music.ambient(null); $('objective').classList.add('hidden'); $('compass').classList.add('hidden'); marker.visible = false; showOverlay('title'); refreshTitle(); if (loadSave()) openHub(); };
 $('bCopy').onclick = async () => {
   try { await navigator.clipboard.writeText($('exportCode').value); $('saveMsg').textContent = 'Código copiado.'; }
   catch (e) { $('exportCode').select(); $('saveMsg').textContent = 'No se pudo copiar solo: selecciona el texto y cópialo a mano.'; }
@@ -1267,7 +1448,7 @@ $('bImport').onclick = () => {
 
 function applySettings() {
   cam.settings.sens = settings.sens; cam.settings.invert = settings.invert; audio.volume = settings.volume; music.setVolume(settings.music ?? 0.6);
-  const dk = DIFF[settings.difficulty] ? settings.difficulty : 'normal'; player.diff = DIFF[dk]; combat.difficulty = dk; $('sDiff').value = dk; $('tDiff').value = dk;
+  if (!challenge) applyPartida();
   $('sSens').value = settings.sens; $('sInv').checked = settings.invert; $('sVol').value = settings.volume; $('sMus').value = settings.music ?? 0.6; $('sDbg').checked = settings.debug;
   $('debug').classList.toggle('hidden', !settings.debug);
   $('sQual').value = settings.quality || 'auto'; applyQuality();
@@ -1324,8 +1505,6 @@ function autoQualityTick(dt) {
   }
 }
 $('sQual').onchange = e => { settings.quality = e.target.value; if (e.target.value === 'auto') delete settings.autoQ; writeSettings(settings); applyQuality(); };
-const setDiff = e => { settings.difficulty = e.target.value; writeSettings(settings); applySettings(); };
-$('sDiff').onchange = setDiff; $('tDiff').onchange = setDiff;
 $('sMus').oninput = e => { settings.music = +e.target.value; writeSettings(settings); applySettings(); };
 $('sDbg').onchange = e => { settings.debug = e.target.checked; writeSettings(settings); applySettings(); };
 
@@ -1341,7 +1520,7 @@ function frame() {
   if (paused4test) { renderScene(); return; }
   try {
     simulate(dt);
-    renderScene();
+    if (state !== 'credits') renderScene();
   } catch (e) { // un error en un fotograma no debe congelar el juego
     if (frameErrors++ < 5) console.error('Error en el fotograma', e);
     if (frameErrors === 3) toast('Algo falló; si se queda quieto, pulsa Esc y carga la partida');
@@ -1452,6 +1631,10 @@ frame();
 window.__aethra = {
   music, renderer, auto, navLog, nav, autoTarget: () => autoTarget(), get focus() { return focus; },
   player, cam, world, input, get state() { return state; }, get save() { return save; }, startGame, newSave, loadZone,
+  // atajos para las pruebas: partida nueva sin pasar por los menús, y abrir los desafíos de la partida
+  testNewGame(name = 'Prueba', difficulty = settings.difficulty) { nueva.name = name; nueva.diff = DIFF[difficulty] ? difficulty : 'normal'; nueva.slot = freeSlot() || getSlot() || 1; createPartida(settings.custom || {}); },
+  openChallenges() { if (!loadSave()) { nueva.name = 'Prueba'; nueva.diff = DIFF[settings.difficulty] ? settings.difficulty : 'normal'; nueva.slot = freeSlot() || 1; const sv = newSave({ name: 'Prueba', difficulty: nueva.diff, custom: settings.custom || {} }); setSlot(nueva.slot); writeSlot(nueva.slot, sv); } $('bHubCh').click(); },
+  playCredits: (then) => playCredits(save, then || (() => {})), showChapterEnd, openTrophies, offerLowerDifficulty, get lossStreak() { return lossStreak; },
   hold(on) { paused4test = on; }, S, combat, enterZone, choose, get zone() { return zone; }, get dialog() { return dialog; },
   step(n, press) {
     for (let i = 0; i < n; i++) { if (press && i === 0) input._pressed.add(press); simulate(1 / 60); input.endFrame(); }

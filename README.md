@@ -4,7 +4,7 @@ Aventura 3D con historia para el navegador, hecha con [Three.js](https://threejs
 
 Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes para reunir los fragmentos del Corazón de Aethra y decidir el destino de su mundo.
 
-## Estado: versión 1.8
+## Estado: versión 1.9
 
 | Etapa | Contenido | Estado |
 | --- | --- | --- |
@@ -20,6 +20,7 @@ Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes
 | 10. Vuelos con dificultad | Planeador con aguante (barra que se agota; las corrientes lo recargan), ráfagas de viento avisadas, avispas de cristal que vuelan entre islas; el modo Automático recorre los niveles de verdad (anda, salta, planea, rebota, usa corrientes, garfio e impulso) | Lista: versión 1.6 |
 | 11. Logros y rendimiento | 16 logros con aviso y pantalla propia en el menú; opción de calidad gráfica (Automática / Alta / Media / Baja) que en Automática baja sola si el juego va lento; la barra del planeador ahora se ve en vuelo | Lista: versión 1.7 |
 | 12. Fuego y rocas que caen | Plataformas rojas que se desploman al pisarlas, chorros de fuego que salen de la lava en los saltos, mazas-péndulo que hay que esquivar; nuevo capítulo extra 2 «Las Forjas de Ignis» (música propia, lava, brasas) y desafíos 6 y 7; resplandor (bloom) en calidad Alta y estallidos de colores; 2 logros nuevos | Lista: versión 1.8 |
+| 13. Partidas con nombre | Título con solo «Continuar» y «Nueva partida»; la partida nueva pide nombre, dificultad y personaje; cada partida guarda sus logros (vitrina de trofeos, medallas e insignias animados), sus récords de desafíos y su dificultad; si se pierden dos rondas de vidas sin avanzar se ofrece bajar la dificultad; créditos finales con los personajes bailando al terminar la historia y los dos capítulos extra (producción ejecutiva: Jorge Chaparro, CEO de Think Animation Studio) | Lista: versión 1.9 |
 
 ## Cómo jugar en tu computadora
 

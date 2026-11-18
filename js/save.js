@@ -3,13 +3,14 @@ const KEY = 'aethra_save_v1', SETTINGS_KEY = 'aethra_settings_v1', PREFIX = 'AET
 
 export const DEFAULT_SETTINGS = { sens: 1, invert: false, volume: 0.7, music: 0.6, difficulty: 'normal', custom: null, debug: false };
 
-export function newSave() {
-  return { v: 1, zone: 'puerto_bruma', checkpoint: 'inicio', fragments: [], relics: [], flags: {}, playTime: 0 };
+// Cada partida guarda su nombre (nick), su dificultad, su aspecto, sus logros y sus récords de desafíos.
+export function newSave(extra = {}) {
+  return { v: 1, zone: 'puerto_bruma', checkpoint: 'inicio', fragments: [], relics: [], flags: {}, playTime: 0, created: Date.now(), ...extra };
 }
 
-// Tres ranuras de partida (para que juegue más de una persona en el mismo dispositivo).
+// Cinco ranuras de partida (para que juegue más de una persona en el mismo dispositivo).
 // La ranura 1 usa la clave de siempre, así las partidas anteriores siguen ahí.
-export const SLOTS = 3;
+export const SLOTS = 5;
 const slotKey = n => n === 1 ? KEY : `${KEY}_${n}`;
 let slot = 1;
 try { slot = Math.min(SLOTS, Math.max(1, parseInt(localStorage.getItem('aethra_slot') || '1', 10) || 1)); } catch (e) {}
@@ -23,6 +24,9 @@ export function writeSave(s) {
   try { localStorage.setItem(slotKey(slot), JSON.stringify(s)); return true; } catch (e) { return false; }
 }
 export function deleteSave(n) { try { localStorage.removeItem(slotKey(n)); } catch (e) {} }
+export function writeSlot(n, s) { try { localStorage.setItem(slotKey(n), JSON.stringify(s)); return true; } catch (e) { return false; } }
+export function freeSlot() { for (let n = 1; n <= SLOTS; n++) if (!peekSave(n)) return n; return 0; }
+export function listSaves() { const out = []; for (let n = 1; n <= SLOTS; n++) { const s = peekSave(n); if (s) out.push({ n, s }); } return out; }
 export function loadSettings() {
   try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') }; } catch (e) { return { ...DEFAULT_SETTINGS }; }
 }

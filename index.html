@@ -19,6 +19,62 @@
   #zoneBanner .t2 { font-size: clamp(30px, 5vw, 52px); font-weight: 700; text-shadow: 0 3px 12px rgba(0,0,0,.45); }
   #prompt { position: fixed; bottom: 18%; left: 50%; transform: translateX(-50%); background: rgba(10,25,45,.7); padding: 8px 18px; border-radius: 20px; font-weight: 500; font-size: 17px; pointer-events: none; z-index: 2; }
   #prompt b { background: #fff; color: #10213a; border-radius: 6px; padding: 0 8px; margin-right: 8px; }
+  /* ---- flujo de inicio ---- */
+  body.atTitle #hud, body.atTitle #objective, body.atTitle #compass, body.atTitle #glideBar, body.atTitle #zoneBanner { display: none !important; }
+  .nick { font: inherit; font-size: 24px; text-align: center; padding: 10px 16px; border-radius: 14px; border: 2px solid #9fe3ff; background: rgba(255,255,255,.95); color: #10213a; width: min(360px, 80vw); margin-bottom: 8px; }
+  .tpanel .msg { min-height: 20px; color: #ffcf8a; margin-bottom: 8px; }
+  .slotList { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; max-height: 52vh; overflow-y: auto; padding: 4px; }
+  .slotList .slot { width: min(460px, 84vw); }
+  .slot .meta { display: flex; gap: 10px; font-size: 12px; opacity: .8; margin-top: 2px; flex-wrap: wrap; }
+  .slot .dd { margin-left: auto; font-size: 12px; padding: 3px 9px; border-radius: 10px; background: rgba(255,255,255,.15); white-space: nowrap; }
+  .hubHead { display: flex; gap: 14px; align-items: center; justify-content: center; margin-bottom: 14px; }
+  .hubHead .dot { width: 46px; height: 46px; border-radius: 50%; border: 3px solid #fff; flex: none; }
+  .hubHead b { font-size: 26px; display: block; text-align: left; } .hubHead small { display: block; text-align: left; opacity: .8; }
+  #hubPanel .menu { margin: 0; }
+  .diffCards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; width: min(560px, 88vw); }
+  .diffCards button { font: inherit; text-align: left; padding: 12px 14px; border-radius: 16px; border: 2px solid transparent; cursor: pointer; background: rgba(255,255,255,.92); color: #10213a; }
+  .diffCards button:hover, .diffCards button:focus { border-color: #ffe27a; outline: none; transform: translateY(-2px); }
+  .diffCards b { display: block; font-size: 19px; } .diffCards small { display: block; font-size: 13px; opacity: .8; line-height: 1.3; margin-top: 3px; }
+  .diffCards .ic { float: right; font-size: 24px; }
+  /* ---- vitrina de logros ---- */
+  #trophies { justify-content: flex-start; }
+  .shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; width: min(900px, 94vw); margin: 10px 0 14px; }
+  .tro { position: relative; padding: 12px 10px 10px; border-radius: 16px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .tro b { font-size: 14px; } .tro small { font-size: 12px; opacity: .75; line-height: 1.25; }
+  .tro .kind { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; opacity: .55; }
+  .tro.got { background: radial-gradient(circle at 50% 30%, rgba(255,215,110,.22), rgba(255,255,255,.05) 70%); border-color: rgba(255,215,110,.5); }
+  .prize { position: relative; width: 70px; height: 78px; display: grid; place-items: center; }
+  .prize .cup { position: absolute; inset: 0; }
+  .prize .gl { position: relative; font-size: 22px; font-weight: 700; color: #6a4300; margin-top: -10px; z-index: 1; }
+  .tro.got .prize { animation: bob 2.4s ease-in-out infinite; }
+  .tro.got .prize::after { content: ''; position: absolute; inset: -6px; border-radius: 50%; background: radial-gradient(circle, rgba(255,230,140,.55), transparent 65%); animation: halo 2.4s ease-in-out infinite; z-index: -1; }
+  .tro.got .shine { position: absolute; inset: 0; overflow: hidden; border-radius: 12px; pointer-events: none; z-index: 2; }
+  .tro.got .shine::before { content: ''; position: absolute; top: -20%; left: -60%; width: 40%; height: 140%; background: linear-gradient(100deg, transparent, rgba(255,255,255,.75), transparent); transform: skewX(-18deg); animation: sweep 3.2s ease-in-out infinite; }
+  .tro.got .spark { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: #fff6c8; box-shadow: 0 0 8px #ffe27a; animation: twinkle 1.8s ease-in-out infinite; }
+  .tro:not(.got) .prize { filter: grayscale(1) brightness(.55); opacity: .7; }
+  .tro:not(.got) .gl { color: #333; }
+  .tro .lock { position: absolute; top: 8px; right: 10px; font-size: 14px; opacity: .7; }
+  .tro .bar { width: 80%; height: 6px; border-radius: 4px; background: rgba(255,255,255,.15); overflow: hidden; }
+  .tro .bar i { display: block; height: 100%; background: linear-gradient(90deg, #7ad7ff, #c9a7ff); }
+  @keyframes bob { 0%,100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-6px) rotate(2deg); } }
+  @keyframes halo { 0%,100% { opacity: .6; transform: scale(.92); } 50% { opacity: 1; transform: scale(1.08); } }
+  @keyframes sweep { 0% { left: -60%; } 55%,100% { left: 130%; } }
+  @keyframes twinkle { 0%,100% { opacity: 0; transform: scale(.3); } 50% { opacity: 1; transform: scale(1); } }
+  .medalRow { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 14px; }
+  .medalRow .md { width: 74px; text-align: center; font-size: 11px; opacity: .85; }
+  .medalRow .disc { width: 46px; height: 46px; margin: 0 auto 4px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; color: #3a2606; border: 3px solid rgba(255,255,255,.4); }
+  .medalRow .oro .disc { background: radial-gradient(circle at 35% 30%, #fff3b0, #f0b400 60%, #a86f00); animation: bob 2.2s ease-in-out infinite; }
+  .medalRow .plata .disc { background: radial-gradient(circle at 35% 30%, #ffffff, #c4ccd6 60%, #7d8794); animation: bob 2.6s ease-in-out infinite; }
+  .medalRow .bronce .disc { background: radial-gradient(circle at 35% 30%, #ffd9b0, #c8783c 60%, #7a4318); animation: bob 3s ease-in-out infinite; }
+  .medalRow .none .disc { background: rgba(255,255,255,.08); border-style: dashed; color: rgba(255,255,255,.4); }
+  /* ---- créditos ---- */
+  #credits { padding: 0; background: #07040f; justify-content: flex-start; overflow: hidden; }
+  #creditsCanvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #credits .roll { position: absolute; left: 50%; transform: translateX(-50%); width: min(560px, 90vw); top: 100%; text-align: center; text-shadow: 0 2px 10px rgba(0,0,0,.9); pointer-events: none; }
+  #credits .roll h3 { font-size: 13px; letter-spacing: .25em; text-transform: uppercase; color: #ffd27a; margin: 34px 0 4px; font-weight: 600; }
+  #credits .roll p { font-size: 22px; margin: 2px 0; } #credits .roll .big { font-size: clamp(34px, 6vw, 60px); font-weight: 700; color: #fff4d0; text-shadow: 0 0 18px rgba(255,190,90,.8), 0 3px 0 #b8641a, 0 6px 14px rgba(0,0,0,.8); }
+  #credits .roll .small { font-size: 15px; opacity: .8; }
+  #bCreditsSkip { position: absolute; right: 18px; bottom: 18px; opacity: .8; }
   #achv { position: fixed; top: 14px; left: 50%; transform: translate(-50%, -140%); display: flex; gap: 12px; align-items: center; background: linear-gradient(135deg, rgba(60,40,10,.92), rgba(30,20,6,.92)); border: 1px solid #f3c96b; color: #fff4d8; padding: 10px 18px 10px 12px; border-radius: 16px; z-index: 6; pointer-events: none; transition: transform .45s cubic-bezier(.2,1.4,.4,1); box-shadow: 0 8px 26px rgba(0,0,0,.35); max-width: 86vw; }
   #achv.show { transform: translate(-50%, 0); }
   #achvIcon { font-size: 26px; width: 40px; height: 40px; border-radius: 50%; background: #f3c96b; color: #3a2606; display: grid; place-items: center; flex: none; }
@@ -201,49 +257,116 @@
 
 <div class="overlay" id="title">
   <h1>Ecos de Aethra</h1>
-  <p class="sub">Versión 1.8</p>
+  <p class="sub">Versión 1.9</p>
   <p class="sub" id="loading" style="margin-bottom:12px">Cargando personajes…</p>
-  <div class="slots" id="slotRow"></div>
-  <div class="menu">
+  <div class="menu" id="titleMain">
     <button class="btn" id="bContinue">Continuar</button>
     <button class="btn" id="bNew">Nueva partida</button>
-    <button class="btn alt" id="bChallenges">Desafíos: Cristales del Cielo</button>
-    <button class="btn alt" id="bCustom">Personaje</button>
-    <div class="row2"><button class="btn alt small" id="bChapters">Capítulos</button><button class="btn alt small" id="bLogros">Logros</button><button class="btn alt small" id="bCredits">Créditos</button></div>
-    <label class="diffRow">Dificultad <select id="tDiff" class="diffSel"><option value="facil">Cuento (fácil)</option><option value="normal">Aventura (normal)</option><option value="dificil">Leyenda (difícil)</option><option value="auto">Automático (Lía juega sola)</option></select></label>
   </div>
-  <div class="tpanel hidden" id="chaptersPanel">
-    <h2>Capítulos</h2>
-    <div class="sub" style="margin-bottom:12px">Vuelve a una zona que ya visitaste para buscar los fragmentos que te faltan.</div>
-    <div id="chapterList"></div>
-    <button class="btn alt small" id="bChaptersBack">Volver</button>
+
+  <!-- Nueva partida: 1) nombre -->
+  <div class="tpanel hidden" id="namePanel">
+    <h2>Nueva partida</h2>
+    <div class="sub" style="margin-bottom:12px">¿Cómo te llamas? Tu partida llevará tu nombre.</div>
+    <input id="nickInput" class="nick" maxlength="16" autocomplete="off" spellcheck="false" placeholder="Tu nombre">
+    <div class="msg" id="nameMsg"></div>
+    <div class="row2"><button class="btn small" id="bNameOk">Siguiente</button><button class="btn alt small" id="bNameBack">Volver</button></div>
+  </div>
+  <!-- si no queda sitio: elegir qué partida reemplazar -->
+  <div class="tpanel hidden" id="replacePanel">
+    <h2>No queda sitio</h2>
+    <div class="sub" style="margin-bottom:12px">Ya hay cinco partidas. Elige una para reemplazarla por la nueva.</div>
+    <div id="replaceList" class="slotList"></div>
+    <button class="btn alt small" id="bReplaceBack">Volver</button>
+  </div>
+  <!-- 2) dificultad -->
+  <div class="tpanel hidden" id="diffPanel">
+    <h2>Elige la dificultad</h2>
+    <div class="diffCards" id="diffCards"></div>
+    <button class="btn alt small" id="bDiffBack">Volver</button>
+  </div>
+
+  <!-- Continuar: partidas guardadas -->
+  <div class="tpanel hidden" id="slotsPanel">
+    <h2>Tus partidas</h2>
+    <div id="slotList" class="slotList"></div>
+    <button class="btn alt small" id="bSlotsBack">Volver</button>
+  </div>
+  <!-- menú de una partida -->
+  <div class="tpanel hidden" id="hubPanel">
+    <div class="hubHead" id="hubHead"></div>
+    <div class="menu">
+      <button class="btn" id="bHubPlay">Jugar</button>
+      <button class="btn alt" id="bHubCh">Desafíos: Cristales del Cielo</button>
+      <div class="row2"><button class="btn alt small" id="bHubLogros">Logros</button><button class="btn alt small" id="bHubCustom">Personaje</button></div>
+      <div class="row2 hidden" id="hubExtras"></div>
+      <div class="row2"><button class="btn warn small" id="bHubDelete">Borrar partida</button><button class="btn alt small" id="bHubBack">Volver</button></div>
+    </div>
   </div>
   <div class="tpanel hidden" id="challengesPanel">
     <h2>Cristales del Cielo</h2>
-    <div class="sub" style="margin-bottom:12px">Recoge todos los cristales, cruza el portal y bate tu mejor tiempo. No afecta a tu partida.</div>
+    <div class="sub" style="margin-bottom:12px">Recoge todos los cristales, cruza el portal y bate tu mejor tiempo. No afecta a la historia.</div>
     <div id="challengeList" class="chList"></div>
     <button class="btn alt small" id="bChallengesBack">Volver</button>
   </div>
-  <div class="tpanel hidden" id="logrosPanel">
-    <h2>Logros</h2>
-    <div class="sub" id="logrosCount" style="margin-bottom:12px"></div>
-    <div id="logrosList" class="logros"></div>
-    <button class="btn alt small" id="bLogrosBack">Volver</button>
+  <p style="position:absolute;bottom:10px;font-size:12px;opacity:.55">Personajes: KayKit Adventurers de Kay Lousberg (CC0)</p>
+</div>
+
+<!-- Vitrina de logros de la partida: trofeos, medallas e insignias -->
+<div class="overlay hidden" id="trophies">
+  <h2 id="trophyTitle">Logros</h2>
+  <div class="sub" id="trophyCount"></div>
+  <div class="shelf" id="trophyShelf"></div>
+  <div class="medalRow" id="medalRow"></div>
+  <button class="btn alt small" id="bTrophyBack">Volver</button>
+</div>
+
+<!-- Ofrecer una dificultad más baja -->
+<div class="overlay hidden" id="diffOffer">
+  <h2>¿Te echamos una mano?</h2>
+  <p class="sub" id="diffOfferText" style="max-width:520px;text-align:center"></p>
+  <div class="menu"><button class="btn" id="bDiffLower">Bajar dificultad</button><button class="btn alt" id="bDiffKeep">Seguir así</button></div>
+</div>
+
+<!-- Créditos finales -->
+<div class="overlay hidden" id="credits">
+  <canvas id="creditsCanvas"></canvas>
+  <div class="roll" id="creditsRoll"></div>
+  <button class="btn alt small" id="bCreditsSkip">Saltar</button>
+</div>
+
+<div class="overlay hidden" id="customize">
+  <h2>Personaje</h2>
+  <div class="cwrap">
+    <canvas id="cPreview" width="300" height="380"></canvas>
+    <div class="copts" id="cOpts"></div>
   </div>
-  <div class="tpanel hidden" id="creditsPanel">
-    <h2>Créditos</h2>
-    <div class="credits">
-      <p><b>Ecos de Aethra</b> — una aventura creada paso a paso con Claude.</p>
-      <p><b>Idea y dirección:</b> el creador del juego. <b>Historia, diseño, programación y música:</b> escritos con Claude (Anthropic).</p>
-      <p><b>Personajes y animaciones:</b> KayKit Adventurers de Kay Lousberg (CC0).</p>
-      <p><b>Jefes, enemigos y decorados:</b> modelos generados para el juego con Hunyuan3D 2.1 (Tencent) a partir de imágenes de SDXL.</p>
-      <p><b>Motor 3D:</b> three.js. <b>Tipografía:</b> Fredoka.</p>
-      <p><b>La música</b> se toca en tu navegador mientras juegas: no hay archivos de audio.</p>
-      <p style="opacity:.75">Gracias por jugar.</p>
-    </div>
-    <button class="btn alt small" id="bCreditsBack">Volver</button>
+  <div class="row2" style="margin-top:12px"><button class="btn small" id="bCustomOk">Listo</button><button class="btn alt small" id="bCustomReset">Original</button><button class="btn alt small hidden" id="bCustomBack">Volver</button></div>
+</div>
+
+<div class="overlay hidden" id="pause">
+  <h2>Pausa</h2>
+  <div class="menu" id="pauseMain">
+    <button class="btn" id="bResume">Continuar</button>
+    <button class="btn alt hidden" id="bRestartCh">Reiniciar desafío</button>
+    <button class="btn alt" id="bCustomPause">Personaje</button>
+    <button class="btn alt" id="bLogrosPause">Logros</button>
+    <button class="btn alt" id="bSettings">Ajustes</button>
+    <button class="btn alt" id="bControls">Controles</button>
+    <button class="btn alt" id="bSaveMenu">Guardar o cargar partida</button>
+    <button class="btn warn" id="bTitle">Volver al título</button>
   </div>
-  <details class="keysBox"><summary>Controles</summary><div class="keys">
+  <div class="panel hidden" id="settingsPanel">
+    <label>Sensibilidad de cámara <input type="range" id="sSens" min="0.3" max="2.5" step="0.1"></label>
+    <label>Invertir eje vertical <input type="checkbox" id="sInv"></label>
+    <label>Volumen general <input type="range" id="sVol" min="0" max="1" step="0.05"></label>
+    <label>Música <input type="range" id="sMus" min="0" max="1" step="0.05"></label>
+    <label>Calidad gráfica <select id="sQual" class="diffSel"><option value="auto">Automática</option><option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja (teléfonos viejos)</option></select></label>
+    <label>Mostrar datos técnicos <input type="checkbox" id="sDbg"></label>
+    <div class="row"><button class="btn" id="bSettingsBack">Listo</button></div>
+  </div>
+  <div class="panel hidden" id="controlsPanel">
+    <div class="keys">
     <b>W A S D</b><span>Moverse · Shift para caminar</span>
     <b>Espacio</b><span>Saltar · doble salto en el aire</span>
     <b>E</b><span>Hablar, leer, usar</span>
@@ -256,38 +379,8 @@
     <b>Ratón</b><span>Clic y arrastra para girar la cámara · rueda para acercar</span>
     <b>Esc / P</b><span>Pausa, ajustes y guardado</span>
     <b>Mando PS4</b><span>✕ saltar · □ golpear · ○ esquivar · △ usar · L1 escudo · R1 garfio · L2 luz · OPTIONS pausa · cruceta en los menús</span>
-  </div></details>
-  <p style="position:absolute;bottom:10px;font-size:12px;opacity:.55">Personajes: KayKit Adventurers de Kay Lousberg (CC0)</p>
-</div>
-
-<div class="overlay hidden" id="customize">
-  <h2>Personaje</h2>
-  <div class="cwrap">
-    <canvas id="cPreview" width="300" height="380"></canvas>
-    <div class="copts" id="cOpts"></div>
   </div>
-  <div class="row2" style="margin-top:12px"><button class="btn small" id="bCustomOk">Listo</button><button class="btn alt small" id="bCustomReset">Original</button></div>
-</div>
-
-<div class="overlay hidden" id="pause">
-  <h2>Pausa</h2>
-  <div class="menu" id="pauseMain">
-    <button class="btn" id="bResume">Continuar</button>
-    <button class="btn alt hidden" id="bRestartCh">Reiniciar desafío</button>
-    <button class="btn alt" id="bCustomPause">Personaje</button>
-    <button class="btn alt" id="bSettings">Ajustes</button>
-    <button class="btn alt" id="bSaveMenu">Guardar o cargar partida</button>
-    <button class="btn warn" id="bTitle">Volver al título</button>
-  </div>
-  <div class="panel hidden" id="settingsPanel">
-    <label>Sensibilidad de cámara <input type="range" id="sSens" min="0.3" max="2.5" step="0.1"></label>
-    <label>Invertir eje vertical <input type="checkbox" id="sInv"></label>
-    <label>Volumen general <input type="range" id="sVol" min="0" max="1" step="0.05"></label>
-    <label>Música <input type="range" id="sMus" min="0" max="1" step="0.05"></label>
-    <label>Dificultad <select id="sDiff" class="diffSel"><option value="facil">Cuento (fácil)</option><option value="normal">Aventura (normal)</option><option value="dificil">Leyenda (difícil)</option><option value="auto">Automático (Lía juega sola)</option></select></label>
-    <label>Calidad gráfica <select id="sQual" class="diffSel"><option value="auto">Automática</option><option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja (teléfonos viejos)</option></select></label>
-    <label>Mostrar datos técnicos <input type="checkbox" id="sDbg"></label>
-    <div class="row"><button class="btn" id="bSettingsBack">Listo</button></div>
+    <div class="row"><button class="btn" id="bControlsBack">Listo</button></div>
   </div>
   <div class="panel hidden" id="savePanel">
     <div>La partida se guarda sola al tocar un farol. Para llevarla a otro dispositivo, copia este código:</div>
