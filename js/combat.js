@@ -1369,7 +1369,7 @@ export class Combat {
       }
       if (hit) { this.hitstop = Math.max(this.hitstop, ev.def.dmg > 1 ? 0.09 : 0.06); this.shake(ev.def.dmg > 1 ? 0.18 : 0.1, 0.12); }
     }
-    pl.events = pl.events.filter(e => e.type === 'hurt' || e.type === 'dead' || e.type === 'airdash' || e.type === 'pulse' || e.type === 'block');
+    pl.events = pl.events.filter(e => e.type === 'hurt' || e.type === 'dead' || e.type === 'airdash' || e.type === 'pulse' || e.type === 'block' || e.type === 'power');
   }
 
   // others: más jugadores (Arena). Cada enemigo persigue al más cercano; solo los jugadores locales reciben daño aquí.

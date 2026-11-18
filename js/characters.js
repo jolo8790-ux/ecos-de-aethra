@@ -85,9 +85,14 @@ export const CUSTOM = {
   // pelo: [id, nombre, [tono, saturación, luz] destino o null = el del estilo, muestra]
   pelo: [['natural', 'Natural', null, 0x9b5a45], ['castano', 'Castaño', [16, 0.42, 0.4], 0x8a4f38], ['negro', 'Negro', [20, 0.12, 0.15], 0x2a2420], ['rubio', 'Rubio', [42, 0.62, 0.64], 0xd8b25a], ['pelirrojo', 'Pelirrojo', [14, 0.78, 0.45], 0xc0451e], ['blanco', 'Blanco', [30, 0.06, 0.84], 0xe6e2dc], ['rosa', 'Rosa', [330, 0.62, 0.66], 0xe07ab0], ['azul', 'Azul', [215, 0.6, 0.55], 0x4a7ad8]],
   piel: [['clara', 'Clara', 1, 0xf6c09c], ['media', 'Media', 0.86, 0xd8a07a], ['morena', 'Morena', 0.7, 0xb0784e], ['oscura', 'Oscura', 0.52, 0x7a4a2c]],
+  // aura: color del nombre en la Arena y del brillo de los poderes; título: se ve bajo el nombre
+  aura: [['dorado', 'Dorada', 0xffd27a], ['azul', 'Azul', 0x6ac8ff], ['violeta', 'Violeta', 0xb07aff], ['rojo', 'Roja', 0xff5a5a], ['verde', 'Verde', 0x6aff9a], ['rosa', 'Rosa', 0xff8ad0], ['blanco', 'Blanca', 0xf0f4ff]],
+  titulo: [['ninguno', 'Sin título'], ['aventurera', 'Aventurera'], ['eco', 'Maestra del Eco'], ['viento', 'Domadora del Viento'], ['sombras', 'Cazadora de Sombras'], ['guardiana', 'Guardiana de Aethra'], ['fuego', 'Señora del Fuego'], ['hielo', 'Reina del Hielo'], ['arena', 'Leyenda de la Arena']],
   planeador: [['teal', 'Turquesa', 0x2f9fae], ['dorado', 'Dorado', 0xd8a83a], ['rojo', 'Rojo', 0xc8404a], ['violeta', 'Violeta', 0x8a5ad8], ['blanco', 'Blanco', 0xe8eef2]],
 };
-export const DEFAULT_CUSTOM = { estilo: 'lia', ropa: 'verde', pelo: 'natural', piel: 'clara', planeador: 'teal' };
+export const DEFAULT_CUSTOM = { estilo: 'lia', ropa: 'verde', pelo: 'natural', piel: 'clara', planeador: 'teal', aura: 'dorado', titulo: 'ninguno' };
+export const auraOf = c => (CUSTOM.aura.find(o => o[0] === (c && c.aura)) || CUSTOM.aura[0])[2];
+export const titleOf = c => { const t = CUSTOM.titulo.find(o => o[0] === (c && c.titulo)); return t && t[0] !== 'ninguno' ? t[1] : ''; };
 const pick = (list, id) => list.find(o => o[0] === id) || list[0];
 export function customLook(cfg = {}) {
   const c = { ...DEFAULT_CUSTOM, ...cfg }, rules = [];

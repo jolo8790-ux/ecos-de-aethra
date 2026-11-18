@@ -10,6 +10,7 @@ export class Net {
   constructor() {
     this.me = null; this.kind = ''; this.room = null; this.peersList = []; this.myPres = {}; this.seq = 0; this.evs = [];
     this.lastSeq = {}; this.handlers = []; this.closed = false; this.sendT = 0;
+    this.chats = []; this.cseq = 0; this.lastChat = {}; this.chatHandlers = [];
   }
   static async open(code) {
     const n = new Net(); const name = 'arena-' + code.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20);
@@ -44,13 +45,21 @@ export class Net {
   others() { return this.peers().filter(p => !p.me); }
   // estado propio (se envía unas 15 veces por segundo)
   set(patch) { Object.assign(this.myPres, patch); }
+  // chat: los últimos mensajes viajan en la presencia (texto limpio, máximo 100 caracteres)
+  chat(text) {
+    const m = String(text).replace(/[\u0000-\u001f\u007f-\u009f\u00ad\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/g, '').trim().slice(0, 100);
+    if (!m) return null;
+    this.chats.push({ q: ++this.cseq, m }); if (this.chats.length > 4) this.chats.shift();
+    return m;
+  }
+  onChat(fn) { this.chatHandlers.push(fn); }
   event(ev) { this.evs.push({ ...ev, q: ++this.seq }); if (this.evs.length > EV_KEEP) this.evs.shift(); }
   tick(dt) {
     if (this.closed) return;
     this.sendT -= dt;
     if (this.sendT <= 0) {
       this.sendT = 1 / 15;
-      this.myPres.ev = this.evs;
+      this.myPres.ev = this.evs; this.myPres.cm = this.chats;
       if (this.kind === 'room') this.room.presence(this.myPres).catch(() => {});
       else { try { this.bc.postMessage({ peer: this.me, pres: JSON.parse(JSON.stringify(this.myPres)) }); } catch (e) {} }
     }
@@ -62,6 +71,11 @@ export class Net {
       let max = last;
       for (const e of list) if (e && e.q > last) { max = Math.max(max, e.q); for (const h of this.handlers) h(p.id, e); }
       this.lastSeq[p.id] = max;
+      const cl = (p.pres && p.pres.cm) || [];
+      if (this.lastChat[p.id] === undefined) { this.lastChat[p.id] = cl.reduce((m, e) => Math.max(m, (e && e.q) || 0), 0); continue; }
+      let cm = this.lastChat[p.id];
+      for (const c of cl) if (c && c.q > this.lastChat[p.id] && typeof c.m === 'string') { cm = Math.max(cm, c.q); for (const h of this.chatHandlers) h(p.id, c.m.slice(0, 100)); }
+      this.lastChat[p.id] = cm;
     }
   }
   onEvent(fn) { this.handlers.push(fn); }

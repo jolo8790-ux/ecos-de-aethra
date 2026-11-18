@@ -65,6 +65,7 @@ export class Player {
   teleport(x, y, z, facing = this.facing) {
     this.pos.set(x, y, z); this.vel.set(0, 0, 0); this.facing = facing; this.visY = y;
     this.grounded = false; this.jumps = 0; this.attack = null; this.dodge = null; this.grapple = null; this.gliding = false;
+    this.iceT = 0; this.liftT = 0; this.levT = 0; this.slamDmg = 0; this.slowT = 0;
   }
 
   // Garfio: lanza la cuerda hacia un anillo y tira de Lía hasta él.
@@ -80,6 +81,13 @@ export class Player {
   }
 
   heal(n) { this.hp = Math.min(this.maxHp, this.hp + n); }
+  // estados que dejan los poderes: hielo (congelada) y telequinesis (levantada y luego estrellada)
+  applyStatus(kind, t, o = {}) {
+    if (kind === 'ice') { this.iceT = Math.max(this.iceT || 0, t); this.attack = null; this.dodge = null; this.gliding = false; this.levT = 0; }
+    if (kind === 'lift') { this.liftT = t; this.liftY = this.pos.y + 3.2; this.slamDmg = o.slam || 0; this.liftFrom = o.from; this.attack = null; this.dodge = null; this.gliding = false; this.levT = 0; }
+  }
+  // ¿un poder la alcanza? (la esquiva y el escudo la protegen)
+  dodges(from) { return !!(this.dodge && this.dodge.t < this.dodge.iframes) || this.blocks(from); }
 
   // ¿El escudo cubre un ataque que viene desde ese punto? (frente de Lía, unos 140°)
   blocks(from) {
@@ -122,8 +130,16 @@ export class Player {
     this.invuln = Math.max(0, this.invuln - dt); this.hurtT = Math.max(0, this.hurtT - dt);
     this.attackCd -= dt; this.dodgeCd -= dt;
     if (this.swimming) { this._updateSwim(dt, input, camYaw); return; } // bajo el agua
+    // estados de los poderes: congelada (hielo), levantada (telequinesis) y levitando
+    const iced = this.iceT > 0, lifted = this.liftT > 0;
+    if (iced) this.iceT -= dt;
+    if (lifted) {
+      this.liftT -= dt;
+      if (this.liftT <= 0) { this.vel.y = -20; const d = this.slamDmg; this.slamDmg = 0; if (d) { this.invuln = 0; this.damage(d, this.liftFrom || this.pos); } }
+    }
+    if (this.levT > 0) this.levT -= dt;
     let mx = 0, my = 0;
-    const locked = this.frozen || this.hurtT > 0;
+    const locked = this.frozen || this.hurtT > 0 || iced || lifted;
     if (!locked) { mx = input.move.x; my = input.move.y; }
     const fx = -Math.sin(camYaw), fz = -Math.cos(camYaw), rx = Math.cos(camYaw), rz = -Math.sin(camYaw);
     let dirX = fx * my + rx * mx, dirZ = fz * my + rz * mx;
@@ -145,6 +161,9 @@ export class Player {
       this.anim.gesture && this.anim.gesture('Spellcast_Raise', { speed: 1.8, fadeIn: 0.05, fadeOut: 0.2 });
       this.fx && this.fx.ring(this.pos.clone().setY(this.pos.y + 0.8), 0xfff2a8);
     }
+
+    // ---- poderes especiales (1, 2, 3) ----
+    if (!locked && this.powerSlots) for (let i = 0; i < 3; i++) if (input.pressed('power' + (i + 1)) && this.powerSlots[i]) this.events.push({ type: 'power', id: this.powerSlots[i] });
 
     // ---- ataques ----
     if (!locked && this.canFight && input.pressed('attack')) {
@@ -193,7 +212,7 @@ export class Player {
       const atk = this.attack;
       if (this.launchT > 0) this.launchT -= dt;
       const launching = this.launchT > 0 && !this.grounded; // tras el garfio se conserva el impulso
-      const speed = Math.max((input.walk ? WALK : RUN) * (this.mods.speed || 1) * (atk ? 0.15 : 1) * (this.shielding ? 0.35 : 1), launching ? Math.hypot(this.vel.x, this.vel.z) : 0);
+      const speed = Math.max((input.walk ? WALK : RUN) * (this.mods.speed || 1) * (this.slowT > 0 ? 0.3 : 1) * (atk ? 0.15 : 1) * (this.shielding ? 0.35 : 1), launching ? Math.hypot(this.vel.x, this.vel.z) : 0);
       const wx = dirX * speed, wz = dirZ * speed;
       const a = (this.grounded ? ACCEL : this.gliding ? AIR_ACCEL * 1.6 : AIR_ACCEL) * dt;
       if (this.hurtT <= 0) {
@@ -227,12 +246,22 @@ export class Player {
     }
     if (this.vel.y > 0 && !input.held('jump') && this.jumps === 1 && !this.bounced) this.vel.y -= GRAVITY * 1.4 * dt; // soltar = salto más bajo
     if (!(this.dodge && this.dodge.air)) this.vel.y = Math.max(-32, this.vel.y - GRAVITY * dt);
+    if (iced) { this.vel.x = 0; this.vel.z = 0; }
+    if (this.liftT > 0) { // flota indefensa
+      this.vel.x *= Math.pow(0.02, dt); this.vel.z *= Math.pow(0.02, dt);
+      this.vel.y = (this.liftY - this.pos.y) * 4 + Math.sin(performance.now() / 160) * 0.6; this.grounded = false;
+    } else if (this.levT > 0 && !iced) { // levitación: sube con salto, baja con esquivar
+      if (this.levY === undefined || input.held('jump') || input.held('dodge')) this.levY = this.pos.y;
+      const up = input.held('jump') ? 5.5 : input.held('dodge') ? -5 : (this.levY - this.pos.y) * 3 + Math.sin(performance.now() / 400) * 0.4;
+      this.grounded = false;
+      this.vel.y += (up - this.vel.y) * Math.min(1, dt * 6);
+    }
 
     // ---- planeador: mantener salto mientras se cae ----
     // aguante: se recupera en el suelo y dentro de las corrientes; al agotarse, el planeador se pliega
     if (this.diff && this.diff.glide) this.glideMax = this.diff.glide * (this.mods.glide || 1);
     if (this.grounded) { this.stamina = Math.min(this.glideMax, this.stamina + dt * 4); this.tired = false; this.gust = null; this.gustCd = Math.max(this.gustCd, 1.6); }
-    const wantGlide = this.canGlide && !this.grounded && !this.dodge && !locked && !this.tired && input.held('jump') && (this.gliding || this.vel.y < 0) && this.airTime > 0.15;
+    const wantGlide = !(this.levT > 0) && this.canGlide && !this.grounded && !this.dodge && !locked && !this.tired && input.held('jump') && (this.gliding || this.vel.y < 0) && this.airTime > 0.15;
     if (wantGlide && !this.gliding) { this.gliding = true; this.audio.play('glide'); }
     if (!wantGlide) { this.gliding = false; this.gust = null; }
     if (this.gliding) {
@@ -411,7 +440,7 @@ export class Player {
     this.mesh.rotation.x = this.tilt;
     if (sw) this.mesh.position.y += Math.sin(performance.now() / 300) * 0.06;
     this.mesh.visible = this.inSub ? false : this.invuln > 0 && this.hurtT <= 0 ? Math.floor(this.invuln * 14) % 2 === 0 : true;
-    const ev = this.anim.update(dt, {
+    const ev = this.iceT > 0 ? {} : this.anim.update(dt, {
       vel: this.vel, grounded: this.grounded, facing: this.facing, jumps: this.jumps,
       input: { x: this._wx || 0, z: this._wz || 0 }, lookAt: this.attack ? null : this.lookAt,
       landed: this._landed, landSpeed: this._landSpeed, doubleJumped: this._dj, jumped: this._jumped,

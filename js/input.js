@@ -23,6 +23,7 @@ export class Input {
       // Arena con dos jugadores en un teclado: el jugador 1 golpea con F y esquiva con G (las flechas son del jugador 2)
       const a = this.arenaKeys ? (ARENA_P1[e.code] || (P2_CODES.has(e.code) ? null : KEYMAP[e.code])) : KEYMAP[e.code];
       if (a) this._pressed.add(a);
+      if (POWER_KEYS[e.code] && !(this.arenaKeys && P2_CODES.has(e.code))) this._pressed.add(POWER_KEYS[e.code]);
     });
     addEventListener('keyup', e => { this.keys[e.code] = false; });
     addEventListener('blur', () => { this.keys = {}; });
@@ -64,7 +65,7 @@ export class Input {
     let joyId = null, camId = null, tx = 0, ty = 0;
     this._joy = { x: 0, y: 0 };
     // A saltar · B golpear · C esquivar · X usar/hablar · Y escudo (mantener) · Z garfio o pulso de luz
-    const MAP = { tA: 'jump', tB: 'attack', tC: 'dodge', tX: 'interact', tY: 'shield', tZ: 'special', tPause: 'pause' };
+    const MAP = { tA: 'jump', tB: 'attack', tC: 'dodge', tX: 'interact', tY: 'shield', tZ: 'special', tPause: 'pause', tP1: 'power1', tP2: 'power2', tP3: 'power3' };
     for (const [id, action] of Object.entries(MAP)) {
       const el = document.getElementById(id);
       el.addEventListener('touchstart', e => { e.stopPropagation(); e.preventDefault(); this._pressed.add(action); this._held.add(action); el.classList.add('on'); if (navigator.vibrate) navigator.vibrate(8); }, { passive: false });
@@ -131,7 +132,7 @@ export class Input {
       this.look.x += rx * 14; this.look.y += ry * 10;
       const b = i => pad.buttons[i] && pad.buttons[i].pressed;
       const edge = (i, action) => { const now = b(i); if (now && !this._prevPad[i]) { this._pressed.add(action); this.usingGamepad = true; } this._prevPad[i] = now; };
-      edge(0, 'jump'); edge(2, 'attack'); edge(1, 'dodge'); edge(3, 'interact'); edge(9, 'pause'); edge(8, 'pause'); edge(5, 'grapple'); edge(7, 'grapple'); edge(6, 'pulse'); edge(12, 'choiceUp'); edge(13, 'choiceDown'); edge(14, 'navLeft'); edge(15, 'navRight');
+      edge(0, 'jump'); edge(2, 'attack'); edge(1, 'dodge'); edge(3, 'interact'); edge(9, 'pause'); edge(8, 'pause'); edge(5, 'grapple'); edge(7, 'grapple'); edge(6, 'pulse'); edge(12, 'choiceUp'); edge(13, 'choiceDown'); edge(14, 'navLeft'); edge(15, 'navRight'); edge(10, 'power1'); edge(11, 'power2'); edge(13, 'power3');
       // la cruceta también mueve a Lía
       if (b(12)) my += 1; if (b(13)) my -= 1; if (b(14)) mx -= 1; if (b(15)) mx += 1;
       this.padName = pad.id || '';
@@ -177,5 +178,6 @@ const KEYMAP = {
   Space: 'jump', KeyE: 'interact', Enter: 'interact', KeyF: 'interact', KeyJ: 'attack', KeyK: 'dodge', KeyL: 'dodge', KeyG: 'grapple', KeyC: 'grapple', KeyZ: 'pulse', KeyX: 'pulse', Digit1: 'choice1', Digit2: 'choice2', Numpad1: 'choice1', Numpad2: 'choice2',
   Escape: 'pause', KeyP: 'pause', ArrowUp: 'choiceUp', ArrowDown: 'choiceDown', KeyH: 'heroes',
 };
+const POWER_KEYS = { Digit1: 'power1', Digit2: 'power2', Digit3: 'power3' };
 const ARENA_P1 = { KeyF: 'attack', KeyG: 'dodge' };
 const P2_CODES = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Slash', 'Minus', 'Period', 'Comma', 'KeyM', 'KeyN', 'ControlRight', 'Numpad0', 'Numpad1', 'Numpad2', 'Numpad3', 'Numpad5', 'Enter', 'KeyJ', 'KeyK', 'KeyL']);

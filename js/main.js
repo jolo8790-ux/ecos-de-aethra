@@ -12,7 +12,7 @@ import { DESAFIOS, medalFor } from './zones/desafios.js';
 let challenge = null;
 const writeSave = s => challenge ? true : writeSaveRaw(s);
 import { FX } from './fx.js';
-import { loadCharacterLibrary, createCharacter, customLook, CUSTOM, DEFAULT_CUSTOM } from './characters.js';
+import { loadCharacterLibrary, createCharacter, customLook, CUSTOM, DEFAULT_CUSTOM, auraOf } from './characters.js';
 import { loadProps } from './props.js';
 import { newSave, loadSave, peekSave, getSlot, setSlot, SLOTS, freeSlot, listSaves, writeSlot, deleteSave, writeSave as writeSaveRaw, loadSettings, writeSettings, exportCode, importCode } from './save.js';
 import puertoBruma from './zones/puerto_bruma.js';
@@ -30,7 +30,8 @@ import { runCredits } from './credits.js';
 import { applySenderos, SENDEROS } from './zones/senderos.js';
 import { HEROES, heroById, heroLook, heroUnlocked } from './heroes.js';
 import { ZONE_PIECES, MISIONES, PIECE_TOTAL, piecesOf, pieceCount, pieceHearts, pieceBreakable, newlyDone, givePiece, bumpMax as bumpMaxL } from './piezas.js';
-import { Arena, ARENA_MODES } from './arena.js';
+import { Arena, ARENA_MODES, wireChat } from './arena.js';
+import { Powers, POWERS, loadout, powerUnlocked, powerPoints, powerById, ENERGY_MAX } from './powers.js';
 import { Net } from './net.js';
 
 const ZONES_BASE = { puerto_bruma: puertoBruma, bosque_colgante: bosqueColgante, ruinas_vidrio: ruinasVidrio, ciudad_engranajes: ciudadEngranajes, glaciar_eco: glaciarEco, ciudadela_orden: ciudadelaOrden, eco_olvidado: ecoOlvidado, forja_ignis: forjaIgnis, abismo_mareth: abismoMareth };
@@ -120,6 +121,28 @@ const player = new Player(scene, physics, audio, fx);
 const cam = new FollowCamera(camera, physics);
 const combat = new Combat(scene, physics, fx, audio);
 combat.world = world;
+const powers = new Powers({ scene, physics, fx, audio, combat });
+// un enemigo como objetivo de los poderes: fuego y golpes lo dañan, el hielo lo congela y la telequinesis lo levanta
+function enemyTarget(e) {
+  return { pos: e.pos, radius: e.radius || 0.6, enemy: e, hit(dmg, kind, from, x = {}) {
+    if (!e.alive) return;
+    const canStun = e.state !== undefined && !e.flying;
+    if (kind === 'ice' && canStun) {
+      e.state = 'stagger'; e.stagger = x.t || 2.5;
+      const m = new THREE.Mesh(new THREE.IcosahedronGeometry(0.9, 1), new THREE.MeshStandardMaterial({ color: 0xcff4ff, emissive: 0x3a8ad0, emissiveIntensity: 0.5, transparent: true, opacity: 0.55, flatShading: true, depthWrite: false }));
+      m.position.y = 0.6; m.userData.noFlash = true; e.group.add(m); audio.play('ice');
+      powers.fx.push({ t: 0, update: (dt, f) => { f.t += dt; if (e.alive && e.state === 'stagger') e.stagger = Math.max(e.stagger, 0.1); if (f.t > (x.t || 2.5) || !e.alive) { e.group.remove(m); if (e.alive) { e.stagger = 0.05; fx.sparkle(e.pos.clone().setY(e.pos.y + 0.6), 14, 0xd8f6ff); } return true; } } });
+    }
+    if (kind === 'lift') {
+      if (!canStun) { e.hurt(x.slam || 2, from, 4); return; }
+      const y0 = e.pos.y + 3;
+      powers.fx.push({ t: 0, update: (dt, f) => { f.t += dt; if (!e.alive) return true; e.state = 'stagger'; e.stagger = 0.3; e.vel.x *= 0.9; e.vel.z *= 0.9; e.vel.y = (y0 - e.pos.y) * 4 + 26 * dt; if (f.t > (x.t || 2.3)) { e.vel.y = -16; e.hurt(x.slam || 2, from, 2); combat.shake(0.2, 0.2); return true; } } });
+      return;
+    }
+    if (dmg > 0) e.hurt(dmg, from, x.push || 3);
+  } };
+}
+const storyFoes = () => combat.enemies.filter(e => e.alive).map(enemyTarget);
 let hookTarget = null;
 let bossActive = false, deadT = 0, hintClang = false, hintStun = false, hintAura = false, lastHp = -1, endNext = null, pendingFinale = null;
 const pulseFx = [];
@@ -182,7 +205,7 @@ Promise.all([
 // ---------- zonas ----------
 function loadZone(id, checkpointId) {
   zone = ZONES[id];
-  player.inSub = false; player.swimming = false; clearSeaFx();
+  player.inSub = false; player.swimming = false; clearSeaFx(); powers.clear(); player.iceT = player.liftT = player.levT = 0;
   if (zone.sea && save && save.flags.mr_sub && !save.flags.mr_fosa) delete save.flags.mr_sub; // el submarino vuelve a su amarre
   if (zone.boss && zone.boss.type === 'eco') { // el Eco Sombrío es una copia oscura de la protagonista tal como la vistió el jugador
     const base = customLook((save && save.custom) || settings.custom || {});
@@ -217,6 +240,35 @@ function applyAbilities() {
   $('tZ').classList.toggle('off', !(player.canGrapple || player.canPulse));
   player.maxHp = 4 + Math.floor(save.fragments.length / 5) + Math.floor((save.relics || []).length / 2) + pieceHearts(save) + (player.mods.hp || 0);
   $('hudPieza').textContent = `⚙ ${pieceCount(save)}`;
+  applyPowers();
+}
+// poderes especiales de la partida (después de conseguir el bastón)
+function applyPowers() {
+  if (!save) return;
+  player.powerSlots = save.flags.baston && !challenge ? loadout(save) : null;
+  player.aura = auraOf(save.custom);
+  if (player.energy === undefined) player.energy = ENERGY_MAX;
+  player.pcd = player.pcd || {};
+  ['tP1', 'tP2', 'tP3'].forEach((id, i) => { const P = player.powerSlots && powerById(player.powerSlots[i]); $(id).textContent = P ? P.icon : ''; $(id).classList.toggle('hidden', !P); });
+  powerHudSig = '';
+}
+let powerHudSig = '';
+function updatePowerHUD() {
+  const show = (state === 'play' || state === 'dialog' || state === 'arena') && player.powerSlots && player.powerSlots.length;
+  $('powerBar').classList.toggle('hidden', !show);
+  if (!show) return;
+  $('energyFill').style.width = `${Math.round((player.energy ?? ENERGY_MAX) / ENERGY_MAX * 100)}%`;
+  const sig = player.powerSlots.join(',');
+  if (sig !== powerHudSig) {
+    powerHudSig = sig;
+    $('pSlots').innerHTML = player.powerSlots.map((id, i) => { const P = powerById(id); return `<div class="pslot" id="ps${i}" title="${P.name}"><span class="k">${i + 1}</span>${P.icon}<span class="cd"></span></div>`; }).join('');
+  }
+  player.powerSlots.forEach((id, i) => {
+    const P = powerById(id), el = $('ps' + i); if (!el) return;
+    const cd = (player.pcd && player.pcd[id]) || 0, low = (player.energy ?? 0) < P.cost;
+    el.classList.toggle('ok', !cd && !low); el.classList.toggle('low', low);
+    el.lastChild.style.height = `${Math.min(100, cd / P.cd * 100)}%`;
+  });
 }
 
 // Entrar en una zona (al empezar, al continuar o al cambiar de capítulo), con su introducción la primera vez.
@@ -684,6 +736,7 @@ function handlePlayerEvents() {
     if (ev.type === 'hurt') { if (bossActive) bossHurt = true; combat.shake(0.25, 0.25); input.rumble(220, 0.7); $('hudHearts').classList.remove('hit'); void $('hudHearts').offsetWidth; $('hudHearts').classList.add('hit'); }
     if (ev.type === 'dead') startDeath();
     if (ev.type === 'pulse') doPulse(ev.pos, ev.radius);
+    if (ev.type === 'power' && state === 'play') { const r = powers.cast(player, ev.id, storyFoes); if (r === 'none') toast('No hay nadie al alcance'); else if (r === false) audio.play('hurt'); }
   }
   player.events = player.events.filter(e => e.type === 'hitcheck' || e.type === 'swing');
 }
@@ -1499,21 +1552,27 @@ function openCustom(from) {
   $('bCustomOk').textContent = from === 'new' ? '¡A jugar!' : 'Listo'; $('bCustomBack').classList.toggle('hidden', from !== 'new');
   buildCustomOpts(); startPreview();
 }
-function closeCustom(save = true) {
+function closeCustom(ok = true) {
   if (cust.from === 'new') { // último paso de la partida nueva
     stopPreview(); $('customize').classList.add('hidden');
-    if (save) { player.useModel(charLib, customLook(cust.cfg)); createPartida({ ...cust.cfg }); }
+    if (ok) { player.useModel(charLib, customLook(cust.cfg)); createPartida({ ...cust.cfg }); }
     else { $('title').classList.remove('hidden'); showDiffPanel(); }
     return;
   }
-  if (save) {
+  if (ok) {
     settings.custom = cust.cfg; writeSettings(settings);
     const sv = cust.from === 'title' ? loadSave() : (challenge ? null : save);
-    if (sv) { sv.custom = cust.cfg; sv.hero = 'lia'; if (cust.from === 'title') { unlock(sv, 'estilo', sv.difficulty === 'auto'); writeSaveRaw(sv); } else { logro('estilo'); writeSave(sv); if (sv === save) { player.mods = {}; applyAbilities(); } } } // personalizar es para tu heroína
-    player.useModel(charLib, customLook(cust.cfg)); player.setFight(player.canFight);
+    if (sv) {
+      const old = { ...DEFAULT_CUSTOM, ...(sv.custom || {}) };
+      const looks = ['estilo', 'ropa', 'pelo', 'piel', 'planeador'].some(k => old[k] !== cust.cfg[k]);
+      sv.custom = cust.cfg; if (looks) sv.hero = 'lia'; // cambiar el aspecto es para tu heroína; el aura y el título valen para todos
+      if (cust.from === 'title') { unlock(sv, 'estilo', sv.difficulty === 'auto'); writeSaveRaw(sv); } else { logro('estilo'); writeSave(sv); }
+      if (sv === save) { applyHero(); applyAbilities(); } else applySlotLook();
+    } else { player.useModel(charLib, customLook(cust.cfg)); player.setFight(player.canFight); }
     if (cust.from === 'title') openHub();
   }
   stopPreview(); $('customize').classList.add('hidden'); $(cust.from).classList.remove('hidden');
+  if (cust.from === 'arenaMenu') refreshArenaMenu();
 }
 function buildCustomOpts() {
   const box = $('cOpts'); box.innerHTML = '';
@@ -1535,6 +1594,8 @@ function buildCustomOpts() {
   group('pelo', 'Pelo', CUSTOM.pelo, 3);
   group('piel', 'Piel', CUSTOM.piel, 3);
   group('planeador', 'Planeador', CUSTOM.planeador, 2);
+  group('aura', 'Aura de poder', CUSTOM.aura, 2);
+  group('titulo', 'Título en la Arena', CUSTOM.titulo);
 }
 // vista previa: un renderizador pequeño solo mientras el panel está abierto
 let pv = null;
@@ -1744,6 +1805,7 @@ function simulate(dt) {
     }
     if (world.sea) seaBefore(dt);
     if (auto.fly) autoFly(dt); else player.update(dt, input, cam.yaw, state === 'play' ? combat.targets : []);
+    powers.tick(player, dt, 8);
     if (world.sea) seaAfter(dt);
     if (player.dodge && player.dodge.air) fx.trail(player.pos, 0.5 + player.dodge.t * 2); // estela de colores del impulso
     combat.handlePlayer(player);
@@ -1782,6 +1844,8 @@ function simulate(dt) {
   }
 
   world.update(time, dt);
+  powers.update(dt); powers.statusFx(player, dt);
+  if (state !== 'title') updatePowerHUD();
   fx.update(dt);
   for (const p of pulseFx) { p.t += dt; const k = p.t / 0.45; p.m.scale.setScalar(0.5 + k * p.r); p.m.material.opacity = 0.5 * (1 - k); if (k >= 1) { scene.remove(p.m); p.done = true; } }
   for (let i = pulseFx.length - 1; i >= 0; i--) if (pulseFx[i].done) pulseFx.splice(i, 1);
@@ -1896,10 +1960,44 @@ $('bMisBack').onclick = () => { $('misiones').classList.add('hidden'); $(misUI.f
 $('bMisPause').onclick = () => openMisiones('pause');
 $('bHubMis').onclick = () => openMisiones('title');
 
+// ---------- poderes especiales ----------
+const powUI = { from: null, slot: 0 };
+function openPoderes(from) {
+  const sv = from === 'title' ? loadSave() : save; if (!sv) return;
+  powUI.from = from; powUI.sv = sv; powUI.slot = 0;
+  $(from).classList.add('hidden'); $('poderes').classList.remove('hidden');
+  buildPoderes();
+}
+function buildPoderes() {
+  const sv = powUI.sv, pts = powerPoints(sv), slots = loadout(sv);
+  sv.poderes = slots;
+  $('powSub').textContent = `Tienes ${pts} punto${pts === 1 ? '' : 's'} de poder (piezas especiales + victorias en la Arena). Elige un hueco y luego el poder que quieres en él. Se lanzan con 1, 2 y 3${sv.flags && sv.flags.baston ? '' : ' (en la historia, desde que consigues el bastón; en la Arena, siempre)'}.`;
+  $('powSlots').innerHTML = [0, 1, 2].map(i => { const P = powerById(slots[i]); return `<button class="${powUI.slot === i ? 'sel' : ''}" data-i="${i}"><b>${P ? P.icon : '·'}</b><small>Tecla ${i + 1}: ${P ? P.name : 'vacío'}</small></button>`; }).join('');
+  $('powSlots').querySelectorAll('button').forEach(b => b.onclick = () => { powUI.slot = +b.dataset.i; buildPoderes(); });
+  const grid = $('powGrid'); grid.innerHTML = '';
+  for (const P of POWERS) {
+    const ok = powerUnlocked(P, sv), at = slots.indexOf(P.id), b = document.createElement('button');
+    b.className = 'powCard' + (ok ? '' : ' locked') + (at >= 0 ? ' on' : '');
+    b.innerHTML = `<span class="ic">${P.icon}</span><b>${P.name}</b><small>${P.desc}</small><em>${ok ? `Energía ${P.cost} · espera ${P.cd} s` : `🔒 Necesitas ${P.need} puntos de poder (${pts}/${P.need})`}</em>${at >= 0 ? `<span class="slotTag">Tecla ${at + 1}</span>` : ''}`;
+    b.onclick = () => {
+      if (!ok) { audio.play('hurt'); return; }
+      const cur = loadout(sv); const j = cur.indexOf(P.id);
+      if (j >= 0) cur[j] = cur[powUI.slot];
+      cur[powUI.slot] = P.id; sv.poderes = cur.filter(Boolean);
+      audio.play('open'); if (sv === save) { writeSave(save); applyPowers(); } else writeSaveRaw(sv);
+      powUI.slot = (powUI.slot + 1) % 3; buildPoderes();
+    };
+    grid.appendChild(b);
+  }
+}
+$('bPowBack').onclick = () => { $('poderes').classList.add('hidden'); $(powUI.from).classList.remove('hidden'); if (powUI.from === 'arenaMenu') refreshArenaMenu(); };
+$('bPowPause').onclick = () => openPoderes('pause');
+$('bHubPow').onclick = () => openPoderes('title');
+
 // ---------- Arena multijugador ----------
 const arena = new Arena({
   scene, physics, world, combat, fx, audio, music, input, cam, player,
-  charLib: () => charLib, getSave: () => save, toast,
+  charLib: () => charLib, getSave: () => save, toast, powers, enemyTarget,
   loadArenaZone(Z) {
     zone = Z; player.inSub = false; player.swimming = false; clearSeaFx();
     skyMat.uniforms.top.value.setHex(Z.sky.top); skyMat.uniforms.bottom.value.setHex(Z.sky.bottom);
@@ -1915,6 +2013,7 @@ const arena = new Arena({
   checkMissions: () => { checkMissions(); if (save) writeSave(save); },
   pulseFx: (pos, r) => { const sph = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshBasicMaterial({ color: 0xfff2a8, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending })); sph.position.copy(pos).setY(pos.y + 0.9); scene.add(sph); pulseFx.push({ m: sph, t: 0, r }); },
 });
+wireChat(arena);
 const arenaUI = { from: null, mode: 'duelo', who: 'cpu', p2hero: 'kael', code: '' };
 const WHO = [['cpu', 'Contra la CPU', 'Tú contra un héroe controlado por el juego.'], ['local', '2 jugadores', 'En esta pantalla: teclado compartido o con mando.'], ['online', 'Online', 'En tiempo real con quien entre en tu sala.']];
 function openArena(from) {
@@ -1952,6 +2051,8 @@ function refreshArenaMenu() {
   $('bArenaHero').textContent = `Mi héroe: ${me.id === 'lia' ? (save.name || 'tu heroína') : me.name} · cambiar`;
 }
 $('bArenaHero').onclick = () => openHeroes('arenaMenu');
+$('bArenaPow').onclick = () => openPoderes('arenaMenu');
+$('bArenaLook').onclick = () => openCustom('arenaMenu');
 $('bArenaNewCode').onclick = () => { arenaUI.code = randomCode(); $('arenaCode').value = arenaUI.code; };
 $('arenaCode').onkeydown = e => e.stopPropagation();
 $('bArenaBack').onclick = () => { $('arenaMenu').classList.add('hidden'); $(arenaUI.from).classList.remove('hidden'); };
@@ -2006,7 +2107,7 @@ window.__aethra = {
   testNewGame(name = 'Prueba', difficulty = settings.difficulty, opts = {}) { nueva.name = name; nueva.diff = DIFF[difficulty] ? difficulty : 'normal'; nueva.slot = freeSlot() || getSlot() || 1; createPartida(settings.custom || {}); if (opts.sellos !== false) for (const id of Object.keys(SENDEROS)) save.flags['sello_' + id] = true; }, // las pruebas de capítulos saltan los Senderos
   openChallenges() { if (!loadSave()) { nueva.name = 'Prueba'; nueva.diff = DIFF[settings.difficulty] ? settings.difficulty : 'normal'; nueva.slot = freeSlot() || 1; const sv = newSave({ name: 'Prueba', difficulty: nueva.diff, custom: settings.custom || {} }); setSlot(nueva.slot); writeSlot(nueva.slot, sv); } $('bHubCh').click(); },
   playCredits: (then) => playCredits(save, then || (() => {})), showChapterEnd, startEnding, openTrophies, offerLowerDifficulty, get lossStreak() { return lossStreak; },
-  arena, openArena, openHeroes, openMisiones, leaveArena, checkMissions, get arenaUI() { return arenaUI; }, Net,
+  arena, openArena, openHeroes, openMisiones, openPoderes, powers, leaveArena, checkMissions, get arenaUI() { return arenaUI; }, Net,
   hold(on) { paused4test = on; }, S, combat, enterZone, choose, get zone() { return zone; }, get dialog() { return dialog; },
   step(n, press) {
     for (let i = 0; i < n; i++) { if (press && i === 0) input._pressed.add(press); simulate(1 / 60); input.endFrame(); }
