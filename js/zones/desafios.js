@@ -122,3 +122,69 @@ export function medalFor(L, t) {
   const [o, p, b] = L.medals;
   return t <= o ? 'oro' : t <= p ? 'plata' : t <= b ? 'bronce' : null;
 }
+
+// ---------- Desafíos que no se acaban ----------
+// Después de los 7 hechos a mano, cada desafío nuevo se construye a partir de su número (siempre igual para el
+// mismo número): más largo y más difícil cuanto más avanzas, con paisajes, nombres y trampas que van cambiando.
+const TEMAS = [
+  { sky: 0x87ceeb, fog: 0xbfe6ff, palette: { top: 0x7ccf6a, side: 0x8a6a4a }, light: {}, deco: 'trees' },
+  { sky: 0xf7b58a, fog: 0xffd9bf, palette: { top: 0xe8c890, side: 0xb8885a }, light: { hemiSky: 0xffe2c0, sun: 0xffd09a }, deco: 'crystals', crystal: 0xffc86a },
+  { sky: 0x2b2d5c, fog: 0x4a3f7a, palette: { top: 0x8a7ac8, side: 0x4a3a6a }, light: { hemiSky: 0xb8b0ff, hemiGround: 0x3a2a5a, sun: 0xd8c8ff }, deco: 'crystals', crystal: 0xc8a8ff },
+  { sky: 0x7aa8d8, fog: 0xe8f4ff, palette: { top: 0xeef6ff, side: 0x8aa6c8 }, light: { hemiSky: 0xe8f4ff, sun: 0xffffff }, deco: 'pines' },
+  { sky: 0x2a0a0a, fog: 0xc8502a, palette: { top: 0x5a3a36, side: 0x2a1614 }, light: { hemiSky: 0xffa070, hemiGround: 0x3a0a08, sun: 0xff9050 }, deco: 'rocks', lava: true },
+  { sky: 0x3a4a6a, fog: 0xa8b0c0, palette: { top: 0x9aa4b0, side: 0x5a5a6a }, light: { hemiSky: 0xd8e0f0, hemiGround: 0x4a4a5a, sun: 0xfff0d0 }, deco: 'rocks' },
+  { sky: 0x1a3a4a, fog: 0x6ad8c8, palette: { top: 0x6ac8a8, side: 0x2a5a6a }, light: { hemiSky: 0xb8fff0, hemiGround: 0x1a3a3a, sun: 0xd8fff0 }, deco: 'crystals', crystal: 0x6affd8 },
+];
+const NOMBRE_A = ['Islas', 'Puentes', 'Torres', 'Cumbres', 'Corrientes', 'Senda', 'Escalera', 'Jardines', 'Ruinas', 'Abismo', 'Vuelo', 'Laberinto'];
+const NOMBRE_B = ['de Bruma', 'del Ocaso', 'de las Nubes', 'de Ámbar', 'de Escarcha', 'del Trueno', 'de Ceniza', 'de Coral', 'de la Aurora', 'del Alba', 'de Cristal', 'del Viento', 'del Eco', 'de Fuego'];
+function seeded(seed) { let s = (seed * 9301 + 49297) % 233280 || 1; return () => (s = (s * 9301 + 49297) % 233280) / 233280; }
+function genDesafio(n) {
+  const R = seeded(n * 7919 + 13), T = TEMAS[(n - 8) % TEMAS.length];
+  const d = Math.min(1, (n - 8) / 40); // dificultad 0..1
+  const garfio = n % 4 === 0, segs = Math.min(14, 6 + Math.floor((n - 8) / 3));
+  const plats = [[0, 0, 0, 10, 10]], gems = [], enemies = [], air = [], more = { updrafts: [], grapples: [], pendulums: [], fireJets: [], bridges: [], trees: [], crystals: [], pines: [], rocks: [] };
+  let x = 0, y = 0, z = -5, run = 0; // borde delantero de la última plataforma
+  const add = (w, dd, gap, dy = 0, dx = 0, mv) => { z -= gap + dd / 2; x += dx; y += dy; plats.push([x, y, z, w, dd, mv]); run += gap + dd; const P = { x, y, z, w, d: dd, i: plats.length - 1 }; z -= dd / 2; return P; };
+  const gem = (P, up = 1) => gems.push([P.x, P.y + up, P.z]);
+  const gap = () => 2 + R() * (1.1 + d * 1.0);
+  const kinds = ['stones', 'mover', 'crumble', 'updraft', 'stairs', 'pendulum', 'jets', 'lift', 'stones'];
+  if (garfio) kinds.push('grapple', 'grapple');
+  for (let s = 0; s < segs; s++) {
+    const k = s === 0 ? 'stones' : kinds[Math.floor(R() * kinds.length)]; // se empieza siempre con islas firmes
+    if (k === 'stones') { const m = 3 + Math.floor(R() * 2); for (let i = 0; i < m; i++) { const w = 3.2 + R() * 1.6 - d * 0.6; const P = add(w, w, gap(), Math.round((R() - 0.4) * 2) * 0.5, (R() - 0.5) * 1.6); if (i === m - 1) gem(P); } }
+    if (k === 'stairs') { for (let i = 0; i < 3; i++) { const P = add(3, 3, 1.4 + R() * 0.6, 1.1); if (i === 2) gem(P); } add(5, 5, 2); }
+    if (k === 'mover') { const sp = 0.9 + d * 0.6; const P = add(4, 4, 2.5, 0, 0, { ax: 'x', r: 2.5 + R() * 2, s: sp }); gem(P); add(5, 5, 2.6); }
+    if (k === 'lift') { const P = add(4, 4, 2.4, 0, 0, { ax: 'y', r: 1.6, s: 1.1 }); gem(P, 2.6); add(5, 5, 2.4, 3); }
+    if (k === 'crumble') { const m = 3 + Math.floor(R() * 2 + d * 2); for (let i = 0; i < m; i++) { const P = add(2.6, 2.6, 0.3 + R() * 0.4 + d * 0.5, 0, (i % 2 ? 1 : -1) * R() * 0.8, { c: 1 }); if (i === 1) gem(P); } add(5, 5, 2.2); }
+    if (k === 'updraft') { // sube con la corriente y planea hasta una isla alta y lejana
+      const B = add(6, 6, gap()); more.updrafts.push({ x: B.x, z: B.z, y0: B.y, y1: B.y + 12, r: 2.2 }); gem(B, 6);
+      const P = add(6, 6, 9 + R() * 4 + d * 3, 4 + R() * 3); gem(P); if (R() < 0.5) air.push([P.x - 2, P.y + 3, P.z + 6, 2.5, 'x']);
+    }
+    if (k === 'grapple') { const B = add(5, 5, gap()); const g = 11 + R() * 2; more.grapples.push({ x: B.x, y: B.y + 6, z: B.z - 2.5 - g / 2 }); const P = add(5, 5, g, R() * 1.5); gem(P); }
+    if (k === 'pendulum') { // puente estrecho con mazas
+      const B = add(5, 5, gap()); const L = 12 + Math.floor(d * 6); const z1 = z, z2 = z - L; more.bridges.push({ x1: B.x, z1, x2: B.x, z2, y: B.y, w: 2.4 });
+      const np = 2 + Math.floor(d * 2); for (let i = 0; i < np; i++) more.pendulums.push({ x: B.x, y: B.y + 6.2, z: z1 - (i + 1) * L / (np + 1), len: 5, axis: 'x', amp: 0.75, speed: 1.8 + d * 0.8 + R() * 0.3, phase: R() * 6, post: 14.2 });
+      gems.push([B.x, B.y + 1, z1 - L / 2]); z = z2; run += L; const P = add(5, 5, 0.01); void P;
+    }
+    if (k === 'jets') { const P = add(6, 9, gap()); more.fireJets.push({ x: P.x - 1.2, y: P.y, z: P.z + 2, h: 4, period: 2.8 - d * 0.6, on: 1.1, phase: R() * 3 }, { x: P.x + 1.2, y: P.y, z: P.z - 2, h: 4, period: 2.8 - d * 0.6, on: 1.1, phase: R() * 3 }); gem(P); }
+    // islas anchas con un enemigo de vez en cuando
+    if (R() < 0.35 + d * 0.3) { const P = add(7, 7, gap()); enemies.push([P.i, R() < 0.3 ? 'espora' : 'brote']); if (R() < 0.5) gem(P); }
+    // decoración en la isla actual
+    const last = plats[plats.length - 1];
+    if (!last[5] && R() < 0.6) { const dx = last[0] + (R() - 0.5) * (last[3] - 1.5), dz = last[2] + (R() - 0.5) * (last[4] - 1.5); if (T.deco === 'trees') more.trees.push({ x: dx, z: dz, y: last[1], s: 0.8 }); else if (T.deco === 'pines') more.pines.push({ x: dx, z: dz, y: last[1], s: 0.8 }); else if (T.deco === 'crystals') more.crystals.push({ x: dx, z: dz, y: last[1], s: 0.7, color: T.crystal }); else more.rocks.push({ x: dx, z: dz, y: last[1], s: 0.7 }); }
+  }
+  const end = add(9, 9, gap()); // meta
+  while (gems.length < 5) { const p = plats[1 + Math.floor(R() * (plats.length - 2))]; if (!p[5] || !p[5].c) gems.push([p[0], p[1] + 1, p[2]]); }
+  const gold = Math.round(run / 5.6 + segs * 1.6 + gems.length * 0.8);
+  const ret = level({
+    id: `desafio_${n}`, name: `${NOMBRE_A[Math.floor(R() * NOMBRE_A.length)]} ${NOMBRE_B[Math.floor(R() * NOMBRE_B.length)]}`, sky: T.sky, fog: T.fog,
+    abilities: garfio ? { planeador: true, garfio: true } : { planeador: true },
+    plats, gems: gems.slice(0, 10), enemies, air, portal: [end.x, end.y, end.z - 3], medals: [gold, Math.round(gold * 1.55), Math.round(gold * 2.6)],
+    hidden: [plats[0][0] + 3.6, 0, plats[0][2] - 3.6],
+    extra: { light: T.light, palette: T.palette, more: { ...more, ...(T.lava ? { lava: { y: Math.min(...plats.map(p => p[1])) - 8 }, embers: { n: 120, area: 80, y0: -7, y1: 18, cx: 0, cz: z / 2 } } : {}) } },
+  });
+  ret.generated = true; ret.water.y = Math.min(...plats.map(p => p[1])) - 14;
+  return ret;
+}
+export const BASE_DESAFIOS = DESAFIOS.length;
+for (let n = 8; n <= 100; n++) DESAFIOS.push(genDesafio(n));

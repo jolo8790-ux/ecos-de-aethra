@@ -7,7 +7,7 @@ import { World } from './world.js';
 import { Audio } from './audio.js';
 import { Music } from './music.js';
 import { AutoNav } from './autonav.js';
-import { DESAFIOS, medalFor } from './zones/desafios.js';
+import { DESAFIOS, medalFor, BASE_DESAFIOS } from './zones/desafios.js';
 // Modo desafío: mientras está activo, nada se guarda en la partida de la historia.
 let challenge = null;
 const writeSave = s => challenge ? true : writeSaveRaw(s);
@@ -105,8 +105,10 @@ const music = new Music(audio);
 const ZONE_MUSIC = { abismo_mareth: 'mareth', forja_ignis: 'forja', eco_olvidado: 'eco', puerto_bruma: 'puerto', bosque_colgante: 'bosque', ruinas_vidrio: 'ruinas', ciudad_engranajes: 'ciudad', glaciar_eco: 'glaciar', ciudadela_orden: 'ciudadela' };
 const BOSS_MUSIC = { eco_olvidado: 'boss_eco', bosque_colgante: 'boss_raiz', ruinas_vidrio: 'boss_escorpion', ciudad_engranajes: 'boss_coloso', glaciar_eco: 'boss_sierpe', ciudadela_orden: 'vaelor' };
 const CH_MUSIC = { desafio_1: 'desafio', desafio_2: 'desafio', desafio_3: 'desafio_noche', desafio_4: 'ruinas', desafio_5: 'desafio_noche', desafio_6: 'forja', desafio_7: 'forja' };
+for (let n = 8; n <= DESAFIOS.length; n++) CH_MUSIC['desafio_' + n] = ['desafio', 'desafio', 'desafio_noche', 'glaciar', 'forja', 'ruinas', 'desafio_noche'][(n - 8) % 7];
 const ZONE_AMB = { abismo_mareth: 'sea', forja_ignis: 'desert', eco_olvidado: 'ice', desafio_1: 'sea', desafio_2: 'desert', desafio_3: 'ice', desafio_4: 'desert', desafio_5: 'city', desafio_6: 'desert', desafio_7: 'desert',  puerto_bruma: 'sea', bosque_colgante: 'forest', ruinas_vidrio: 'desert', ciudad_engranajes: 'city', glaciar_eco: 'ice', ciudadela_orden: 'dark' };
 // los navegadores solo dejan sonar audio después de un gesto: el primero enciende todo
+for (let n = 8; n <= DESAFIOS.length; n++) ZONE_AMB['desafio_' + n] = ['sea', 'desert', 'ice', 'ice', 'desert', 'city', 'sea'][(n - 8) % 7];
 const wakeAudio = () => { audio.unlock(); if (music.init() && state === 'title') music.play('title'); };
 addEventListener('pointerdown', wakeAudio); addEventListener('keydown', wakeAudio); addEventListener('touchstart', wakeAudio);
 let padWoke = false;
@@ -1529,27 +1531,34 @@ function finishChallenge() {
   else if (isAuto && !prev) { rec[C.L.id] = { t: null }; saveCh(rec); } // desbloquea el siguiente, sin tiempo
   const m = isAuto ? null : medalFor(C.L, C.t), next = DESAFIOS[C.i + 1];
   if (m === 'oro') logro('oro');
-  if (DESAFIOS.every(L => rec[L.id] && rec[L.id].t != null && medalFor(L, rec[L.id].t) === 'oro')) logro('todo_oro');
+  if (DESAFIOS.slice(0, BASE_DESAFIOS).every(L => rec[L.id] && rec[L.id].t != null && medalFor(L, rec[L.id].t) === 'oro')) logro('todo_oro');
   state = 'end'; document.body.classList.add('cine'); player.frozen = true;
   music.stinger('victoria'); fx.sparkle(player.pos.clone().setY(player.pos.y + 1.2), 30, 0xc8b8ff);
   const [o, p, b] = C.L.medals;
   showEndCard({
     kicker: `Desafío ${C.i + 1} superado`, title: C.L.title,
     stats: `Tiempo: <b>${fmtT(C.t)}</b>${isAuto ? ' · modo automático (no cuenta como récord)' : best ? ' · ¡nuevo récord!' : prev && prev.t != null ? ` · récord: ${fmtT(prev.t)}` : ''}<br>${m ? MEDAL[m] : 'Sin medalla'} · oro ${o} s · plata ${p} s · bronce ${b} s`,
-    sub: next ? '' : 'Superaste todos los desafíos. ¿Puedes conseguir el oro en todos?',
+    sub: next ? (C.i + 1 === BASE_DESAFIOS ? '¡Y esto no termina! Desde aquí cada desafío es nuevo, más largo y más difícil.' : '') : 'Superaste los 100 desafíos. ¡Leyenda! Prueba Aethra sin fin.',
     next: { label: next ? `Siguiente: ${next.title}` : 'Repetir este desafío', fn: () => startChallenge(next ? C.i + 1 : C.i) },
   });
   $('bKeepExploring').classList.add('hidden');
 }
 $('bHubCh').onclick = () => {
   const rec = loadCh(), list = $('challengeList'); list.innerHTML = '';
+  let shownLocked = 0;
   DESAFIOS.forEach((L, i) => {
     const r = rec[L.id], open = i === 0 || rec[DESAFIOS[i - 1].id], m = r && r.t != null && medalFor(L, r.t);
+    if (!open && i >= BASE_DESAFIOS && shownLocked++ >= 1) return; // de los desafíos nuevos solo se ve el siguiente bloqueado
     const b = document.createElement('button');
-    b.innerHTML = `<span>${i + 1}. ${L.title}${L.abilities.garfio ? ' · garfio' : L.abilities.planeador ? ' · planeador' : ''}</span><span>${!open ? '🔒' : r && r.t != null ? `${m ? MEDAL[m].split(' ')[0] + ' ' : ''}${fmtT(r.t)}` : r ? '✓' : '—'}</span>`;
+    b.innerHTML = `<span>${i + 1}. ${L.title}${i >= BASE_DESAFIOS ? ' ✦' : ''}${L.abilities.garfio ? ' · garfio' : L.abilities.planeador ? ' · planeador' : ''}</span><span>${!open ? '🔒' : r && r.t != null ? `${m ? MEDAL[m].split(' ')[0] + ' ' : ''}${fmtT(r.t)}` : r ? '✓' : '—'}</span>`;
     b.disabled = !open; b.onclick = () => startChallenge(i);
     list.appendChild(b);
   });
+  const done = DESAFIOS.filter(L => rec[L.id]).length;
+  const more = document.createElement('div'); more.className = 'sub'; more.style.cssText = 'margin:8px 0 0;font-size:14px;text-align:center';
+  more.textContent = `${done} de ${DESAFIOS.length} desafíos superados · cada uno que superas abre uno nuevo`;
+  list.appendChild(more);
+  setTimeout(() => { const firstOpen = [...list.querySelectorAll('button')].filter(x => !x.disabled).pop(); if (firstOpen) firstOpen.scrollIntoView({ block: 'center' }); }, 30);
   titlePanel('challengesPanel');
 };
 $('bChallengesBack').onclick = () => openHub();
@@ -1685,6 +1694,7 @@ function openTrophies(from) {
   const rec = sv.desafios || {}, row = $('medalRow'); row.innerHTML = '';
   DESAFIOS.forEach((L, i) => {
     const r = rec[L.id], m = r && r.t != null ? medalFor(L, r.t) : null;
+    if (i >= BASE_DESAFIOS && !m) return; // de los nuevos, solo los que tienen medalla
     const el = document.createElement('div'); el.className = 'md ' + (m || 'none');
     el.innerHTML = `<div class="disc">${i + 1}</div>${m ? m[0].toUpperCase() + m.slice(1) : 'Desafío ' + (i + 1)}`;
     row.appendChild(el);
@@ -2216,7 +2226,7 @@ window.__aethra = {
   openChallenges() { if (!loadSave()) { nueva.name = 'Prueba'; nueva.diff = DIFF[settings.difficulty] ? settings.difficulty : 'normal'; nueva.slot = freeSlot() || 1; const sv = newSave({ name: 'Prueba', difficulty: nueva.diff, custom: settings.custom || {} }); setSlot(nueva.slot); writeSlot(nueva.slot, sv); } $('bHubCh').click(); },
   playCredits: (then) => playCredits(save, then || (() => {})), showChapterEnd, startEnding, openTrophies, offerLowerDifficulty, get lossStreak() { return lossStreak; },
   arena, openArena, openHeroes, openMisiones, openPoderes, powers, leaveArena, checkMissions, get arenaUI() { return arenaUI; }, Net,
-  endless, startEndless, stopEndless,
+  endless, startEndless, stopEndless, startChallenge,
   hold(on) { paused4test = on; }, S, combat, enterZone, choose, get zone() { return zone; }, get dialog() { return dialog; },
   step(n, press) {
     for (let i = 0; i < n; i++) { if (press && i === 0) input._pressed.add(press); simulate(1 / 60); input.endFrame(); }

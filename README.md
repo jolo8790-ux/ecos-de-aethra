@@ -4,7 +4,7 @@ Aventura 3D con historia para el navegador, hecha con [Three.js](https://threejs
 
 Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes para reunir los fragmentos del Corazón de Aethra y decidir el destino de su mundo.
 
-## Estado: versión 2.5
+## Estado: versión 2.6
 
 | Etapa | Contenido | Estado |
 | --- | --- | --- |
@@ -28,6 +28,7 @@ Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes
 | 18. Poderes, chat y salas grandes | Siete poderes especiales con energía (ráfaga de fuego, furia de golpes, ráfaga de hielo que congela, levitación, telequinesis que levanta y estrella al rival, rayo de los ojos y lluvia de miles de flechas) que se desbloquean con puntos de poder (piezas + victorias en la Arena) y se usan con 1, 2 y 3 en la historia y en la Arena; chat en vivo en la Arena online con frases rápidas y filtro de palabrotas; salas para muchos jugadores (aparición en anillos, objetivo y oleadas que crecen con el número de jugadores, marcador de los mejores); aura de color y título en la personalización | Lista: versión 2.3 |
 | 19. Cámara de cada jugador | Online y contra la CPU la cámara sigue siempre a tu personaje y ves a los demás moverse en el mundo; con dos jugadores en un mismo dispositivo, pantalla dividida (lado a lado en horizontal, arriba y abajo en vertical), cada uno con su cámara | Lista: versión 2.4 |
 | 20. Aethra sin fin | Mapa que nunca se acaba: sectores de unos 150 m que se crean por delante mientras avanzas y se borran por detrás (islas, escaleras, plataformas móviles, rocas que se desploman, corrientes de aire, chorros de fuego, péndulos, enemigos, vasijas, islotes laterales con chispas e islas lejanas de fondo); cinco paisajes que cambian cada 2 sectores; banderas de control, récord de distancia y misión «Sin fin». También: el mando enciende el sonido o avisa de que hay que tocar una vez, y ya no se queda congelada la heroína al salir de la Arena en su pantalla final | Lista: versión 2.5 |
+| 21. 100 desafíos | Después de los 7 desafíos hechos a mano se crean 93 más a partir de su número (siempre iguales): más largos y difíciles, con 7 paisajes, nombres propios, plataformas móviles y elevadores, rocas que caen, corrientes de aire, garfio cada 4 desafíos, puentes con mazas, fuego y enemigos; medallas calculadas por la longitud. La lista muestra los superados y el siguiente | Lista: versión 2.6 |
 
 ## Cómo jugar en tu computadora
 
