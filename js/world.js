@@ -17,6 +17,39 @@ const C = {
   plaster: 0xf1e3c8, roofRed: 0xc9563c, roofBlue: 0x4f7fc0, stone: 0xb8b2a6, water: 0x3d8fd6,
 };
 
+
+// ---------- texturas del terreno (hechas a mano en un canvas, una sola vez) ----------
+function seeded(seed) { let a = (Math.abs(seed * 1e4) | 0) + 1; return () => { a = (a * 16807) % 2147483647; return (a - 1) / 2147483646; }; }
+const terrTex = {};
+function terrainTexture(kind) {
+  if (terrTex[kind]) return terrTex[kind];
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128; const c = cv.getContext('2d'), R = seeded(kind === 'grain' ? 3 : 9);
+  c.fillStyle = '#f2f2f2'; c.fillRect(0, 0, 128, 128);
+  if (kind === 'grain') { // manchas suaves y motas: hierba, arena o nieve con textura
+    for (let i = 0; i < 26; i++) { const g = c.createRadialGradient(R() * 128, R() * 128, 0, R() * 128, R() * 128, 10 + R() * 26); const v = 200 + R() * 55; g.addColorStop(0, `rgba(${v},${v},${v},.55)`); g.addColorStop(1, 'rgba(242,242,242,0)'); c.fillStyle = g; c.fillRect(0, 0, 128, 128); }
+    for (let i = 0; i < 900; i++) { const v = 185 + R() * 70; c.fillStyle = `rgb(${v},${v},${v})`; c.fillRect(R() * 128, R() * 128, 1 + R() * 1.5, 1 + R() * 1.5); }
+  } else { // vetas horizontales de roca con grietas
+    let y = 0; while (y < 128) { const hh = 4 + R() * 12, v = 175 + R() * 70; c.fillStyle = `rgb(${v},${v},${v})`; c.fillRect(0, y, 128, hh); y += hh; }
+    for (let i = 0; i < 600; i++) { const v = 150 + R() * 100; c.fillStyle = `rgba(${v},${v},${v},.6)`; c.fillRect(R() * 128, R() * 128, 1 + R() * 3, 1); }
+    c.strokeStyle = 'rgba(90,90,90,.35)'; c.lineWidth = 1;
+    for (let i = 0; i < 10; i++) { c.beginPath(); let px = R() * 128, py = R() * 128; c.moveTo(px, py); for (let k = 0; k < 4; k++) { px += (R() - 0.5) * 16; py += R() * 14; c.lineTo(px, py); } c.stroke(); }
+  }
+  const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return terrTex[kind] = t;
+}
+const terrMats = {};
+function terrainMat(color, kind, flat = false) {
+  const k = color + kind + flat;
+  return terrMats[k] || (terrMats[k] = new THREE.MeshStandardMaterial({ color, map: terrainTexture(kind), roughness: 0.92, flatShading: flat }));
+}
+// coordenadas de textura en metros para cada cara de una caja (para que la textura no se estire)
+function worldUV(geo, w, h, d, tile) {
+  const uv = geo.attributes.uv;
+  for (let i = 0; i < uv.count; i++) {
+    const f = Math.floor(i / 4), su = f < 2 ? d : w, sv = f < 2 ? h : f < 4 ? d : h;
+    uv.setXY(i, uv.getX(i) * su / tile, uv.getY(i) * sv / tile);
+  }
+}
 const _v1 = new THREE.Vector3();
 export class World {
   constructor(scene, physics) {
@@ -46,6 +79,7 @@ export class World {
     this.pal = { top: C.grass, side: C.dirt, ...(z.palette || {}) };
     if (z.water && !z.lava) this._water(z.water);
     this.hz = new Hazards(this); this.hz.build(z);
+    if (!z.sea) this._scatter(z); // hierba, flores, guijarros o escarcha sobre las islas
     this.sea = z.sea ? new Sea(this, z) : null; // nivel submarino
     (z.islands || []).forEach(i => this._island(i));
     (z.boxes || []).forEach(b => this._box(b));
@@ -146,14 +180,74 @@ export class World {
 
   _island({ x, z, w, d, top = 0, depth = 3, rock = true }) {
     const pal = this.pal || { top: C.grass, side: C.dirt };
-    this._mesh(new THREE.BoxGeometry(w, depth, d), mat(pal.side), x, top - depth / 2 - 0.2, z);
-    this._mesh(new THREE.BoxGeometry(w + 0.16, 0.4, d + 0.16), mat(pal.top), x, top - 0.2, z);
-    if (rock) {
-      const r = Math.min(w, d);
-      const cone = this._mesh(new THREE.ConeGeometry(r * 0.48, r * 0.75, 7), mat(pal.side), x, top - depth - r * 0.37, z);
-      cone.rotation.x = Math.PI; cone.castShadow = false;
+    const side = new THREE.BoxGeometry(w, depth, d); worldUV(side, w, depth, d, 3.5);
+    this._mesh(side, terrainMat(pal.side, 'strata'), x, top - depth / 2 - 0.2, z);
+    const cap = new THREE.BoxGeometry(w + 0.16, 0.4, d + 0.16); worldUV(cap, w, 0.4, d, 3);
+    this._mesh(cap, terrainMat(pal.top, 'grain'), x, top - 0.2, z);
+    if (rock) { // roca colgante irregular (y alguna más pequeña al lado)
+      const r = Math.min(w, d), rnd = seeded(x * 13.1 + z * 7.7);
+      const hang = (rr, hh, ox, oz) => {
+        const geo = new THREE.ConeGeometry(rr, hh, 9, 4); const pos = geo.attributes.position;
+        for (let i = 0; i < pos.count; i++) { const yy = pos.getY(i); if (yy > hh / 2 - 0.01) continue; const k = 1 + (rnd() - 0.5) * 0.35; pos.setX(i, pos.getX(i) * k); pos.setZ(i, pos.getZ(i) * k); pos.setY(i, yy + (rnd() - 0.5) * hh * 0.08); }
+        geo.computeVertexNormals();
+        const cone = this._mesh(geo, terrainMat(pal.side, 'strata', true), x + ox, top - depth - hh * 0.49, z + oz);
+        cone.rotation.x = Math.PI; cone.rotation.y = rnd() * 6; cone.castShadow = false;
+      };
+      hang(r * 0.48, r * 0.75, 0, 0);
+      if (r > 3.5 && r < 30) { hang(r * 0.18, r * 0.42, (rnd() - 0.5) * w * 0.5, (rnd() - 0.5) * d * 0.5); hang(r * 0.14, r * 0.3, (rnd() - 0.5) * w * 0.5, (rnd() - 0.5) * d * 0.5); }
     }
     this.physics.addBox(x, top - depth / 2, z, w, depth, d);
+  }
+
+  // ---------- vegetación y detalles sobre las islas (instanciados: muy baratos) ----------
+  _scatter(z) {
+    const pal = this.pal || { top: C.grass, side: C.dirt };
+    const hsl = {}; new THREE.Color(pal.top).getHSL(hsl);
+    const kind = hsl.l > 0.78 && hsl.s < 0.45 ? 'snow' : hsl.l < 0.36 ? 'ash' : hsl.h > 0.17 && hsl.h < 0.47 && hsl.s > 0.22 ? 'grass' : 'sand';
+    const R = seeded((z.seed || 7) * 1.37), spots = [];
+    for (const I of z.islands || []) {
+      if (I.w < 3 || I.d < 3) continue;
+      const n = Math.min(160, Math.floor(I.w * I.d * (kind === 'grass' ? 0.32 : 0.1)));
+      for (let i = 0; i < n; i++) spots.push([I.x + (R() - 0.5) * (I.w - 0.6), I.top, I.z + (R() - 0.5) * (I.d - 0.6)]);
+    }
+    if (!spots.length) return;
+    const shuffle = spots.sort(() => R() - 0.5).slice(0, 5000);
+    const dummy = new THREE.Object3D(), col = new THREE.Color(), base = new THREE.Color(pal.top);
+    const time = { value: 0 }; this.animated.push(t => { time.value = t; });
+    const sway = m => { m.onBeforeCompile = sh => { sh.uniforms.uTime = time; sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  { vec4 wp = instanceMatrix * vec4(0.,0.,0.,1.); float hh = max(position.y, 0.0); transformed.x += sin(uTime * 2.1 + wp.x * 0.7 + wp.z * 0.45) * 0.16 * hh; transformed.z += cos(uTime * 1.7 + wp.x * 0.35) * 0.1 * hh; }'); }; return m; };
+    if (kind === 'grass') {
+      const blade = new THREE.PlaneGeometry(0.09, 0.5, 1, 2); blade.translate(0, 0.25, 0);
+      const pos = blade.attributes.position; for (let i = 0; i < pos.count; i++) if (pos.getY(i) > 0.49) pos.setX(i, 0); // punta afilada
+      const N = shuffle.length * 3, im = new THREE.InstancedMesh(blade, sway(new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: 0.9 })), N);
+      let k = 0;
+      for (const [x, y, zz] of shuffle) for (let b = 0; b < 3; b++) {
+        dummy.position.set(x + (R() - 0.5) * 0.25, y, zz + (R() - 0.5) * 0.25); dummy.rotation.set((R() - 0.5) * 0.4, R() * Math.PI, (R() - 0.5) * 0.4); dummy.scale.setScalar(0.7 + R() * 0.8); dummy.updateMatrix();
+        im.setMatrixAt(k, dummy.matrix); col.copy(base).offsetHSL((R() - 0.5) * 0.04, 0.05, (R() - 0.3) * 0.16); im.setColorAt(k, col); k++;
+      }
+      im.receiveShadow = true; this.root.add(im);
+      // flores de colores
+      const fl = shuffle.filter(() => R() < 0.12), petals = new THREE.IcosahedronGeometry(0.08, 0);
+      const fm = new THREE.InstancedMesh(petals, sway(new THREE.MeshStandardMaterial({ roughness: 0.6, emissive: 0x222222 })), fl.length);
+      const fcols = [0xff6b8a, 0xffd23a, 0xffffff, 0xb08aff, 0xff9a3a, 0x7ad7ff];
+      fl.forEach(([x, y, zz], i) => { dummy.position.set(x, y + 0.42, zz); dummy.rotation.set(0, R() * 6, 0); dummy.scale.set(1, 0.6, 1); dummy.updateMatrix(); fm.setMatrixAt(i, dummy.matrix); fm.setColorAt(i, col.setHex(fcols[Math.floor(R() * fcols.length)])); });
+      this.root.add(fm);
+    } else {
+      // guijarros (arena), cristales de escarcha (nieve) o piedras con brasas (ceniza)
+      const geo = kind === 'snow' ? new THREE.ConeGeometry(0.07, 0.35, 5) : new THREE.IcosahedronGeometry(0.13, 0);
+      if (kind === 'snow') geo.translate(0, 0.17, 0);
+      const m = new THREE.MeshStandardMaterial({ roughness: kind === 'snow' ? 0.15 : 0.85, flatShading: true, metalness: kind === 'snow' ? 0.2 : 0 });
+      const im = new THREE.InstancedMesh(geo, m, shuffle.length);
+      shuffle.forEach(([x, y, zz], i) => {
+        dummy.position.set(x, y + (kind === 'snow' ? 0 : 0.03), zz); dummy.rotation.set((R() - 0.5) * (kind === 'snow' ? 0.6 : 3), R() * 6, (R() - 0.5) * (kind === 'snow' ? 0.6 : 3));
+        const sc = 0.6 + R() * 1.1; dummy.scale.set(sc, kind === 'snow' ? sc : sc * 0.55, sc); dummy.updateMatrix(); im.setMatrixAt(i, dummy.matrix);
+        if (kind === 'snow') col.setHSL(0.55 + R() * 0.05, 0.6, 0.82 + R() * 0.1);
+        else if (kind === 'ash') col.setHex(R() < 0.18 ? 0xff7a2a : 0x3a2c2a);
+        else col.copy(new THREE.Color(pal.side)).offsetHSL(0, -0.05, (R() - 0.2) * 0.25);
+        im.setColorAt(i, col);
+      });
+      if (kind === 'ash') m.emissive = new THREE.Color(0x000000);
+      im.receiveShadow = true; this.root.add(im);
+    }
   }
 
   _box({ x, y, z, w, h, d, color = C.stone, cap }) {
@@ -290,34 +384,72 @@ export class World {
   }
 
   _airship({ id, x, y, z }) {
+    // Dirigible de Marta: globo de gajos crema y rojos, góndola con barandilla, cabina con ventanas encendidas,
+    // dos motores laterales y uno de popa, banderines y faroles. La proa mira a -z.
     const g = new THREE.Group(); g.position.set(x, y, z); this.root.add(g);
-    const cream = mat(0xf1e3c8), red = mat(0xc9563c), wood = mat(C.wood), dark = mat(C.woodDark), brass = mat(0xd4a24c, { metalness: 0.5, roughness: 0.4 });
-    const balloon = this._mesh(new THREE.SphereGeometry(2.4, 28, 18), cream, 0, 4.4, 0, g);
-    balloon.scale.set(1, 0.82, 1.9);
-    [-2.6, 0, 2.6].forEach(zz => { const rr = 2.4 * Math.sqrt(1 - (zz / 4.56) ** 2) + 0.04; const r = this._mesh(new THREE.TorusGeometry(rr, 0.09, 8, 36), red, 0, 4.4, zz, g); r.scale.y = 0.82; });
-    this._mesh(new THREE.SphereGeometry(2.42, 28, 18, 0, Math.PI * 2, 0, 0.5), red, 0, 4.4, 0, g).scale.set(1, 0.82, 1.9); // casquete
-    [[0, 6.1, 3.6, 0], [1.5, 4.4, 3.6, Math.PI / 2], [-1.5, 4.4, 3.6, Math.PI / 2]].forEach(([fx, fy, fz, rz]) => {
-      const f = this._mesh(new THREE.BoxGeometry(0.08, 1.3, 1.4), red, fx, fy, fz, g); f.rotation.z = rz;
-    });
-    this._mesh(new THREE.BoxGeometry(2.2, 0.7, 3.8), wood, 0, 0.35, 0, g);
-    this._mesh(new THREE.BoxGeometry(2.3, 0.12, 3.9), dark, 0, 0.72, 0, g);
-    this._mesh(new THREE.BoxGeometry(1.2, 0.5, 0.9), dark, 0, 0.98, -1.2, g); // cabina
-    [[-1, -1.7], [1, -1.7], [-1, 1.7], [1, 1.7]].forEach(([rx, rz]) => {
-      const rope = this._mesh(new THREE.CylinderGeometry(0.025, 0.025, 3.4, 4), dark, rx * 1.15, 2.4, rz * 1.1, g);
+    const wood = mat(C.wood), dark = mat(C.woodDark), red = mat(0xc9563c), brass = mat(0xd4a24c, { metalness: 0.6, roughness: 0.35 });
+    const glow = new THREE.MeshStandardMaterial({ color: 0xffe2a0, emissive: 0xffc860, emissiveIntensity: 1.2 });
+    // globo: perfil de lágrima girado sobre el eje z, con textura de gajos
+    const prof = [];
+    for (let i = 0; i <= 24; i++) { const t = i / 24, zz = -4.6 + t * 9.2, r = 2.45 * Math.pow(Math.sin(Math.PI * Math.pow(t, 0.85)), 0.8); prof.push(new THREE.Vector2(Math.max(0.02, r), zz)); }
+    const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64; const cx = cv.getContext('2d');
+    for (let i = 0; i < 12; i++) { cx.fillStyle = i % 2 ? '#c9563c' : '#f4e6cc'; cx.fillRect(i * 256 / 12, 0, 256 / 12 + 1, 64); }
+    cx.fillStyle = 'rgba(0,0,0,.12)'; for (let i = 0; i < 12; i++) cx.fillRect(i * 256 / 12, 0, 1.5, 64);
+    const gtex = new THREE.CanvasTexture(cv); gtex.colorSpace = THREE.SRGBColorSpace;
+    const env = this._mesh(new THREE.LatheGeometry(prof, 36), new THREE.MeshStandardMaterial({ map: gtex, roughness: 0.75 }), 0, 4.5, 0, g);
+    env.rotation.x = Math.PI / 2; env.scale.set(1, 1, 0.84); // morro romo hacia la proa (-z)
+    for (const zz of [-2.9, 0, 2.9]) { const rr = 2.45 * Math.pow(Math.sin(Math.PI * Math.pow((zz + 4.6) / 9.2, 0.85)), 0.8) + 0.05; const r = this._mesh(new THREE.TorusGeometry(rr, 0.07, 6, 40), brass, 0, 4.5, zz, g); r.scale.y = 0.84; }
+    this._mesh(new THREE.SphereGeometry(0.28, 12, 10), brass, 0, 4.5, -4.62, g); // punta de proa
+    // timón de cola en cruz
+    for (const [rz, sx, sy] of [[0, 0, 1], [0, 0, -1], [Math.PI / 2, 1, 0], [Math.PI / 2, -1, 0]]) {
+      const f = this._mesh(new THREE.BoxGeometry(0.08, 1.5, 1.6), red, sx * 1.2, 4.5 + sy * 1.1, 3.7, g); f.rotation.z = rz;
+      const trim = this._mesh(new THREE.BoxGeometry(0.1, 0.12, 1.62), brass, sx * 1.95, 4.5 + sy * 1.85, 3.7, g); trim.rotation.z = rz;
+    }
+    // góndola: casco de barco con proa afilada, cubierta, barandilla
+    const hull = new THREE.Shape(); hull.moveTo(-1.1, 2); hull.lineTo(1.1, 2); hull.lineTo(1.1, -1.4); hull.quadraticCurveTo(0, -2.6, -1.1, -1.4); hull.lineTo(-1.1, 2);
+    const hg = new THREE.ExtrudeGeometry(hull, { depth: 0.75, bevelEnabled: true, bevelSize: 0.08, bevelThickness: 0.08, bevelSegments: 2 }); hg.rotateX(Math.PI / 2); hg.translate(0, 0.75, 0);
+    this._mesh(hg, wood, 0, 0, 0, g);
+    this._mesh(new THREE.BoxGeometry(2.3, 0.1, 3.9), dark, 0, 0.78, 0.15, g);
+    for (let i = 0; i < 7; i++) { const t = i / 6, zz = 1.9 - t * 3.6; for (const s of [-1, 1]) this._mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.5, 5), brass, s * 1.08, 1.05, zz, g); }
+    for (const s of [-1, 1]) this._mesh(new THREE.BoxGeometry(0.06, 0.06, 3.7), brass, s * 1.08, 1.3, 0.1, g);
+    // cabina con ventanas encendidas y chimenea
+    this._mesh(new THREE.BoxGeometry(1.3, 0.75, 1.0), mat(0xf1e3c8), 0, 1.2, -1.0, g);
+    this._mesh(new THREE.BoxGeometry(1.45, 0.12, 1.15), red, 0, 1.62, -1.0, g);
+    for (const s of [-1, 1]) this._mesh(new THREE.BoxGeometry(0.02, 0.28, 0.5), glow, s * 0.66, 1.25, -1.0, g);
+    this._mesh(new THREE.BoxGeometry(0.6, 0.28, 0.02), glow, 0, 1.25, -1.51, g);
+    this._mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.6, 8), dark, 0.4, 1.95, -0.8, g);
+    // faroles en las esquinas
+    for (const [lx, lz] of [[-1.08, 1.95], [1.08, 1.95], [-1.08, -1.6], [1.08, -1.6]]) this._mesh(new THREE.SphereGeometry(0.1, 8, 6), glow, lx, 1.42, lz, g);
+    // cuerdas al globo
+    [[-1, -1.5], [1, -1.5], [-1, 1.7], [1, 1.7]].forEach(([rx, rz]) => {
+      const rope = this._mesh(new THREE.CylinderGeometry(0.025, 0.025, 3.3, 4), dark, rx * 1.15, 2.6, rz * 1.05, g);
       rope.rotation.z = -rx * 0.12; rope.castShadow = false;
     });
-    const prop = new THREE.Group(); prop.position.set(0, 0.5, 2.15); g.add(prop);
-    this._mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.3, 8), brass, 0, 0, 0, prop).rotation.x = Math.PI / 2;
-    [0, 1, 2].forEach(i => { const b = this._mesh(new THREE.BoxGeometry(0.12, 0.9, 0.04), brass, 0, 0, 0.12, prop); b.rotation.z = i * Math.PI * 2 / 3; b.geometry.translate(0, 0.45, 0); });
+    // banderines de colores entre las cuerdas
+    const flagCols = [0xe74c3c, 0xf1c40f, 0x3fb7e8, 0x7bd35a, 0xb06ce0];
+    for (const s of [-1, 1]) for (let i = 0; i < 7; i++) { const t = i / 6, zz = -1.4 + t * 3, yy = 2.6 - Math.sin(t * Math.PI) * 0.45; const fl = this._mesh(new THREE.ConeGeometry(0.12, 0.28, 3), mat(flagCols[i % 5]), s * 1.2, yy, zz, g); fl.rotation.x = Math.PI; fl.castShadow = false; }
+    // motores: dos laterales y uno de popa (las hélices miran atrás)
+    const props = [];
+    const engine = (ex, ey, ez, sc = 1) => {
+      const e = new THREE.Group(); e.position.set(ex, ey, ez); e.scale.setScalar(sc); g.add(e);
+      this._mesh(new THREE.CylinderGeometry(0.22, 0.28, 0.9, 12), brass, 0, 0, 0, e).rotation.x = Math.PI / 2;
+      this._mesh(new THREE.SphereGeometry(0.22, 10, 8), brass, 0, 0, -0.45, e);
+      const pr = new THREE.Group(); pr.position.z = 0.55; e.add(pr);
+      for (let i = 0; i < 3; i++) { const b = this._mesh(new THREE.BoxGeometry(0.12, 0.85, 0.04), dark, 0, 0, 0, pr); b.rotation.z = i * Math.PI * 2 / 3; b.geometry.translate(0, 0.42, 0); }
+      props.push(pr); return e;
+    };
+    engine(0, 0.5, 2.25);
+    for (const s of [-1, 1]) { engine(s * 1.75, 1.0, 0.7, 0.8); this._mesh(new THREE.BoxGeometry(0.7, 0.07, 0.15), dark, s * 1.35, 1.0, 0.7, g); }
+    const prop = props[0];
     // pasarela desde el muelle
     const plank = this._mesh(new THREE.BoxGeometry(1.0, 0.08, 3.4), wood, 0, -0.62, -3.3, g); plank.rotation.x = -0.36;
-    const a = { group: g, plank, base: new THREE.Vector3(x, y, z), prop, spin: 3, seat: new THREE.Vector3(0.3, 0.72, 0.4), offset: new THREE.Vector3() };
+    const a = { group: g, plank, base: new THREE.Vector3(x, y, z), prop, spin: 3, seat: new THREE.Vector3(0.3, 0.84, 0.6), offset: new THREE.Vector3(), yaw: 0 };
     this.airships[id] = a;
-    this.physics.addBox(x, y + 0.36, z, 2.2, 0.72, 3.8, { noCamera: true });
+    this.physics.addBox(x, y + 0.42, z, 2.2, 0.84, 4.2, { noCamera: true });
     this.animated.push((t, dt) => {
       g.position.set(a.base.x + a.offset.x, a.base.y + a.offset.y + Math.sin(t * 0.9) * 0.12, a.base.z + a.offset.z);
-      g.rotation.z = Math.sin(t * 0.7) * 0.02;
-      prop.rotation.z += dt * a.spin;
+      g.rotation.y = a.yaw; g.rotation.z = Math.sin(t * 0.7) * 0.02;
+      for (const pr of props) pr.rotation.z += dt * a.spin;
       plank.visible = a.offset.lengthSq() < 0.01;
     });
   }

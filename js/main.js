@@ -558,8 +558,11 @@ function updateCutscene(dt) {
     $('fade').style.opacity = 0;
   }
   if (c.placed) {
-    const k = Math.max(0, c.t - 1.6);
-    ship.offset.set(Math.sin(k * 0.4) * 1.5, Math.min(9, k * k * 0.45), k * k * 0.55);
+    // primero sube y gira para poner la proa hacia donde va; luego avanza con el morro por delante
+    const k = Math.max(0, c.t - 1.6), turn = Math.min(1, k / 2.2), e = turn * turn * (3 - 2 * turn);
+    ship.yaw = Math.PI * e;
+    const go = Math.max(0, k - 1.6);
+    ship.offset.set(Math.sin(k * 0.4) * 1.5, Math.min(9, k * k * 0.45), go * go * 0.9);
     ship.spin = 3 + Math.min(25, k * 8);
     player.anim.update(dt, { vel: new THREE.Vector3(), grounded: true, facing: Math.PI, input: { x: 0, z: 0 }, lookAt: null });
     const sp = ship.group.position;
@@ -599,7 +602,7 @@ function showChapterEnd() {
 }
 function leaveEnding(toTitle, quiet = false) {
   const ship = world.airships.dirigible;
-  if (ship && player.mesh.parent === ship.group) { scene.add(player.mesh); ship.offset.set(0, 0, 0); ship.spin = 3; }
+  if (ship && player.mesh.parent === ship.group) { scene.add(player.mesh); ship.offset.set(0, 0, 0); ship.yaw = 0; ship.spin = 3; }
   document.body.classList.remove('cine');
   $('endcard').classList.add('hidden');
   player.frozen = false;
@@ -677,7 +680,15 @@ function seaAfter(dt) {
       sea.sub.position.set(p.x, p.y - 0.4, p.z);
       sea.sub.rotation.y += Math.atan2(Math.sin(player.facing - sea.sub.rotation.y), Math.cos(player.facing - sea.sub.rotation.y)) * Math.min(1, dt * 5);
       sea.sub.rotation.z = Math.max(-0.2, Math.min(0.2, -player.vel.x * 0.01));
-    }
+      // Lía a los mandos, dentro de la cabina de cristal
+      sea.sub.updateMatrixWorld(); const seat = sea.sub.localToWorld(sea.sub.userData.seat.clone());
+      player.mesh.visible = true; player.mesh.position.copy(seat); player.mesh.rotation.set(0, sea.sub.rotation.y, 0); player.mesh.scale.setScalar(0.55);
+      // estela de burbujas de la hélice
+      const sp = Math.hypot(player.vel.x, player.vel.y, player.vel.z);
+      if (sp > 1 && Math.random() < dt * 30) { const pp = sea.sub.localToWorld(new THREE.Vector3((Math.random() - 0.5) * 0.6, 1.0 + (Math.random() - 0.5) * 0.6, 2.9)); fx._spawn(pp, new THREE.Vector3((Math.random() - 0.5) * 0.6, 0.8 + Math.random(), (Math.random() - 0.5) * 0.6), { life: 1.4, size: 0.05 + Math.random() * 0.05, grow: 0.6, color: 0xe8fbff, opacity: 0.8, grav: 2.5 }); }
+    } else if (player.mesh.scale.x !== 1) player.mesh.scale.setScalar(1);
+    // burbujas que suelta Lía al nadar
+    if (player.swimming && !player.inSub && Math.random() < dt * 1.6) fx._spawn(new THREE.Vector3(player.pos.x, player.pos.y + 1.5, player.pos.z), new THREE.Vector3((Math.random() - 0.5) * 0.3, 1.2, (Math.random() - 0.5) * 0.3), { life: 1.6, size: 0.05, grow: 0.5, color: 0xe8fbff, opacity: 0.75, grav: 2 });
     // ahogo: sin aire, Lía deja de nadar y se hunde; al final pierde un corazón
     if (player.air <= 0 && !drown.on) { drown.on = true; drown.t = 0; player.drowning = true; audio.play('gulp'); }
     if (drown.on && player.air > 0.15) { drown.on = false; player.drowning = false; }
@@ -1757,7 +1768,7 @@ window.__aethra = {
   // atajos para las pruebas: partida nueva sin pasar por los menús, y abrir los desafíos de la partida
   testNewGame(name = 'Prueba', difficulty = settings.difficulty, opts = {}) { nueva.name = name; nueva.diff = DIFF[difficulty] ? difficulty : 'normal'; nueva.slot = freeSlot() || getSlot() || 1; createPartida(settings.custom || {}); if (opts.sellos !== false) for (const id of Object.keys(SENDEROS)) save.flags['sello_' + id] = true; }, // las pruebas de capítulos saltan los Senderos
   openChallenges() { if (!loadSave()) { nueva.name = 'Prueba'; nueva.diff = DIFF[settings.difficulty] ? settings.difficulty : 'normal'; nueva.slot = freeSlot() || 1; const sv = newSave({ name: 'Prueba', difficulty: nueva.diff, custom: settings.custom || {} }); setSlot(nueva.slot); writeSlot(nueva.slot, sv); } $('bHubCh').click(); },
-  playCredits: (then) => playCredits(save, then || (() => {})), showChapterEnd, openTrophies, offerLowerDifficulty, get lossStreak() { return lossStreak; },
+  playCredits: (then) => playCredits(save, then || (() => {})), showChapterEnd, startEnding, openTrophies, offerLowerDifficulty, get lossStreak() { return lossStreak; },
   hold(on) { paused4test = on; }, S, combat, enterZone, choose, get zone() { return zone; }, get dialog() { return dialog; },
   step(n, press) {
     for (let i = 0; i < n; i++) { if (press && i === 0) input._pressed.add(press); simulate(1 / 60); input.endFrame(); }

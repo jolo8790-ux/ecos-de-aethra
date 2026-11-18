@@ -180,21 +180,63 @@ export class Sea {
   }
 
   _buildSub() {
+    // Submarino de Nerea: casco de gota amarillo con franjas azules y remaches, cabina de cristal en la proa
+    // (Lía va dentro), ojos de buey de latón, torreta con periscopio, timones en cruz, hélice con protector,
+    // focos y una luz que barre el fondo. La proa mira a -z.
     const g = new THREE.Group();
-    const yellow = new THREE.MeshStandardMaterial({ color: 0xffc23a, roughness: 0.4, metalness: 0.3 });
-    const dark = new THREE.MeshStandardMaterial({ color: 0x2a3440, roughness: 0.5, metalness: 0.6 });
-    const glass = new THREE.MeshStandardMaterial({ color: 0x9fe8ff, emissive: 0x2a8fb8, emissiveIntensity: 0.6, transparent: true, opacity: 0.75, roughness: 0.05 });
-    const hull = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), yellow); hull.scale.set(1.1, 1, 1.9); hull.position.y = 1; g.add(hull);
-    const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, 0.7, 14), yellow); tower.position.set(0, 2, 0.2); g.add(tower);
-    const win = new THREE.Mesh(new THREE.SphereGeometry(0.62, 18, 12), glass); win.position.set(0, 1.15, -1.45); win.scale.z = 0.6; g.add(win);
-    for (const s of [-1, 1]) { const fin = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 0.6), dark); fin.position.set(s * 0.9, 0.8, 1.2); g.add(fin); }
-    const tail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1, 0.7), dark); tail.position.set(0, 1.4, 1.8); g.add(tail);
-    const prop = new THREE.Group(); prop.position.set(0, 1, 2.0); g.add(prop);
-    for (let i = 0; i < 3; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.7, 0.05), dark); b.rotation.z = (i / 3) * Math.PI * 2; prop.add(b); }
-    for (const s of [-1, 1]) { const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshBasicMaterial({ color: 0xfff6c8 })); lamp.position.set(s * 0.55, 0.65, -1.6); g.add(lamp); }
-    const beam = new THREE.Mesh(new THREE.ConeGeometry(2.2, 9, 20, 1, true), additive(0xfff6c8, 0.08)); beam.geometry.translate(0, -4.5, 0); beam.rotation.x = -Math.PI / 2; beam.position.set(0, 0.9, -1.6); g.add(beam);
-    const light = new THREE.SpotLight(0xfff4d0, 30, 26, 0.5, 0.5, 1.2); light.position.set(0, 1, -1.6); const tgt = new THREE.Object3D(); tgt.position.set(0, 0.6, -8); g.add(tgt); light.target = tgt; g.add(light);
-    g.userData.prop = prop;
+    const paint = new THREE.MeshStandardMaterial({ color: 0xffc72e, roughness: 0.32, metalness: 0.25 });
+    const stripe = new THREE.MeshStandardMaterial({ color: 0x1f5fa8, roughness: 0.4, metalness: 0.3 });
+    const brass = new THREE.MeshStandardMaterial({ color: 0xd9a441, roughness: 0.3, metalness: 0.85 });
+    const dark = new THREE.MeshStandardMaterial({ color: 0x2a3440, roughness: 0.45, metalness: 0.6 });
+    const glass = new THREE.MeshStandardMaterial({ color: 0xbff4ff, transparent: true, opacity: 0.28, roughness: 0.02, metalness: 0.1, depthWrite: false, side: THREE.DoubleSide });
+    const porthole = new THREE.MeshStandardMaterial({ color: 0x9fe8ff, emissive: 0x3ab8e8, emissiveIntensity: 1.1, roughness: 0.1 });
+    const lampM = new THREE.MeshStandardMaterial({ color: 0xfff6d0, emissive: 0xfff0b0, emissiveIntensity: 2 });
+    const add = (geo, m, x, y, z, parent = g) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; parent.add(o); return o; };
+    // casco: perfil de gota girado sobre el eje z (proa redonda, popa afilada)
+    const pts = [];
+    for (let i = 0; i <= 28; i++) { const t = i / 28, zz = -2.3 + t * 4.9, r = 1.12 * Math.pow(Math.sin(Math.PI * Math.pow(t, 0.7)), 0.75); pts.push(new THREE.Vector2(Math.max(0.04, r), zz)); }
+    const hullR = zz => { const t = (zz + 2.3) / 4.9; return 1.12 * Math.pow(Math.sin(Math.PI * Math.pow(Math.max(0, Math.min(1, t)), 0.7)), 0.75); };
+    const hull = add(new THREE.LatheGeometry(pts, 40), paint, 0, 1.0, 0); hull.rotation.x = -Math.PI / 2;
+    // franjas y remaches
+    for (const zz of [-0.6, 0.6, 1.5]) {
+      const r = hullR(zz) + 0.015, ring = add(new THREE.TorusGeometry(r, 0.07, 8, 48), stripe, 0, 1.0, zz); ring.rotation.set(0, 0, 0);
+      for (let k = 0; k < 14; k++) { const a = (k / 14) * Math.PI * 2; add(new THREE.SphereGeometry(0.035, 6, 4), brass, Math.cos(a) * (r + 0.03), 1.0 + Math.sin(a) * (r + 0.03), zz + 0.1); }
+    }
+    // cabina de cristal en la proa, con aro de latón
+    const dome = add(new THREE.SphereGeometry(0.88, 28, 18, 0, Math.PI * 2, 0, Math.PI * 0.62), glass, 0, 1.5, -0.95); dome.renderOrder = 3;
+    const rim = add(new THREE.TorusGeometry(0.8, 0.06, 8, 40), brass, 0, 1.56, -0.95); rim.rotation.x = Math.PI / 2;
+    add(new THREE.CylinderGeometry(0.62, 0.66, 0.12, 20), dark, 0, 1.42, -0.95); // asiento / suelo de la cabina
+    // ojo de buey grande en la proa y tres a cada lado
+    const bow = add(new THREE.CircleGeometry(0.34, 24), porthole, 0, 0.95, -2.29); bow.rotation.y = Math.PI;
+    const bowRim = add(new THREE.TorusGeometry(0.36, 0.06, 8, 30), brass, 0, 0.95, -2.27);
+    for (const s of [-1, 1]) for (const zz of [-0.15, 0.55, 1.2]) {
+      const r = hullR(zz), px = s * (r - 0.02);
+      const win = add(new THREE.CircleGeometry(0.15, 18), porthole, px, 1.12, zz); win.rotation.y = s * Math.PI / 2;
+      const wr = add(new THREE.TorusGeometry(0.17, 0.035, 6, 20), brass, px + s * 0.01, 1.12, zz); wr.rotation.y = s * Math.PI / 2;
+    }
+    // torreta con periscopio y barandilla
+    const tower = add(new THREE.CylinderGeometry(0.34, 0.45, 0.55, 18), paint, 0, 2.15, 0.45); tower.scale.z = 1.6;
+    add(new THREE.CylinderGeometry(0.36, 0.36, 0.06, 18), stripe, 0, 2.43, 0.45).scale.z = 1.6;
+    const peri = add(new THREE.CylinderGeometry(0.05, 0.05, 0.75, 8), dark, 0.12, 2.75, 0.6);
+    add(new THREE.BoxGeometry(0.12, 0.12, 0.26), dark, 0.12, 3.1, 0.52);
+    // timones de popa en cruz y planos de proa
+    for (const [rz, sx, sy] of [[0, 0, 1], [0, 0, -1], [Math.PI / 2, 1, 0], [Math.PI / 2, -1, 0]]) {
+      const f = add(new THREE.BoxGeometry(0.07, 0.75, 0.75), stripe, sx * 0.55, 1.0 + sy * 0.55, 2.15); f.rotation.z = rz;
+    }
+    for (const s of [-1, 1]) { const p = add(new THREE.BoxGeometry(0.75, 0.06, 0.4), stripe, s * 1.25, 0.9, -1.2); p.rotation.z = s * 0.1; }
+    // depósitos de lastre bajo los costados
+    for (const s of [-1, 1]) { const tk = add(new THREE.CapsuleGeometry(0.2, 1.8, 6, 12), dark, s * 0.85, 0.32, 0.3); tk.rotation.x = Math.PI / 2; }
+    // hélice dentro de un protector
+    const shroud = add(new THREE.TorusGeometry(0.62, 0.07, 10, 36), brass, 0, 1.0, 2.62);
+    const prop = new THREE.Group(); prop.position.set(0, 1.0, 2.6); g.add(prop);
+    add(new THREE.SphereGeometry(0.12, 10, 8), brass, 0, 0, 0, prop);
+    for (let i = 0; i < 4; i++) { const bl = add(new THREE.BoxGeometry(0.14, 0.5, 0.04), brass, 0, 0, 0, prop); bl.geometry.translate(0, 0.27, 0); bl.rotation.set(0.35, 0, (i / 4) * Math.PI * 2); }
+    // focos y luz que barre el fondo
+    for (const s of [-1, 1]) { add(new THREE.CylinderGeometry(0.15, 0.12, 0.2, 12), dark, s * 0.55, 0.62, -1.95).rotation.x = Math.PI / 2; add(new THREE.CircleGeometry(0.12, 14), lampM, s * 0.55, 0.62, -2.06).rotation.y = Math.PI; }
+    const beam = new THREE.Mesh(new THREE.ConeGeometry(2.4, 10, 24, 1, true), additive(0xfff2c8, 0.05)); beam.geometry.translate(0, -5, 0); beam.rotation.x = -Math.PI / 2; beam.position.set(0, 0.62, -2.1); g.add(beam);
+    const light = new THREE.SpotLight(0xfff4d0, 40, 30, 0.55, 0.5, 1.2); light.position.set(0, 0.7, -2); const tgt = new THREE.Object3D(); tgt.position.set(0, 0, -9); g.add(tgt); light.target = tgt; g.add(light);
+    const inner = new THREE.PointLight(0x9fe8ff, 1.2, 3); inner.position.set(0, 1.7, -0.95); g.add(inner); // luz de la cabina
+    g.userData.prop = prop; g.userData.seat = new THREE.Vector3(0, 1.47, -0.85);
     return g;
   }
 

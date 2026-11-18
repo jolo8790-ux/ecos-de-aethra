@@ -110,6 +110,13 @@ export function customLook(cfg = {}) {
   return { model: base.model, scale: 1.0, recolor: rules.length ? [...rules, ...(base.recolor || [])] : base.recolor, glider: pick(CUSTOM.planeador, c.planeador)[2] };
 }
 
+// luz de contorno: un brillo cálido en los bordes de los personajes para que destaquen del fondo
+const rimKey = () => 'rim1';
+function rimLight(sh) {
+  sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+  { float rimF = 1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0);
+    totalEmissiveRadiance += vec3(1.0, 0.93, 0.82) * pow(rimF, 2.6) * 0.55 * diffuseColor.rgb; }`);
+}
 let texCache = new WeakMap();
 export function createCharacter(lib, lookName) {
   texCache = new WeakMap(); // texturas teñidas compartidas entre las partes de este personaje
@@ -130,6 +137,7 @@ export function createCharacter(lib, lookName) {
           o.material = o.material.clone(); o.material.map = m.get(key);
         }
       }
+      if (!o.material.userData.rim) { if (!look.recolor) o.material = o.material.clone(); o.material.userData.rim = true; o.material.onBeforeCompile = rimLight; o.material.customProgramCacheKey = rimKey; }
     }
   });
   const root = new THREE.Group();          // posición y orientación en el mundo

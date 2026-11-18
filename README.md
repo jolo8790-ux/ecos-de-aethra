@@ -4,7 +4,7 @@ Aventura 3D con historia para el navegador, hecha con [Three.js](https://threejs
 
 Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes para reunir los fragmentos del Corazón de Aethra y decidir el destino de su mundo.
 
-## Estado: versión 2.0
+## Estado: versión 2.1
 
 | Etapa | Contenido | Estado |
 | --- | --- | --- |
@@ -23,6 +23,7 @@ Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes
 | 13. Partidas con nombre | Título con solo «Continuar» y «Nueva partida»; la partida nueva pide nombre, dificultad y personaje; cada partida guarda sus logros (vitrina de trofeos, medallas e insignias animados), sus récords de desafíos y su dificultad; si se pierden dos rondas de vidas sin avanzar se ofrece bajar la dificultad; créditos finales con los personajes bailando al terminar la historia y los dos capítulos extra (producción ejecutiva: Jorge Chaparro, CEO de Think Animation Studio) | Lista: versión 1.9 |
 | 14. Niveles el doble de largos | Cada zona de la historia y los capítulos extra 1 y 2 tienen un «Sendero» de unos 150 m (saltos, rocas que caen, plataformas móviles, mazas, fuego, planeo, corrientes y garfio según el capítulo); una barrera de luz cierra el camino hasta tocar el Sello del final | Lista: versión 2.0 |
 | 15. Las Profundidades de Mareth | Capítulo extra 3 submarino: nadar en 3D, aire que se acaba (burbujas, cúpulas, superficie), pantalla roja con latidos cada vez más lentos, borrosa y oscura al ahogarse; sin corazones el nivel empieza de nuevo; medusas, corrientes, algas, peces, ciudad hundida, Nerea la buzo y un submarino que rompe muros de coral | Lista: versión 2.0 |
+| 16. Gráficos mejorados | Submarino nuevo (casco amarillo con remaches, cúpula de cristal con Lía pilotando, ojos de buey, periscopio, hélice carenada y estela de burbujas); dirigible rehecho (globo de gajos, góndola-barco con cabina iluminada, tres motores, banderines) que ahora gira y zarpa con la proa por delante; islas con texturas de tierra y roca, rocas colgantes irregulares, hierba que se mece con el viento, flores y piedras; luz de contorno en los personajes | Lista: versión 2.1 |
 
 ## Cómo jugar en tu computadora
 
