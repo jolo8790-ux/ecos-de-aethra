@@ -132,7 +132,7 @@ export class Input {
       if (b(12)) my += 1; if (b(13)) my -= 1; if (b(14)) mx -= 1; if (b(15)) mx += 1;
       this.padName = pad.id || '';
       this._padShield = b(4);
-      this._padJump = b(0);
+      this._padJump = b(0); this._padDodge = b(1);
     }
 
     const l = Math.hypot(mx, my);
@@ -160,6 +160,7 @@ export class Input {
   held(action) {
     if (action === 'jump') return !!(this.keys.Space || this._padJump || this._held.has('jump') || this.autoJump);
     if (action === 'shield') return !!(this.keys.KeyV || this._padShield || this._held.has('shield'));
+    if (action === 'dodge') return !!(this.keys.KeyK || this.keys.KeyL || this.keys.ShiftRight || this._padDodge || this._held.has('dodge') || this.autoDown); // bajar nadando (también modo Automático)
     return this._held.has(action);
   }
 

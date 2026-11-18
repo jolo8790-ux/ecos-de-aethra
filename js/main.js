@@ -23,11 +23,14 @@ import glaciarEco from './zones/glaciar_eco.js';
 import ciudadelaOrden from './zones/ciudadela_orden.js';
 import ecoOlvidado from './zones/eco_olvidado.js';
 import forjaIgnis from './zones/forja_ignis.js';
+import abismoMareth from './zones/abismo_mareth.js';
 import { Combat, DIFF } from './combat.js';
 import { LOGROS, storeOf, unlock, bump as bumpL, addTo as addToL } from './logros.js';
 import { runCredits } from './credits.js';
+import { applySenderos, SENDEROS } from './zones/senderos.js';
 
-const ZONES_BASE = { puerto_bruma: puertoBruma, bosque_colgante: bosqueColgante, ruinas_vidrio: ruinasVidrio, ciudad_engranajes: ciudadEngranajes, glaciar_eco: glaciarEco, ciudadela_orden: ciudadelaOrden, eco_olvidado: ecoOlvidado, forja_ignis: forjaIgnis };
+const ZONES_BASE = { puerto_bruma: puertoBruma, bosque_colgante: bosqueColgante, ruinas_vidrio: ruinasVidrio, ciudad_engranajes: ciudadEngranajes, glaciar_eco: glaciarEco, ciudadela_orden: ciudadelaOrden, eco_olvidado: ecoOlvidado, forja_ignis: forjaIgnis, abismo_mareth: abismoMareth };
+applySenderos(ZONES_BASE); // cada zona de la historia gana su Sendero
 const ZONES = { ...ZONES_BASE }; for (const L of DESAFIOS) ZONES[L.id] = L;
 const $ = id => document.getElementById(id);
 
@@ -92,10 +95,10 @@ const input = new Input(renderer.domElement);
 const audio = new Audio();
 const music = new Music(audio);
 // Música de cada zona y de cada jefe; ambiente de fondo
-const ZONE_MUSIC = { forja_ignis: 'forja', eco_olvidado: 'eco', puerto_bruma: 'puerto', bosque_colgante: 'bosque', ruinas_vidrio: 'ruinas', ciudad_engranajes: 'ciudad', glaciar_eco: 'glaciar', ciudadela_orden: 'ciudadela' };
+const ZONE_MUSIC = { abismo_mareth: 'mareth', forja_ignis: 'forja', eco_olvidado: 'eco', puerto_bruma: 'puerto', bosque_colgante: 'bosque', ruinas_vidrio: 'ruinas', ciudad_engranajes: 'ciudad', glaciar_eco: 'glaciar', ciudadela_orden: 'ciudadela' };
 const BOSS_MUSIC = { eco_olvidado: 'boss_eco', bosque_colgante: 'boss_raiz', ruinas_vidrio: 'boss_escorpion', ciudad_engranajes: 'boss_coloso', glaciar_eco: 'boss_sierpe', ciudadela_orden: 'vaelor' };
 const CH_MUSIC = { desafio_1: 'desafio', desafio_2: 'desafio', desafio_3: 'desafio_noche', desafio_4: 'ruinas', desafio_5: 'desafio_noche', desafio_6: 'forja', desafio_7: 'forja' };
-const ZONE_AMB = { forja_ignis: 'desert', eco_olvidado: 'ice', desafio_1: 'sea', desafio_2: 'desert', desafio_3: 'ice', desafio_4: 'desert', desafio_5: 'city', desafio_6: 'desert', desafio_7: 'desert',  puerto_bruma: 'sea', bosque_colgante: 'forest', ruinas_vidrio: 'desert', ciudad_engranajes: 'city', glaciar_eco: 'ice', ciudadela_orden: 'dark' };
+const ZONE_AMB = { abismo_mareth: 'sea', forja_ignis: 'desert', eco_olvidado: 'ice', desafio_1: 'sea', desafio_2: 'desert', desafio_3: 'ice', desafio_4: 'desert', desafio_5: 'city', desafio_6: 'desert', desafio_7: 'desert',  puerto_bruma: 'sea', bosque_colgante: 'forest', ruinas_vidrio: 'desert', ciudad_engranajes: 'city', glaciar_eco: 'ice', ciudadela_orden: 'dark' };
 // los navegadores solo dejan sonar audio después de un gesto: el primero enciende todo
 const wakeAudio = () => { audio.unlock(); if (music.init() && state === 'title') music.play('title'); };
 addEventListener('pointerdown', wakeAudio); addEventListener('keydown', wakeAudio); addEventListener('touchstart', wakeAudio);
@@ -128,7 +131,7 @@ let dialog = null;
 let focus = null;
 let talkCooldown = 0;
 const lookTarget = new THREE.Vector3();
-let pendingChapterEnd = false, pendingEnding = false, cutscene = null, lastGoal = '';
+let pendingWarp = null, pendingChapterEnd = false, pendingEnding = false, cutscene = null, lastGoal = '';
 
 // Estado de la historia que ven los datos de la zona (objetivos y diálogos).
 const S = {
@@ -138,6 +141,8 @@ const S = {
   give: name => { toast(`Obtuviste: ${name}`); audio.play('fragment'); player.gesture('Cheer', { speed: 1.2, fadeOut: 0.3 }); },
   ending: () => { pendingEnding = true; },
   chapterEnd: () => { pendingChapterEnd = true; },
+  warp: cp => { pendingWarp = cp; },
+  enterSub: () => setSub(true), exitSub: () => setSub(false), inSub: () => !!player.inSub,
   logro: id => logro(id),
   finale: kind => { pendingFinale = kind; },
   endingDialog: kind => startDialog(zone.story.endings[kind], '', null, () => S.finale(kind)),
@@ -173,6 +178,8 @@ Promise.all([
 // ---------- zonas ----------
 function loadZone(id, checkpointId) {
   zone = ZONES[id];
+  player.inSub = false; player.swimming = false; clearSeaFx();
+  if (zone.sea && save && save.flags.mr_sub && !save.flags.mr_fosa) delete save.flags.mr_sub; // el submarino vuelve a su amarre
   if (zone.boss && zone.boss.type === 'eco') { // el Eco Sombrío es una copia oscura de la protagonista tal como la vistió el jugador
     const base = customLook((save && save.custom) || settings.custom || {});
     zone.boss.look = { model: base.model, scale: 1.05, recolor: [{ from: [0, 360], minSat: 0, to: 268, setSat: 0.4, light: 0.55 }] };
@@ -386,6 +393,7 @@ function closeDialog(finished) {
   if (finished && d && d.then) d.then();
   if (pendingEnding) { pendingEnding = false; startEnding(); }
   if (pendingChapterEnd) { pendingChapterEnd = false; showChapterEnd(); }
+  if (pendingWarp) { const cp = pendingWarp; pendingWarp = null; warpTo(cp); }
   if (pendingFinale) { const k = pendingFinale; pendingFinale = null; startFinale(k); }
 }
 $('dialog').addEventListener('touchstart', () => input._pressed.add('click'), { passive: true });
@@ -498,7 +506,7 @@ function offerLowerDifficulty() {
 // ---------- créditos finales: al terminar la historia y los dos capítulos extra ----------
 function maybeCredits(then) {
   if (!save || challenge || save.flags.creditos) return false;
-  if (!(save.flags.juego_completado && save.flags.fragmento_eco && save.flags.corazon_forja)) return false;
+  if (!(save.flags.juego_completado && save.flags.fragmento_eco && save.flags.corazon_forja && save.flags.perla_mareth)) return false;
   playCredits(save, then); return true;
 }
 let creditsRun = null;
@@ -512,7 +520,7 @@ function playCredits(sv, then) {
     <h3>Producción ejecutiva</h3><p>Jorge Chaparro</p><p class="small">CEO de Think Animation Studio</p>
     <h3>Una producción de</h3><p>Think Animation Studio</p>
     <h3>Protagonista</h3><p>${nick} como Lía</p>
-    <h3>Reparto</h3><p>Lía</p><p>Capitana Marta</p><p>Kael</p><p>Tomás</p><p>Ilan, el eco del abuelo</p><p>Brasa, la herrera de Ignis</p><p>Vaelor y el Eco Sombrío</p>
+    <h3>Reparto</h3><p>Lía</p><p>Capitana Marta</p><p>Kael</p><p>Tomás</p><p>Ilan, el eco del abuelo</p><p>Brasa, la herrera de Ignis</p><p>Nerea, la buzo de Mareth</p><p>Vaelor y el Eco Sombrío</p>
     <h3>Historia, diseño, programación y música</h3><p>Creados con Claude (Anthropic)</p>
     <h3>Personajes y animaciones</h3><p>KayKit Adventurers</p><p class="small">Kay Lousberg (CC0)</p>
     <h3>Jefes, enemigos y decorados</h3><p>Hunyuan3D 2.1 (Tencent)</p><p class="small">a partir de imágenes de SDXL</p>
@@ -525,7 +533,7 @@ function playCredits(sv, then) {
   $('credits').classList.remove('hidden'); $('bCreditsSkip').classList.add('hidden');
   setTimeout(() => $('bCreditsSkip').classList.remove('hidden'), 2500);
   music.play('creditos', { fade: 1 });
-  const looks = [customLook(sv.custom || {}), 'marta', 'kael', 'tomas', 'ilan', 'brasa'];
+  const looks = [customLook(sv.custom || {}), 'marta', 'kael', 'tomas', 'ilan', 'brasa', 'nerea'];
   const finish = () => {
     if (!creditsRun) return; creditsRun = null;
     $('credits').classList.add('hidden'); sv.flags.creditos = true;
@@ -642,6 +650,97 @@ function doPulse(pos, r) {
   for (const C of world.lightCrystals) if (!C.on && C.pos.distanceTo(pos) < r + 0.5) { C.set(true); if (C.flag) S.set(C.flag); audio.play('unlock'); toast('¡El cristal de luz se enciende!'); }
   for (const B of world.darkBarriers) if (!B.gone && B.pos.distanceTo(pos) < r + B.half) { world.dispelBarrier(B); fx.sparkle(B.pos, 30, 0xfff2a8); if (B.flag) S.set(B.flag); audio.play('unlock'); }
 }
+// ---------- nivel submarino: nadar, aire, ahogo y submarino ----------
+const drown = { t: 0, on: false, beatT: 0 }; let underFog = null, aboveFog = null;
+function seaBefore(dt) {
+  const sea = world.sea, p = player.pos;
+  player.seaY = sea.surface;
+  const dome = sea.inDome(p), was = player.swimming;
+  player.swimming = player.inSub || (!dome && p.y + 1.1 < sea.surface);
+  if (player.swimming && !was && !player.inSub) { audio.play('splash'); fx.dust(p.clone().setY(sea.surface), 10, 1.2, 0xdff6ff); player.vel.multiplyScalar(0.35); }
+  player.flow = sea.currentAt(p);
+  if (player.air == null) player.air = 1;
+}
+function seaAfter(dt) {
+  const sea = world.sea, p = player.pos, cap = (player.diff && player.diff.air) || 22;
+  const head = p.y + 1.55 < sea.surface && !sea.inDome(p);
+  if (player.inSub) player.air = Math.min(1, player.air + dt);
+  else if (head && player.swimming) player.air = Math.max(0, player.air - dt / cap);
+  else player.air = Math.min(1, player.air + dt * 0.7);
+  if (state === 'play') {
+    const got = player.inSub ? 0 : sea.takeBubble(p);
+    if (got) { player.air = Math.min(1, player.air + got); audio.play('bubble'); if (!isAutoMode() && bump('burbujas') >= 15) logro('pulmones'); fx.sparkle(p.clone().setY(p.y + 1), 10, 0xcff6ff); }
+    for (const h of sea.update(dt, player, camera, !!player.inSub)) if (player.damage(1, h.from)) { player.vel.copy(h.push); audio.play('fire'); toast('¡Una medusa! Su picadura quema'); }
+    for (const ev of sea.events.splice(0)) if (ev.type === 'coral') { audio.play('crumble'); combat.shake(0.25, 0.3); fx.debris(ev.pos); input.rumble(200, 0.6); toast('¡Coral roto!'); }
+    if (player.inSub) {
+      sea.ram(p, player.vel);
+      sea.sub.position.set(p.x, p.y - 0.4, p.z);
+      sea.sub.rotation.y += Math.atan2(Math.sin(player.facing - sea.sub.rotation.y), Math.cos(player.facing - sea.sub.rotation.y)) * Math.min(1, dt * 5);
+      sea.sub.rotation.z = Math.max(-0.2, Math.min(0.2, -player.vel.x * 0.01));
+    }
+    // ahogo: sin aire, Lía deja de nadar y se hunde; al final pierde un corazón
+    if (player.air <= 0 && !drown.on) { drown.on = true; drown.t = 0; player.drowning = true; audio.play('gulp'); }
+    if (drown.on && player.air > 0.15) { drown.on = false; player.drowning = false; }
+    if (drown.on) { drown.t += dt; if (drown.t > 3.4) drownDeath(); }
+  }
+  seaFx(dt);
+}
+function seaFx(dt) {
+  const sea = world.sea; if (!sea) return;
+  const a = player.air ?? 1, danger = Math.max(0, Math.min(1, (0.35 - a) / 0.35)), d = drown.on ? Math.min(1, drown.t / 3.4) : 0;
+  const showAir = (player.swimming && !player.inSub) || a < 0.999;
+  $('airBar').classList.toggle('hidden', !showAir || state === 'title');
+  $('airFill').style.width = (a * 100).toFixed(1) + '%'; $('airBar').classList.toggle('low', a < 0.3);
+  $('drownFx').style.opacity = Math.min(1, danger * 0.85 + d * 0.4).toFixed(3);
+  const blur = (danger > 0.5 ? (danger - 0.5) * 8 : 0) + d * 9, bright = 1 - danger * 0.3 - d * 0.7;
+  renderer.domElement.style.filter = blur > 0.05 || bright < 0.99 ? `blur(${blur.toFixed(1)}px) brightness(${bright.toFixed(2)})` : '';
+  $('blackout').style.opacity = d > 0.6 ? ((d - 0.6) / 0.4).toFixed(2) : 0;
+  if (danger > 0 || d > 0) { // latidos cada vez más lentos
+    drown.beatT -= dt;
+    if (drown.beatT <= 0) { drown.beatT = 0.42 + danger * 0.7 + d * 1.6; audio.play('heart'); input.rumble(90, 0.35 + danger * 0.4); const v = $('drownFx'); v.classList.remove('beat'); void v.offsetWidth; v.classList.add('beat'); }
+  } else drown.beatT = 0;
+  // bajo el agua: niebla azul y tinte
+  const under = camera.position.y < sea.surface - 0.05;
+  if (!aboveFog) aboveFog = scene.fog;
+  if (under) { if (!underFog) underFog = new THREE.Fog(0x0e5a7a, 3, 48); scene.fog = underFog; } else scene.fog = aboveFog;
+  $('underTint').classList.toggle('hidden', !under);
+}
+function clearSeaFx() {
+  renderer.domElement.style.filter = ''; for (const id of ['drownFx', 'blackout']) $(id).style.opacity = 0;
+  $('airBar').classList.add('hidden'); $('underTint').classList.add('hidden');
+  drown.on = false; player.drowning = false; player.air = 1; underFog = null; aboveFog = null;
+}
+function drownDeath() {
+  drown.on = false; player.drowning = false;
+  player.hp -= 1; $('hudHearts').classList.remove('hit'); void $('hudHearts').offsetWidth; $('hudHearts').classList.add('hit');
+  if (player.hp <= 0) { player.hp = 0; startDeath(); return; }
+  setSub(false, true); respawn(save.checkpoint); player.air = 1; player.vel.set(0, 0, 0);
+  toast('Te quedaste sin aire: vuelves al último farol con un corazón menos');
+}
+function restartSeaLevel() {
+  const pre = zone.flagPrefix || 'mr_';
+  for (const k of Object.keys(save.flags)) if (k.startsWith(pre)) delete save.flags[k];
+  save.checkpoint = zone.start.id; player.hp = player.maxHp; player.invuln = 1.5;
+  setSub(false, true); clearSeaFx(); writeSave(save);
+  $('fade').style.opacity = 0; state = 'play';
+  enterZone(zone.id, zone.start.id);
+  toast('Sin corazones: el nivel empieza de nuevo');
+}
+function setSub(on, silent) {
+  const sea = world.sea; if (!sea) { player.inSub = false; return; }
+  if (on) {
+    player.inSub = true; sea.parked = null; sea.sub.visible = true; player.swimming = true; player.air = 1;
+    if (!silent) { audio.play('dash'); toast('A bordo: muévete, Espacio para subir y K para bajar. ¡Embiste los corales!'); }
+  } else if (player.inSub) {
+    player.inSub = false; sea.parked = sea.sub.position.clone(); player.mesh.visible = true;
+    if (!silent) audio.play('splash');
+  }
+}
+// el viento del Sello: fundido, aparecer junto al farol de vuelta y guardar allí
+function warpTo(cp) {
+  $('fade').style.opacity = 1; player.frozen = true; fx.rainbow(player.pos.clone().setY(player.pos.y + 1), 30);
+  setTimeout(() => { save.checkpoint = cp; respawn(cp); writeSave(save); player.frozen = false; $('fade').style.opacity = 0; toast('El viento del Sello te devolvió al camino'); }, 700);
+}
 function startDeath() {
   if (state === 'dead') return;
   state = 'dead'; deadT = 0;
@@ -652,6 +751,7 @@ function updateDeath(dt) {
   deadT += dt;
   player.update(dt, { move: { x: 0, y: 0 }, look: { x: 0, y: 0 }, pressed: () => false, held: () => false, walk: false }, cam.yaw);
   if (deadT > 1.0) $('fade').style.opacity = 1;
+  if (deadT > 1.7 && world.sea) { restartSeaLevel(); return; } // sin corazones bajo el mar: el nivel empieza de nuevo
   if (deadT > 1.7) {
     combat.spawnZone(zone, save); bossActive = false; $('bossbar').classList.add('hidden');
     player.hp = player.maxHp; player.invuln = 1.5;
@@ -769,6 +869,7 @@ function showOverlay(id) {
   for (const o of ['title', 'pause']) $(o).classList.toggle('hidden', o !== id);
   $('hud').classList.toggle('hidden', id === 'title');
   document.body.classList.toggle('atTitle', id === 'title'); // en el título no se ve el HUD del juego
+  if (id === 'title') clearSeaFx();
 }
 function showPausePanel(p) {
   $('pauseMain').classList.toggle('hidden', p !== 'main');
@@ -872,7 +973,7 @@ function openHub() {
   $('bHubDelete').textContent = 'Borrar partida'; delete $('bHubDelete').dataset.ok;
   const ex = $('hubExtras'); ex.innerHTML = '';
   if (sv.flags.juego_completado) {
-    for (const [id, label] of [['eco_olvidado', 'Extra: El Eco Olvidado'], ['forja_ignis', 'Extra: Las Forjas de Ignis']]) {
+    for (const [id, label] of [['eco_olvidado', 'Extra: El Eco Olvidado'], ['forja_ignis', 'Extra: Las Forjas de Ignis'], ['abismo_mareth', 'Extra: Las Profundidades de Mareth']]) {
       const b = document.createElement('button'); b.className = 'btn alt small'; b.textContent = label;
       b.onclick = () => { audio.unlock(); music.init(); goFull(); save = sv; applyPartida(); showOverlay(null); enterZone(id); };
       ex.appendChild(b);
@@ -923,6 +1024,7 @@ function nearestFragment() {
   if (!best) return null; const v = best.pos.clone(); v.precise = true; return v;
 }
 function autoTarget() {
+  if (window.__forceT) { const v = new THREE.Vector3(...window.__forceT); v.precise = false; return v; } // pruebas: objetivo forzado
   if (challenge) { const f = nearestFragment(); if (f) return f; if (world.portal && world.portal.open) { const v = world.portal.pos.clone(); v.precise = true; return v; } return null; } // cristales y luego el portal
   if (!zone.story) return null;
   const b = combat.boss;
@@ -937,7 +1039,7 @@ function autoSolveNear(p, r) { // mecanismos cerca del objetivo
   for (const B of world.darkBarriers) if (!B.gone && B.pos.distanceTo(p) < r + (B.half || 0)) { world.dispelBarrier(B); if (B.flag) S.set(B.flag); audio.play('unlock'); }
 }
 function autoPilot(dt) {
-  input.autoJump = false;
+  input.autoJump = false; input.autoDown = false;
   // diálogos: deja leer y avanza solo; en las elecciones toma la primera opción
   if (state === 'dialog' && dialog) {
     auto.readT += dt;
@@ -977,6 +1079,12 @@ function autoPilot(dt) {
     }
     return;
   }
+  // bajo el mar: nadar en línea recta (subiendo o bajando), buscando aire cuando falta
+  if (world.sea) {
+    const sea = world.sea, inD = sea.inDome(player.pos), tD = sea.inDome(T);
+    if (player.swimming) { seaSwimPilot(T, dt); return; }
+    if (inD ? tD !== inD : T.y < sea.surface - 0.5) { walkTo(T.x, T.z, dt, 1, true); return; } // salir de la cúpula o tirarse al agua
+  }
   // recorrido de verdad: camino por las superficies (andar, saltar, planear, corrientes, setas, garfio)
   if (navLog.length > 300) navLog.splice(0, 150);
   if (autoNavStep(dt, T, key)) { auto.noPathT = 0; return; }
@@ -991,6 +1099,19 @@ function autoPilot(dt) {
   const noGround = player.grounded && ground > 2.5 && dh > 2;
   if (player.grounded && auto.noPathT > 2.5 && (auto.stuckT > 1.2 || up > 1.3 || noGround)) startAutoFly(T, want, 'sin camino');
   if (noGround) input.move.x = input.move.y = 0;
+}
+function seaSwimPilot(T, dt) {
+  const sea = world.sea, p = player.pos;
+  auto.airSeek = !player.inSub && (player.air < 0.38 || (auto.airSeek && player.air < 0.95));
+  const tgt = auto.airSeek ? sea.nearestAir(p) : T;
+  const dx = tgt.x - p.x, dy = tgt.y - (p.y + 0.4), dz = tgt.z - p.z, dh = Math.hypot(dx, dz);
+  const moved = p.distanceTo(auto.last); auto.last.copy(p);
+  auto.swimStuck = moved < dt * 0.6 && dh > 1.5 ? (auto.swimStuck || 0) + dt : Math.max(0, (auto.swimStuck || 0) - dt);
+  if (auto.swimStuck > 1.4) { auto.swimStuck = 0; auto.unstickT = 1.1; auto.unstickA = (auto.unstickA || 0) + 1; }
+  const want = Math.atan2(-dx, -dz);
+  if (auto.unstickT > 0) { auto.unstickT -= dt; input.autoJump = true; steerTo(want + (auto.unstickA % 2 ? 1.2 : -1.2), dt, 0.7); return; }
+  steerTo(want, dt, dh > 1 ? 1 : Math.max(0.2, dh));
+  input.autoJump = dy > 0.5; input.autoDown = dy < -0.5;
 }
 function steerTo(want, dt, speed = 1) {
   cam.yaw += angleDiff(want, cam.yaw) * Math.min(1, dt * 4);
@@ -1551,7 +1672,9 @@ function simulate(dt) {
       const want = Math.atan2(-(dialog.it.pos.x - player.pos.x), -(dialog.it.pos.z - player.pos.z));
       player.facing += Math.atan2(Math.sin(want - player.facing), Math.cos(want - player.facing)) * Math.min(1, dt * 6);
     }
+    if (world.sea) seaBefore(dt);
     if (auto.fly) autoFly(dt); else player.update(dt, input, cam.yaw, state === 'play' ? combat.targets : []);
+    if (world.sea) seaAfter(dt);
     if (player.dodge && player.dodge.air) fx.trail(player.pos, 0.5 + player.dodge.t * 2); // estela de colores del impulso
     combat.handlePlayer(player);
     if (state === 'play') combat.update(dt, player);
@@ -1562,7 +1685,7 @@ function simulate(dt) {
     if (state === 'dialog') updateDialog(dt); else updateInteractions();
     cam.update(dt, state === 'dialog' ? { look: { x: 0, y: 0 }, zoom: 0, move: { x: 0, y: 0 } } : input, player);
     world.updateFade(camera.position, cam.target, dt);
-    const floor = world.water ? world.water.y + 0.3 : -20;
+    const floor = world.sea ? -75 : world.water ? world.water.y + 0.3 : -20;
     const fallMsg = () => world.water && world.water.lava ? '¡Caíste a la lava!' : zone.id === 'puerto_bruma' ? 'Caíste al mar de nubes' : 'Caíste al vacío';
     if (player.pos.y < floor && player.hp > 0) {
       audio.play(world.water && world.water.lava ? 'fire' : 'splash');
@@ -1632,7 +1755,7 @@ window.__aethra = {
   music, renderer, auto, navLog, nav, autoTarget: () => autoTarget(), get focus() { return focus; },
   player, cam, world, input, get state() { return state; }, get save() { return save; }, startGame, newSave, loadZone,
   // atajos para las pruebas: partida nueva sin pasar por los menús, y abrir los desafíos de la partida
-  testNewGame(name = 'Prueba', difficulty = settings.difficulty) { nueva.name = name; nueva.diff = DIFF[difficulty] ? difficulty : 'normal'; nueva.slot = freeSlot() || getSlot() || 1; createPartida(settings.custom || {}); },
+  testNewGame(name = 'Prueba', difficulty = settings.difficulty, opts = {}) { nueva.name = name; nueva.diff = DIFF[difficulty] ? difficulty : 'normal'; nueva.slot = freeSlot() || getSlot() || 1; createPartida(settings.custom || {}); if (opts.sellos !== false) for (const id of Object.keys(SENDEROS)) save.flags['sello_' + id] = true; }, // las pruebas de capítulos saltan los Senderos
   openChallenges() { if (!loadSave()) { nueva.name = 'Prueba'; nueva.diff = DIFF[settings.difficulty] ? settings.difficulty : 'normal'; nueva.slot = freeSlot() || 1; const sv = newSave({ name: 'Prueba', difficulty: nueva.diff, custom: settings.custom || {} }); setSlot(nueva.slot); writeSlot(nueva.slot, sv); } $('bHubCh').click(); },
   playCredits: (then) => playCredits(save, then || (() => {})), showChapterEnd, openTrophies, offerLowerDifficulty, get lossStreak() { return lossStreak; },
   hold(on) { paused4test = on; }, S, combat, enterZone, choose, get zone() { return zone; }, get dialog() { return dialog; },

@@ -69,6 +69,9 @@ export class Audio {
       case 'crack': this.noise(0.12, 0.08, 2200); this.tone(140, 0.12, 'square', 0.04, -40); break;
       case 'crumble': this.noise(0.6, 0.16, 420); this.tone(70, 0.5, 'sine', 0.12, -30); break;
       case 'fire': this.noise(0.7, 0.12, 700); this.tone(110, 0.5, 'sawtooth', 0.04, 60); break;
+      case 'heart': this.tone(58, 0.14, 'sine', 0.35, -12); this.tone(52, 0.16, 'sine', 0.28, -10, 0.2); break; // latido
+      case 'bubble': [700, 950, 1250].forEach((f, i) => this.tone(f, 0.08, 'sine', 0.06, 400, i * 0.05)); break;
+      case 'gulp': this.tone(300, 0.12, 'sine', 0.08, 300); this.noise(0.15, 0.05, 2000); break;
       case 'splash': this.noise(0.5, 0.14, 1200); this.tone(200, 0.3, 'sine', 0.06, -120); break;
     }
   }

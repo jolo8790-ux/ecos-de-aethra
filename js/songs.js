@@ -199,6 +199,19 @@ SONGS.forja = {
   ],
 };
 // Créditos: fiesta bailable (fa mayor, con palmas y bajo saltarín)
+// Mareth: el fondo del mar (re dórico, lento, con arpegios que suben como burbujas)
+SONGS.mareth = {
+  bpm: 84, vol: 0.8, chords: ['Dm', 'Em', 'F', 'Em', 'Dm', 'C', 'Bb', 'C'],
+  tracks: [
+    { type: 'pad', inst: 'pad', oct: 3, vol: 0.4 },
+    { type: 'bass', inst: 'bass', oct: 2, pattern: 'R . . . . . O . R . . . . . . .', vol: 0.35 },
+    { type: 'arp', inst: 'harp', oct: 4, pattern: '0 1 2 3 2 1 0 .', vol: 0.3 },
+    { type: 'drum', inst: 'shaker', from: 2, pattern: '....x.......x...', vol: 0.15 },
+    { type: 'mel', inst: 'flute', from: 2, vol: 0.4, notes: [
+      'A5 - - - D6 - - -', 'B5 - - - G5 - - -', 'A5 - C6 - F5 - - -', 'E5 - - - - - . .',
+      'F5 - - - A5 - - -', 'G5 - - - E5 - C5 -', 'D5 - F5 - Bb5 - - -', 'A5 - - - - - . .'] },
+  ],
+};
 SONGS.creditos = {
   bpm: 124, vol: 0.9, chords: ['F', 'Dm', 'Bb', 'C', 'F', 'Dm', 'Gm', 'C'],
   tracks: [

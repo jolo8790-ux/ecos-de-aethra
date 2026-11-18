@@ -3,6 +3,7 @@ import { buildHumanoid, NpcAnimator } from './rig.js';
 import { createCharacter, NpcModelAnimator, LOOKS } from './characters.js';
 import { prop, freeGPU } from './props.js';
 import { Hazards } from './hazards.js';
+import { Sea } from './sea.js';
 
 // Construye una zona a partir de sus datos (js/zones/*.js): mallas + colisiones + objetos interactivos.
 
@@ -39,12 +40,13 @@ export class World {
   }
 
   build(zone, save) {
-    this.clear();
+    this.clear(); this.save = save;
     this.zone = zone;
     const z = zone;
     this.pal = { top: C.grass, side: C.dirt, ...(z.palette || {}) };
     if (z.water && !z.lava) this._water(z.water);
     this.hz = new Hazards(this); this.hz.build(z);
+    this.sea = z.sea ? new Sea(this, z) : null; // nivel submarino
     (z.islands || []).forEach(i => this._island(i));
     (z.boxes || []).forEach(b => this._box(b));
     (z.stairs || []).forEach(s => this._stairs(s));

@@ -16,10 +16,10 @@ function mesh(geo, m, parent, x = 0, y = 0, z = 0) { const o = new THREE.Mesh(ge
 
 // Niveles de dificultad
 export const DIFF = {
-  facil: { name: 'Cuento', dmg: 0.5, invuln: 1.8, bossHp: 0.7, fallHurts: false, glide: 7, gust: 0.6, crumble: 1.4 },
-  normal: { name: 'Aventura', dmg: 1, invuln: 1.1, bossHp: 1, fallHurts: true, glide: 5, gust: 1 },
-  dificil: { name: 'Leyenda', dmg: 2, invuln: 0.8, bossHp: 1.35, fallHurts: true, glide: 4, gust: 1.3, crumble: 0.8 },
-  auto: { name: 'Automático', dmg: 0, invuln: 1.8, bossHp: 0.7, fallHurts: false, auto: true, glide: 5, gust: 1 },
+  facil: { name: 'Cuento', dmg: 0.5, invuln: 1.8, bossHp: 0.7, fallHurts: false, glide: 7, gust: 0.6, crumble: 1.4, air: 32 },
+  normal: { name: 'Aventura', dmg: 1, invuln: 1.1, bossHp: 1, fallHurts: true, glide: 5, gust: 1, air: 22 },
+  dificil: { name: 'Leyenda', dmg: 2, invuln: 0.8, bossHp: 1.35, fallHurts: true, glide: 4, gust: 1.3, crumble: 0.8, air: 16 },
+  auto: { name: 'Automático', dmg: 0, invuln: 1.8, bossHp: 0.7, fallHurts: false, auto: true, glide: 5, gust: 1, air: 22 },
 };
 
 // Modelo generado con un material propio que puede brillar (el brillo usa la propia textura).

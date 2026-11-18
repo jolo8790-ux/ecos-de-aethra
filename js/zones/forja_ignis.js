@@ -112,6 +112,7 @@ export default {
   chapterEnd: {
     kicker: 'Fin del capítulo extra 2', title: 'El fuego que enseña',
     sub: 'Las rocas caen, el fuego se apaga y vuelve. Lo que queda es lo que aprendiste a cruzar.',
+    next: { label: 'Capítulo extra 3: Las Profundidades de Mareth', zone: 'abismo_mareth', cp: 'muelle' },
   },
 
   story: {

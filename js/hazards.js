@@ -11,13 +11,14 @@ const additive = (color, opacity = 0.8) => new THREE.MeshBasicMaterial({ color, 
 export class Hazards {
   constructor(world) {
     this.w = world; this.root = world.root; this.physics = world.physics;
-    this.crumbles = []; this.jets = []; this.pends = []; this.t = 0; this.events = [];
+    this.crumbles = []; this.jets = []; this.pends = []; this.gates = []; this.t = 0; this.events = [];
   }
 
   build(z) {
     (z.crumbles || []).forEach(c => this._crumble(c));
     (z.fireJets || []).forEach(j => this._jet(j));
     (z.pendulums || []).forEach(p => this._pendulum(p));
+    (z.sealGates || []).forEach(g => this._sealGate(g));
     if (z.lava) this._lava(z.lava);
     if (z.embers) this._embers(z.embers);
   }
@@ -101,6 +102,22 @@ export class Hazards {
     this.pends.push({ g, arm, x, y, z, len, axis, amp, speed, phase, r, trail, ball: new THREE.Vector3(), vel: 0 });
   }
 
+  // ---------- barrera de luz (se abre con un Sello) ----------
+  _sealGate({ x, y, z, w, h = 16, d = 0.6, flag }) {
+    const box = this.physics.addBox(x, y + h / 2, z, w, h, d, { gate: true });
+    const cv = document.createElement('canvas'); cv.width = 128; cv.height = 256; const cx = cv.getContext('2d');
+    const gr = cx.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, 'rgba(120,80,255,0)'); gr.addColorStop(0.45, 'rgba(110,90,255,.75)'); gr.addColorStop(1, 'rgba(60,150,255,.85)');
+    cx.fillStyle = gr; cx.fillRect(0, 0, 128, 256);
+    cx.strokeStyle = 'rgba(255,255,255,.9)'; cx.lineWidth = 3;
+    for (let i = 0; i < 6; i++) { cx.beginPath(); const px = 20 + i * 18, py = 60 + (i % 3) * 50; cx.arc(px, py, 7, 0, 7); cx.moveTo(px, py + 12); cx.lineTo(px, py + 30); cx.stroke(); }
+    const tex = new THREE.CanvasTexture(cv); tex.wrapS = THREE.RepeatWrapping; tex.repeat.set(w / 4, 1);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.6, depthWrite: false, side: THREE.DoubleSide }));
+    m.position.set(x, y + h / 2, z); this.root.add(m);
+    const G = { box, m, tex, flag, open: false };
+    if (this.w.save && this.w.save.flags[flag]) { box.off = true; m.visible = false; G.open = true; }
+    this.gates.push(G);
+  }
+
   // ---------- lava ----------
   _lava({ y = -6, size = 420, color = 0xff4a10 }) {
     const cv = document.createElement('canvas'); cv.width = cv.height = 256; const cx = cv.getContext('2d');
@@ -173,6 +190,11 @@ export class Hazards {
           const l = Math.hypot(ox, oz) || 1; hits.push({ kind: 'fire', dmg: 1, from: new THREE.Vector3(J.x, P.y, J.z), push: new THREE.Vector3(ox / l * 7, 10, oz / l * 7) });
         }
       }
+    }
+    for (const G of this.gates) {
+      if (G.open) continue;
+      G.tex.offset.x = t * 0.05; G.m.material.opacity = 0.5 + Math.sin(t * 2.2) * 0.12;
+      if (this.w.save && this.w.save.flags[G.flag]) { G.open = true; G.box.off = true; G.m.visible = false; this.events.push({ type: 'gateOpen', pos: G.m.position.clone() }); }
     }
     for (const Pd of this.pends) {
       const a = Pd.amp * Math.sin(t * Pd.speed + Pd.phase), av = Pd.amp * Pd.speed * Math.cos(t * Pd.speed + Pd.phase);

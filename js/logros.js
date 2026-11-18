@@ -19,6 +19,8 @@ export const LOGROS = [
   { id: 'oro', tier: 'medalla', icon: '★', title: 'Medalla de oro', desc: 'Consigue el oro en un desafío.' },
   { id: 'todo_oro', tier: 'trofeo', icon: '✪', title: 'Cielo dorado', desc: 'Consigue el oro en todos los desafíos.' },
   { id: 'forja', tier: 'trofeo', icon: '♨', title: 'Corazón de fuego', desc: 'Consigue el Corazón de la Forja en Las Forjas de Ignis.' },
+  { id: 'mareth', tier: 'trofeo', icon: '◎', title: 'Corazón del mar', desc: 'Consigue la Perla de Mareth en las profundidades.' },
+  { id: 'pulmones', tier: 'medalla', icon: '○', title: 'Pulmones de acero', desc: 'Recoge 15 burbujas de aire.', key: 'burbujas', goal: 15 },
   { id: 'pies_ligeros', tier: 'medalla', icon: '⚡', title: 'Pies ligeros', desc: 'Pisa 25 rocas que se desploman.', key: 'rocas', goal: 25 },
   { id: 'estilo', tier: 'insignia', icon: '✎', title: 'Estilo propio', desc: 'Cambia el aspecto de tu personaje.' },
 ];

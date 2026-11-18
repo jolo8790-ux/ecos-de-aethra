@@ -120,6 +120,7 @@ export class Player {
     if (this.grapple) { this._updateGrapple(dt); this._animate(dt); return; }
     this.invuln = Math.max(0, this.invuln - dt); this.hurtT = Math.max(0, this.hurtT - dt);
     this.attackCd -= dt; this.dodgeCd -= dt;
+    if (this.swimming) { this._updateSwim(dt, input, camYaw); return; } // bajo el agua
     let mx = 0, my = 0;
     const locked = this.frozen || this.hurtT > 0;
     if (!locked) { mx = input.move.x; my = input.move.y; }
@@ -293,6 +294,47 @@ export class Player {
     this._animate(dt);
   }
 
+  // ---- nadar (y pilotar el submarino) ----
+  _updateSwim(dt, input, camYaw) {
+    const P = this.physics, locked = this.frozen || this.hurtT > 0 || this.drowning;
+    let mx = 0, my = 0, up = 0;
+    if (!locked) { mx = input.move.x; my = input.move.y; up = (input.held('jump') ? 1 : 0) - (input.held('dodge') ? 1 : 0); }
+    const fx = -Math.sin(camYaw), fz = -Math.cos(camYaw), rx = Math.cos(camYaw), rz = -Math.sin(camYaw);
+    const dirX = fx * my + rx * mx, dirZ = fz * my + rz * mx;
+    const sp = this.inSub ? 8.5 : (input.walk ? 2.4 : 4.4);
+    const tx = dirX * sp, tz = dirZ * sp;
+    let ty = up * sp * 0.8 + (this.inSub ? 0 : -0.35); // sin nadar, se hunde despacio
+    if (this.drowning) ty = -1.4;
+    const k = Math.min(1, dt * (this.inSub ? 2.2 : 3.2));
+    if (this.hurtT > 0) { this.vel.multiplyScalar(Math.pow(0.2, dt)); }
+    else { this.vel.x += (tx - this.vel.x) * k; this.vel.z += (tz - this.vel.z) * k; this.vel.y += (ty - this.vel.y) * k; }
+    if (Math.hypot(tx, tz) > 0.3) this.facing += angleDiff(Math.atan2(-tx, -tz), this.facing) * Math.min(1, dt * (this.inSub ? 3 : 7));
+    this._wx = tx; this._wz = tz;
+    this.attack = null; this.dodge = null; this.gliding = false; this.jumps = 0; this.airDashUsed = false; this.shielding = false;
+    const f = this.flow || { x: 0, y: 0, z: 0 };
+    const wasGrounded = this.grounded;
+    if (P.moveHorizontal(this.pos, 'x', (this.vel.x + f.x) * dt, RADIUS, HEIGHT, wasGrounded)) this.vel.x = 0;
+    if (P.moveHorizontal(this.pos, 'z', (this.vel.z + f.z) * dt, RADIUS, HEIGHT, wasGrounded)) this.vel.z = 0;
+    const prevY = this.pos.y, vy = this.vel.y + (f.y || 0), newY = prevY + vy * dt;
+    if (vy > 0) {
+      const ceil = P.ceilingAt(this.pos, RADIUS * 0.8, prevY + HEIGHT);
+      this.pos.y = newY + HEIGHT > ceil ? ceil - HEIGHT : newY; this.grounded = false;
+    } else {
+      const g = P.groundAt(this.pos.x, this.pos.z, RADIUS, prevY + 0.05);
+      if (newY <= g.y) { this.pos.y = g.y; this.vel.y = Math.max(0, this.vel.y); this.grounded = true; this.ground = g.obj; }
+      else { this.pos.y = newY; this.grounded = false; this.ground = null; }
+    }
+    // superficie: la cabeza asoma; con salto se sale del agua (el submarino no sale)
+    const top = this.seaY - (this.inSub ? 2.6 : 1.15);
+    this.atSurface = false;
+    if (this.pos.y > top) {
+      this.pos.y = top; if (this.vel.y > 0) this.vel.y = 0; this.atSurface = !this.inSub;
+      if (this.atSurface && !locked && input.pressed('jump')) { this.vel.y = 8.5; this.pos.y = this.seaY - 1.05; this.swimming = false; this.audio.play('splash'); this.fx && this.fx.dust(this.pos, 8, 1, 0xdff6ff); }
+    }
+    this.airTime = 0;
+    this._animate(dt);
+  }
+
   // Cuerda del garfio: un cilindro fino entre la mano de Lía y el anillo, que se estira al lanzarlo.
   _updateRope() {
     if (!this.rope) {
@@ -362,8 +404,12 @@ export class Player {
     if (this.grounded && Math.abs(dy) < 0.7) this.visY += dy * Math.min(1, dt * 16);
     else this.visY = this.pos.y;
     this.mesh.position.set(this.pos.x, this.visY, this.pos.z);
-    this.mesh.rotation.y = this.facing;
-    this.mesh.visible = this.invuln > 0 && this.hurtT <= 0 ? Math.floor(this.invuln * 14) % 2 === 0 : true;
+    this.mesh.rotation.order = 'YXZ'; this.mesh.rotation.y = this.facing;
+    const sw = this.swimming && !this.inSub, hs = Math.hypot(this.vel.x, this.vel.z);
+    this.tilt = (this.tilt || 0) + ((sw ? -Math.min(1.25, hs / 4.4 * 1.25) : 0) - (this.tilt || 0)) * Math.min(1, dt * 6); // al nadar, el cuerpo se tumba hacia delante
+    this.mesh.rotation.x = this.tilt;
+    if (sw) this.mesh.position.y += Math.sin(performance.now() / 300) * 0.06;
+    this.mesh.visible = this.inSub ? false : this.invuln > 0 && this.hurtT <= 0 ? Math.floor(this.invuln * 14) % 2 === 0 : true;
     const ev = this.anim.update(dt, {
       vel: this.vel, grounded: this.grounded, facing: this.facing, jumps: this.jumps,
       input: { x: this._wx || 0, z: this._wz || 0 }, lookAt: this.attack ? null : this.lookAt,
