@@ -603,6 +603,7 @@ function offerLowerDifficulty() {
     if (lower) { save.difficulty = low; applyPartida(); writeSave(save); toast(`Dificultad: ${diffName(low)}`); }
   };
   $('bDiffLower').onclick = () => close(true); $('bDiffKeep').onclick = () => close(false);
+  $('bDiffMenu').onclick = () => { close(false); $('bTitle').onclick(); }; // volver al menú de inicio (la partida queda guardada)
 }
 // ---------- créditos finales: al terminar la historia y los dos capítulos extra ----------
 function maybeCredits(then) {
