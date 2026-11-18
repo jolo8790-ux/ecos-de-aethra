@@ -52,18 +52,21 @@ const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 // ---------- entradas del jugador 2 y de la CPU (misma forma que Input) ----------
 const P2KEYS = { power1: ['KeyJ'], power2: ['KeyK'], power3: ['KeyL'], up: ['ArrowUp'], down: ['ArrowDown'], left: ['ArrowLeft'], right: ['ArrowRight'], jump: ['Slash', 'Numpad0', 'ControlRight', 'Minus'], attack: ['Period', 'Numpad1'], dodge: ['Comma', 'Numpad2'], pulse: ['KeyM', 'Numpad3'], shield: ['KeyN', 'Numpad5'] };
 export class P2Input {
-  constructor(main) { this.main = main; this.move = { x: 0, y: 0 }; this.walk = false; this.pad = null; this._p = new Set(); this._prev = {}; this._prevPad = {}; }
+  constructor(main) { this.main = main; this.move = { x: 0, y: 0 }; this.look = { x: 0, y: 0 }; this.zoom = 0; this.walk = false; this.pad = null; this._p = new Set(); this._prev = {}; this._prevPad = {}; }
   poll() {
     const k = this.main.keys, any = list => list.some(c => k[c]);
     let mx = (any(P2KEYS.right) ? 1 : 0) - (any(P2KEYS.left) ? 1 : 0), my = (any(P2KEYS.up) ? 1 : 0) - (any(P2KEYS.down) ? 1 : 0);
     this._p.clear();
     for (const a of ['jump', 'attack', 'dodge', 'pulse', 'power1', 'power2', 'power3']) { const now = any(P2KEYS[a]); if (now && !this._prev[a]) this._p.add(a); this._prev[a] = now; }
     this._held = { jump: any(P2KEYS.jump), shield: any(P2KEYS.shield), dodge: any(P2KEYS.dodge) };
+    this.look.x = this.look.y = 0;
+    const k2 = this.main.keys; if (k2.Numpad4) this.look.x -= 6; if (k2.Numpad6) this.look.x += 6;
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     const pad = this.pad != null ? pads[this.pad] : null;
     if (pad) {
       const dz = v => Math.abs(v) < 0.15 ? 0 : v;
       mx += dz(pad.axes[0] || 0); my -= dz(pad.axes[1] || 0);
+      this.look.x = dz(pad.axes[2] || 0) * 14; this.look.y = dz(pad.axes[3] || 0) * 10;
       const b = i => pad.buttons[i] && pad.buttons[i].pressed;
       const edge = (i, a) => { const now = b(i); if (now && !this._prevPad[i]) this._p.add(a); this._prevPad[i] = now; };
       edge(0, 'jump'); edge(2, 'attack'); edge(1, 'dodge'); edge(6, 'pulse'); edge(7, 'pulse'); edge(10, 'power1'); edge(11, 'power2'); edge(13, 'power3');
@@ -170,6 +173,7 @@ export class Arena {
     this._arm(p1, heroById((sv && sv.hero) || 'lia'), loadout(sv)); p1.aura = auraOf(cu);
     this.chatLog = []; $('chatLog').innerHTML = ''; $('chatBtn').classList.toggle('hidden', !this.net); this._chatClose();
     C.input.arenaKeys = opts.players === 'local';
+    C.setSplit(opts.players === 'local'); C.cam.distOverride = 0;
     if (opts.players === 'local' || opts.players === 'cpu') {
       const unlocked = HEROES.filter(h => heroUnlocked(h, (sv && sv.piezas || []).length) && h.id !== ((sv && sv.hero) || 'lia'));
       const hero = opts.players === 'local' ? (opts.p2hero || 'kael') : unlocked[Math.floor(Math.random() * unlocked.length)].id;
@@ -218,7 +222,7 @@ export class Arena {
     for (const d of this.decor) C.scene.remove(d); this.decor = [];
     this._clearOrbs(); C.combat.clear();
     this.fighters = [];
-    C.input.arenaKeys = false; C.input.excludePad = null; C.cam.distOverride = 0;
+    C.input.arenaKeys = false; C.input.excludePad = null; C.cam.distOverride = 0; C.setSplit(false);
     if (this.net) { this.net.close(); this.net = null; }
     this._hud(false);
   }
@@ -436,6 +440,7 @@ export class Arena {
     f.player.hp = f.player.maxHp; f.player.invuln = 1.5; f.player.koed = false; f.player.mesh.visible = true; f.player.events = [];
     f.lastBy = null; f.lastByT = 0;
     if (f.kind === 'p1') this.ctx.cam.snap(f.player);
+    if (f.kind === 'p2') this.ctx.cam2.snap(f.player);
   }
 
   // ---------- jugadores online ----------
@@ -527,7 +532,7 @@ export class Arena {
       pl.frozen = !playing;
       C.powers.tick(pl, dt, 10);
       const targets = this.mode === 'coop' ? C.combat.targets : this.fighters.filter(o => o !== f && o.koT <= 0).map(o => o.player);
-      pl.update(dt, inp, camYaw, targets);
+      pl.update(dt, inp, f.kind === 'p2' ? C.cam2.yaw : camYaw, targets);
       if (pl.dodge && pl.dodge.air) C.fx.trail(pl.pos, 0.5 + pl.dodge.t * 2);
       this._pvp(f);
       C.combat.handlePlayer(pl);
@@ -565,15 +570,11 @@ export class Arena {
       C.combat.update(playing ? dt : 0, this.fighters[0].player, others.length ? others : [this.fighters[0].player]);
     } else C.combat.update(dt, this.fighters[0].player);
     if (this.net) this._sendMe();
-    // cámara: con dos jugadores en la pantalla se aleja para ver a ambos
-    const locals = this.fighters.filter(f => f.kind !== 'remote' && f.koT <= 0);
+    // cámara: cada dispositivo sigue a su personaje; con dos jugadores en un mismo dispositivo, pantalla dividida
     const p1 = this.fighters[0].player;
-    if (!this.net && this.fighters.length > 1 && locals.length) {
-      const mid = new THREE.Vector3(); locals.forEach(f => mid.add(f.player.pos)); mid.divideScalar(locals.length);
-      let sep = 0; for (const f of locals) sep = Math.max(sep, f.player.pos.distanceTo(mid));
-      C.cam.distOverride = Math.max(8.5, Math.min(22, 7 + sep * 1.25));
-      C.cam.update(dt, I, { pos: mid, vel: { x: 0, z: 0 }, facing: 0 });
-    } else { C.cam.distOverride = 0; C.cam.update(dt, I, p1); }
+    C.cam.distOverride = 0; C.cam.update(dt, I, p1);
+    const f2 = this.fighters.find(f => f.kind === 'p2');
+    if (f2) C.cam2.update(dt, f2.input, f2.player);
     C.world.playerPos.copy(p1.pos);
     this._hudTick(dt);
   }

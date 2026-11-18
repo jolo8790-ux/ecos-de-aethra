@@ -119,6 +119,14 @@ const world = new World(scene, physics);
 const fx = new FX(scene);
 const player = new Player(scene, physics, audio, fx);
 const cam = new FollowCamera(camera, physics);
+// pantalla dividida (dos jugadores en un mismo dispositivo): segunda cámara para el Jugador 2
+const camera2 = new THREE.PerspectiveCamera(60, 1, 0.1, 600);
+const cam2 = new FollowCamera(camera2, physics);
+let splitView = false;
+function setSplit(on) {
+  splitView = !!on; document.body.classList.toggle('split', splitView);
+  if (!splitView) { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setViewport(0, 0, innerWidth, innerHeight); }
+}
 const combat = new Combat(scene, physics, fx, audio);
 combat.world = world;
 const powers = new Powers({ scene, physics, fx, audio, combat });
@@ -1738,7 +1746,20 @@ async function ensureBloom() {
   } catch (e) { console.warn('Sin resplandor', e); }
   bloomLoading = false;
 }
-function renderScene() { if (composer && QUALITY[qualityNow] && QUALITY[qualityNow].bloom) composer.render(); else renderer.render(scene, camera); }
+function renderScene() {
+  if (splitView) { // cada jugador ve su mitad: lado a lado en horizontal, arriba y abajo en vertical
+    const w = innerWidth, h = innerHeight, tall = h > w;
+    const views = tall ? [[0, h / 2, w, h / 2, camera], [0, 0, w, h / 2, camera2]] : [[0, 0, w / 2, h, camera], [w / 2, 0, w / 2, h, camera2]];
+    renderer.setScissorTest(true);
+    for (const [x, y, vw, vh, c] of views) {
+      c.fov = camera.fov; c.aspect = vw / vh; c.updateProjectionMatrix();
+      renderer.setViewport(x, y, vw, vh); renderer.setScissor(x, y, vw, vh); renderer.render(scene, c);
+    }
+    renderer.setScissorTest(false); renderer.setViewport(0, 0, w, h);
+    return;
+  }
+  if (composer && QUALITY[qualityNow] && QUALITY[qualityNow].bloom) composer.render(); else renderer.render(scene, camera);
+}
 // En «Automática», si el juego va lento un buen rato, baja un nivel (y lo recuerda para la próxima vez).
 
 function autoQualityTick(dt) {
@@ -1996,7 +2017,7 @@ $('bHubPow').onclick = () => openPoderes('title');
 
 // ---------- Arena multijugador ----------
 const arena = new Arena({
-  scene, physics, world, combat, fx, audio, music, input, cam, player,
+  scene, physics, world, combat, fx, audio, music, input, cam, cam2, setSplit, player,
   charLib: () => charLib, getSave: () => save, toast, powers, enemyTarget,
   loadArenaZone(Z) {
     zone = Z; player.inSub = false; player.swimming = false; clearSeaFx();
@@ -2015,7 +2036,7 @@ const arena = new Arena({
 });
 wireChat(arena);
 const arenaUI = { from: null, mode: 'duelo', who: 'cpu', p2hero: 'kael', code: '' };
-const WHO = [['cpu', 'Contra la CPU', 'Tú contra un héroe controlado por el juego.'], ['local', '2 jugadores', 'En esta pantalla: teclado compartido o con mando.'], ['online', 'Online', 'En tiempo real con quien entre en tu sala.']];
+const WHO = [['cpu', 'Contra la CPU', 'Tú contra un héroe controlado por el juego.'], ['local', '2 jugadores aquí', 'Pantalla dividida en este dispositivo: teclado compartido o mandos.'], ['online', 'Online', 'Cada uno desde su dispositivo, en tiempo real, viendo a los demás moverse.']];
 function openArena(from) {
   const sv = from === 'title' ? loadSave() : save; if (!sv) return;
   if (from === 'title') { save = sv; storeOf(save); applyPartida(); applyHero(); }

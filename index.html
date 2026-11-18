@@ -336,6 +336,14 @@
   #chatQuick button { font: inherit; font-size: 13px; padding: 4px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,.3); background: rgba(10,16,30,.7); color: #fff; cursor: pointer; }
   #chatBtn { position: absolute; left: 14px; bottom: 16px; pointer-events: auto; } #chatBox.open ~ #chatBtn, #chatBtn.hidden { display: none; }
   body.touch #chatBox { bottom: 150px; } body.touch #chatBtn { bottom: 150px; left: auto; right: 14px; top: 64px; bottom: auto; }
+  /* pantalla dividida */
+  #splitLine { display: none; position: fixed; z-index: 2; background: rgba(10,16,30,.85); pointer-events: none; }
+  body.split #splitLine { display: block; left: calc(50% - 2px); top: 0; bottom: 0; width: 4px; }
+  .splitTag { display: none; position: fixed; z-index: 3; font-weight: 800; font-size: 14px; padding: 3px 10px; border-radius: 10px; background: rgba(10,16,30,.6); pointer-events: none; }
+  body.split .splitTag { display: block; } #tagP1 { left: 16px; bottom: 16px; color: #4cbcff; } #tagP2 { left: calc(50% + 16px); bottom: 16px; color: #ff7a5a; }
+  body.split #arenaBoard { right: auto; left: calc(50% + 14px); top: 64px; }
+  @media (max-width: 640px) { #arenaTop { top: 124px; padding: 4px 12px; } #arenaMode { font-size: 13px; } #arenaInfo { font-size: 11.5px; } }
+  @media (orientation: portrait) { body.split #arenaTop { top: calc(50% - 58px); } body.split #splitLine { left: 0; right: 0; top: calc(50% - 2px); bottom: auto; width: auto; height: 4px; } body.split #tagP1 { bottom: calc(50% + 12px); } body.split #tagP2 { left: 16px; bottom: 16px; } body.split #arenaBoard { left: auto; right: 10px; top: calc(50% + 12px); } }
 </style>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
@@ -366,6 +374,7 @@
 <div id="airBar" class="hidden"><span class="ic">○</span><div class="track"><div id="airFill"></div></div></div>
 <div id="achv"><span id="achvIcon"></span><span><small>Logro conseguido</small><b id="achvTitle"></b><em id="achvDesc"></em></span></div>
 <div id="arenaHud" class="hidden">
+  <div id="splitLine"></div><div class="splitTag" id="tagP1">Jugador 1</div><div class="splitTag" id="tagP2">Jugador 2</div>
   <div id="arenaTop"><div id="arenaMode"></div><div id="arenaInfo"></div></div>
   <button class="btn alt small" id="arenaExit">✕ Salir</button>
   <div id="arenaBoard"></div>
@@ -392,7 +401,7 @@
 
 <div class="overlay" id="title">
   <h1>Ecos de Aethra</h1>
-  <p class="sub">Versión 2.3</p>
+  <p class="sub">Versión 2.4</p>
   <p class="sub" id="loading" style="margin-bottom:12px">Cargando personajes…</p>
   <div class="menu" id="titleMain">
     <button class="btn" id="bContinue">Continuar</button>
