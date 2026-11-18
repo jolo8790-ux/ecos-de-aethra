@@ -133,6 +133,12 @@ export class Input {
       const b = i => pad.buttons[i] && pad.buttons[i].pressed;
       const edge = (i, action) => { const now = b(i), hit = now && !this._prevPad[i]; if (hit) { this._pressed.add(action); this.usingGamepad = true; if (this.onPad) this.onPad(); } this._prevPad[i] = now; return hit; };
       edge(0, 'jump'); edge(2, 'attack'); edge(1, 'dodge'); edge(3, 'interact'); edge(9, 'pause'); edge(8, 'pause'); edge(5, 'grapple'); edge(7, 'grapple'); edge(6, 'pulse'); edge(12, 'choiceUp'); if (edge(13, 'choiceDown')) this._pressed.add('power3'); edge(14, 'navLeft'); edge(15, 'navRight'); edge(10, 'power1'); edge(11, 'power2');
+      // la palanca izquierda también elige en los menús (con repetición si se mantiene)
+      const sdir = ly < -0.55 ? 'choiceUp' : ly > 0.55 ? 'choiceDown' : lx < -0.55 ? 'navLeft' : lx > 0.55 ? 'navRight' : null;
+      const nowT = performance.now();
+      if (sdir && sdir !== this._stickDir) { this._pressed.add(sdir); this._stickT = nowT + 380; if (this.onPad) this.onPad(); }
+      else if (sdir && nowT > (this._stickT || 0)) { this._pressed.add(sdir); this._stickT = nowT + 140; }
+      this._stickDir = sdir;
       // la cruceta también mueve a Lía
       if (b(12)) my += 1; if (b(13)) my -= 1; if (b(14)) mx -= 1; if (b(15)) mx += 1;
       this.padName = pad.id || '';

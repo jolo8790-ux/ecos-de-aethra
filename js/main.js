@@ -1471,26 +1471,40 @@ function autoFly(dt) {
 }
 
 // ---------- menús con el mando: cruceta para elegir, ✕/A para aceptar, ○/B para volver ----------
+let navOv = null, navKey = '';
 function menuNav() {
   if (!input.usingGamepad) { document.querySelectorAll('.padFocus').forEach(e => e.classList.remove('padFocus')); return; }
   if (state === 'play' || state === 'dialog' || state === 'dead' || state === 'cutscene') return;
-  const ov = [...document.querySelectorAll('.overlay:not(.hidden)')].pop(); if (!ov) return;
+  // en la Arena solo cuentan sus cuadros de pausa y de final de ronda
+  const ov = state === 'arena' ? [...document.querySelectorAll('#arenaEnd:not(.hidden), #arenaPauseBox:not(.hidden)')].pop() : [...document.querySelectorAll('.overlay:not(.hidden)')].pop();
+  if (!ov) return;
   const items = [...ov.querySelectorAll('button, select')].filter(el => !el.disabled && el.offsetParent !== null);
   if (!items.length) return;
-  const sig = items.map(e => e.id || e.textContent).join('|');
-  if (sig !== navSig) { navSig = sig; navI = 0; }
+  const keyOf = e => e.id || e.textContent.trim().slice(0, 40);
+  const sig = items.map(keyOf).join('|');
+  if (sig !== navSig) { // el menú cambió: se mantiene el cursor en la misma opción si sigue ahí
+    const same = navKey ? items.findIndex(e => keyOf(e) === navKey) : -1;
+    navI = ov !== navOv ? 0 : same >= 0 ? same : Math.min(navI, items.length - 1);
+    navSig = sig; navOv = ov;
+  }
+  let cur = items[Math.min(navI, items.length - 1)];
+  const isSel = cur && cur.tagName === 'SELECT';
   if (input.pressed('choiceUp')) navI = (navI + items.length - 1) % items.length;
   if (input.pressed('choiceDown')) navI = (navI + 1) % items.length;
+  // izquierda / derecha: en una lista cambia el valor; en tarjetas y botones en fila pasa a la de al lado
+  if (!isSel && input.pressed('navLeft')) navI = (navI + items.length - 1) % items.length;
+  if (!isSel && input.pressed('navRight')) navI = (navI + 1) % items.length;
   navI = Math.min(navI, items.length - 1);
-  const el = items[navI];
+  const el = items[navI]; navKey = keyOf(el);
   document.querySelectorAll('.padFocus').forEach(e => e !== el && e.classList.remove('padFocus'));
-  el.classList.add('padFocus'); el.scrollIntoView && el.scrollIntoView({ block: 'nearest' });
+  if (!el.classList.contains('padFocus')) { el.classList.add('padFocus'); el.scrollIntoView && el.scrollIntoView({ block: 'nearest' }); if (el.onmouseenter) el.onmouseenter(); }
   if (el.tagName === 'SELECT' && (input.pressed('navLeft') || input.pressed('navRight'))) {
     el.selectedIndex = Math.max(0, Math.min(el.options.length - 1, el.selectedIndex + (input.pressed('navRight') ? 1 : -1)));
     el.dispatchEvent(new Event('change'));
   }
-  if (input.pressed('jump') && el.tagName === 'BUTTON') { audio.play('open'); el.click(); navSig = ''; }
-  if (input.pressed('dodge')) { const back = items.find(b => /Volver|Listo|Continuar/.test(b.textContent) && b.tagName === 'BUTTON'); if (back && state !== 'title') back.click(); else if (back && /Volver/.test(back.textContent)) back.click(); navSig = ''; }
+  // ✕ (PlayStation) o A (Xbox) acepta
+  if (input.pressed('jump') && el.tagName === 'BUTTON') { audio.play('open'); el.click(); }
+  if (input.pressed('dodge')) { const back = items.find(b => /Volver|Listo|Continuar|Seguir/.test(b.textContent) && b.tagName === 'BUTTON'); if (back && state !== 'title') back.click(); else if (back && /Volver/.test(back.textContent)) back.click(); }
 }
 
 // ---------- desafíos: Cristales del Cielo ----------
