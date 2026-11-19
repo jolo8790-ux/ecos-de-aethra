@@ -512,7 +512,14 @@ $('dialog').addEventListener('click', () => input._pressed.add('click'));
 function updateGoal(dt) {
   if (endless.active && endless.inZone) { $('objective').classList.add('hidden'); marker.visible = false; returnWindTick(dt, zone.story && zone.story.goal(S)); return; }
   if (!zone.story) { $('objective').classList.add('hidden'); marker.visible = false; return; }
-  const g = zone.story.goal(S);
+  const g0 = zone.story.goal(S);
+  let g = g0;
+  if (g0 && /^(Prólogo|Capítulo)[^.]*completado\.\s*/i.test(g0.text)) {
+    const nx = zone.chapterEnd && zone.chapterEnd.next && ZONES[zone.chapterEnd.next.zone];
+    const rest = g0.text.replace(/^(Prólogo|Capítulo)[^.]*completado\.\s*/i, '');
+    const t = zone.id === 'puerto_bruma' ? 'Habla con Marta para zarpar hacia el Bosque Colgante' : nx ? `Vuelve con Marta: ${nx.title} os espera` : (rest.charAt(0).toUpperCase() + rest.slice(1));
+    g = { ...g0, text: t };
+  }
   $('objective').classList.toggle('hidden', state === 'title');
   if (g.text !== lastGoal) {
     if (lastGoal) { const o = $('objective'); o.classList.remove('flash'); void o.offsetWidth; o.classList.add('flash'); audio.play('open'); }
@@ -682,8 +689,12 @@ function updateCutscene(dt) {
     camera.lookAt(sp.x, sp.y + 2.5, sp.z);
   }
   if (c.t > 7.6 && !c.faded) { c.faded = true; $('fade').style.opacity = 1; }
-  if (c.t > 8.4) {
-    cutscene = null; state = 'end';
+  if (c.t > 8.4 && !c.voy) {
+    c.voy = true; cutscene = null;
+    voyage({ zone: 'bosque_colgante', cp: 'llegada' });
+    return;
+  }
+  if (false) {
     const total = zone.fragments.length;
     showEndCard({
       kicker: 'Fin del prólogo', title: 'Rumbo al Bosque Colgante', sub: '',
@@ -692,6 +703,27 @@ function updateCutscene(dt) {
     });
     $('fade').style.opacity = 0;
   }
+}
+// viaje al siguiente destino: un fundido con el nombre de la isla y la historia continúa allí
+function voyage(next) {
+  const Z = ZONES[next.zone]; if (!Z) return;
+  const done = zone && zone.fragments ? `Fragmentos de ${zone.title.replace(/^(El|La|Las|Los) /, '')}: ${S.frags()}/${zone.fragments.length}` : '';
+  state = 'voyage'; player.frozen = true; document.body.classList.add('cine');
+  music.stinger('capitulo'); audio.play('glide');
+  $('fade').style.opacity = 1;
+  setTimeout(() => {
+    $('voyageKicker').textContent = next.zone === 'abismo_mareth' ? 'El submarino de Marta se sumerge' : 'El dirigible de Marta zarpa rumbo a';
+    $('voyageTitle').textContent = Z.title; $('voyageSub').textContent = done;
+    const v = $('voyage'); v.classList.add('hidden'); void v.offsetWidth; v.classList.remove('hidden');
+  }, 500);
+  setTimeout(() => {
+    $('voyage').classList.add('hidden');
+    const ship = world.airships && world.airships.dirigible;
+    if (ship && player.mesh.parent === ship.group) { scene.add(player.mesh); ship.offset.set(0, 0, 0); ship.yaw = 0; }
+    document.body.classList.remove('cine'); player.frozen = false; player.shadow.visible = true;
+    enterZone(next.zone, next.cp);
+    $('fade').style.opacity = 0;
+  }, 3200);
 }
 function showEndCard({ kicker, title, stats, sub, next }) {
   $('endKicker').textContent = kicker; $('endTitle').textContent = title; $('endStats').innerHTML = stats; $('endSub').textContent = sub || '';
@@ -702,6 +734,8 @@ function showEndCard({ kicker, title, stats, sub, next }) {
 }
 function showChapterEnd() {
   if (maybeCredits(showChapterEnd)) return;
+  const ce0 = zone.chapterEnd || {};
+  if (ce0.next && !challenge) { voyage(ce0.next); return; }
   state = 'end'; document.body.classList.add('cine');
   music.stinger('capitulo'); music.play('finale', { fade: 2.5 });
   const total = zone.fragments.length, ce = zone.chapterEnd || {};
