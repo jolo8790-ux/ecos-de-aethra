@@ -35,7 +35,7 @@ import { Powers, POWERS, loadout, powerUnlocked, powerPoints, powerById, ENERGY_
 import { Net } from './net.js';
 import { Endless, ENDLESS_ZONE } from './endless.js';
 import { runIntro } from './intro.js';
-import { WEAPONS, ARMORS, weaponById, armorById, gearOf, mergeMods, ECO_REWARD } from './gear.js';
+import { WEAPONS, ARMORS, weaponById, armorById, gearOf, mergeMods, ECO_REWARD, buildWeapon, buildArmor } from './gear.js';
 
 const ZONES_BASE = { puerto_bruma: puertoBruma, bosque_colgante: bosqueColgante, ruinas_vidrio: ruinasVidrio, ciudad_engranajes: ciudadEngranajes, glaciar_eco: glaciarEco, ciudadela_orden: ciudadelaOrden, eco_olvidado: ecoOlvidado, forja_ignis: forjaIgnis, abismo_mareth: abismoMareth };
 applySenderos(ZONES_BASE); // cada zona de la historia gana su Sendero
@@ -1781,7 +1781,8 @@ function buildCustomOpts() {
 // vista previa: un renderizador pequeño solo mientras el panel está abierto
 let pv = null;
 function startPreview() {
-  const cv = $('cPreview');
+  // lienzo nuevo cada vez: el anterior quedó con su contexto WebGL liberado y ya no dibuja (se veía en blanco)
+  const old = $('cPreview'), cv = old.cloneNode(false); old.replaceWith(cv);
   const r = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true }); r.setPixelRatio(Math.min(devicePixelRatio, 2)); r.setSize(cv.clientWidth || 240, cv.clientHeight || 304, false);
   r.outputColorSpace = THREE.SRGBColorSpace;
   const sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight(0xffffff, 0x556070, 1.6)); const d = new THREE.DirectionalLight(0xfff1d6, 1.8); d.position.set(2, 4, 3); sc.add(d);
@@ -1798,6 +1799,11 @@ function refreshPreview() {
   if (!pv) return;
   if (pv.ch) { pv.sc.remove(pv.ch.root); pv.ch.root.traverse(o => { if (o.isMesh && o.material.map && o.material.map.isCanvasTexture) o.material.map.dispose(); }); }
   const look = customLook(cust.cfg); pv.ch = createCharacter(charLib, look); pv.sc.add(pv.ch.root);
+  // también con el arma y la armadura de la Armería
+  const gsv = cust.from === 'title' ? loadSave() : cust.from === 'new' ? null : save;
+  const gg = gsv && gearOf(gsv), hand = pv.ch.model.getObjectByName('handslotr');
+  const w = gg && buildWeapon(gg.arma); if (w && hand) { hand.add(w); w.rotation.y = Math.PI; }
+  if (gg) buildArmor(gg.armadura, pv.ch.model);
   const a = pv.ch.actions.Idle || Object.values(pv.ch.actions)[0]; if (a) { a.setEffectiveWeight(1); a.play(); }
 }
 function stopPreview() { if (!pv) return; cancelAnimationFrame(pv.raf); pv.r.dispose(); pv.r.forceContextLoss(); pv = null; }
