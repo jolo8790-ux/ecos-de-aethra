@@ -86,16 +86,16 @@ export class Powers {
     const turnTo = t => { if (t) pl.facing = Math.atan2(-(t.pos.x - pl.pos.x), -(t.pos.z - pl.pos.z)); };
     const g = (n, o) => pl.gesture && pl.gesture(n, o);
     let target = null;
-    if (id === 'fuego') { target = pick(8, 0.9); turnTo(target); g('Use_Item', { speed: 1.6, fadeIn: 0.05, fadeOut: 0.2 }); this._fire(pl, list); C.audio.play('fire'); }
-    if (id === 'hielo') { target = aim ? null : pick(20, 0.6); turnTo(target); g('Use_Item', { speed: 1.8, fadeIn: 0.05, fadeOut: 0.2 }); this._ice(pl, list, target); C.audio.play('ice'); }
-    if (id === 'furia') { target = pick(6, 1.2); turnTo(target); this._fury(pl, list); C.audio.play('dash'); }
-    if (id === 'levitar') { pl.levT = 5; pl.levY = pl.pos.y + 2.4; pl.vel.y = Math.max(pl.vel.y, 5); pl.grounded = false; g('Spellcast_Raise', { speed: 1.4 }); C.fx.ring(pl.pos.clone().setY(pl.pos.y + 0.2), pl.aura || 0xffd27a); C.audio.play('glide'); }
+    if (id === 'fuego') { target = pick(8, 0.9); turnTo(target); g('Use_Item', { speed: 1.6, fadeIn: 0.05, fadeOut: 0.2 }); this._fire(pl, list); C.audio.play('fire', pl.pos); }
+    if (id === 'hielo') { target = aim ? null : pick(20, 0.6); turnTo(target); g('Use_Item', { speed: 1.8, fadeIn: 0.05, fadeOut: 0.2 }); this._ice(pl, list, target); C.audio.play('ice', pl.pos); }
+    if (id === 'furia') { target = pick(6, 1.2); turnTo(target); this._fury(pl, list); C.audio.play('fury', pl.pos); }
+    if (id === 'levitar') { pl.levT = 5; pl.levY = pl.pos.y + 2.4; pl.vel.y = Math.max(pl.vel.y, 5); pl.grounded = false; g('Spellcast_Raise', { speed: 1.4 }); C.fx.ring(pl.pos.clone().setY(pl.pos.y + 0.2), pl.aura || 0xffd27a); C.audio.play('levitate', pl.pos); }
     if (id === 'telequinesis') {
       target = aim ? null : pick(14, 0.7);
       if (!visual && !target) { pl.energy += P.cost; pl.pcd[id] = 0; return 'none'; }
-      turnTo(target); g('Spellcast_Raise', { speed: 1.2, fadeIn: 0.1, fadeOut: 0.3 }); this._tele(pl, target, aim); C.audio.play('dark');
+      turnTo(target); g('Spellcast_Raise', { speed: 1.2, fadeIn: 0.1, fadeOut: 0.3 }); this._tele(pl, target, aim); C.audio.play('tele', pl.pos);
     }
-    if (id === 'rayo') { target = pick(16, 0.5); turnTo(target); pl.slowT = 1.7; g('Spellcast_Raise', { speed: 0.9 }); this._beam(pl, list); C.audio.play('pulse'); }
+    if (id === 'rayo') { target = pick(16, 0.5); turnTo(target); pl.slowT = 1.7; g('Spellcast_Raise', { speed: 0.9 }); this._beam(pl, list); C.audio.play('beam', pl.pos); }
     if (id === 'flechas') {
       target = pick(18, 1.0);
       const at = aim ? new THREE.Vector3(aim.x, aim.y, aim.z) : target ? target.pos.clone() : pl.pos.clone().add(fwd(pl.facing).multiplyScalar(9));
@@ -153,7 +153,7 @@ export class Powers {
       for (const t of list) if (t.pos.clone().setY(t.pos.y + 0.8).distanceTo(m.position) < (t.radius || 0.5) + 0.5) { hit = t; break; }
       const wall = C.physics.groundAt(m.position.x, m.position.z, 0.1, m.position.y).y > m.position.y - 0.05 && e.t > 0.05;
       if (hit) hit.hit(1, 'ice', m.position.clone(), { t: 2.6 });
-      if (hit || wall || e.t > 1.2) { C.fx.sparkle(m.position.clone(), 24, 0xd8f6ff); C.audio.play('crystal'); C.scene.remove(m); return true; }
+      if (hit || wall || e.t > 1.2) { C.fx.sparkle(m.position.clone(), 24, 0xd8f6ff); C.audio.play('thaw', m.position); C.scene.remove(m); return true; }
     } });
   }
 
@@ -169,7 +169,7 @@ export class Powers {
         pl.gesture && pl.gesture(anims[n], { speed: 2.6, fadeIn: 0.02, fadeOut: 0.08 });
         C.combat.slash(pl, { arc: [-0.6, 0.6, 0.3, -0.3, 0.6, 0][n] });
         const f = fwd(pl.facing); pl.vel.x = f.x * 7; pl.vel.z = f.z * 7;
-        C.audio.play('swing');
+        C.audio.play('swing', pl.pos);
         for (const t of list) {
           const dx = t.pos.x - pl.pos.x, dz = t.pos.z - pl.pos.z, d = Math.hypot(dx, dz);
           if (d > 2.5 + (t.radius || 0) || Math.abs(t.pos.y - pl.pos.y) > 2) continue;
@@ -201,7 +201,7 @@ export class Powers {
       rings.forEach((r, i) => { r.position.copy(b).setY(b.y - 0.6 + i * 0.6 + Math.sin(e.t * 4 + i) * 0.1); r.rotation.x = Math.PI / 2; r.rotation.z = e.t * (3 + i); });
       if (Math.random() < 0.5) C.fx.sparkle(b.clone(), 2, col);
       mat.opacity = 0.55 * Math.min(1, (2.4 - e.t) * 3);
-      if (e.t > 2.4) { C.scene.remove(beam); rings.forEach(r => C.scene.remove(r)); C.combat.shake(0.25, 0.25); C.fx.dust(tp(), 12, 1.4); return true; }
+      if (e.t > 2.4) { C.scene.remove(beam); rings.forEach(r => C.scene.remove(r)); C.combat.shake(0.25, 0.25); C.audio.play('slam', tp()); C.fx.dust(tp(), 12, 1.4); return true; }
     } });
   }
 
@@ -250,7 +250,7 @@ export class Powers {
     const A = [], dummy = new THREE.Object3D();
     for (let i = 0; i < N; i++) { const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * R; A.push({ x: at.x + Math.cos(a) * r, z: at.z + Math.sin(a) * r, t0: 0.7 + Math.random() * 1.7, tilt: (Math.random() - 0.5) * 0.25, rot: Math.random() * 6.28, stuck: false }); }
     let tick = 0;
-    C.audio.play('windup');
+    C.audio.play('arrows', at);
     this.fx.push({ t: 0, update: (dt, e) => {
       e.t += dt; tick -= dt;
       warn.material.opacity = 0.35 + Math.sin(e.t * 14) * 0.25;
@@ -266,7 +266,7 @@ export class Powers {
       });
       mesh.instanceMatrix.needsUpdate = true;
       if (e.t > 0.9 && e.t < 2.6 && tick <= 0) {
-        tick = 0.35; C.audio.play('hit');
+        tick = 0.35;
         for (const t of list) if (Math.hypot(t.pos.x - at.x, t.pos.z - at.z) < R + (t.radius || 0) && Math.abs(t.pos.y - at.y) < 3.5) t.hit(1, 'arrow', new THREE.Vector3(t.pos.x, t.pos.y + 3, t.pos.z), { push: 1 });
       }
       if (e.t > 3.6) { mesh.material.transparent = true; mesh.material.opacity = Math.max(0, 1 - (e.t - 3.6) * 2); }
@@ -283,9 +283,9 @@ export class Powers {
     const ice = pl.iceT > 0, lift = pl.liftT > 0, lev = pl.levT > 0;
     if (ice && !pl._iceBlock) {
       const m = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: 0xcff4ff, emissive: 0x3a8ad0, emissiveIntensity: 0.5, transparent: true, opacity: 0.55, roughness: 0.1, flatShading: true, depthWrite: false }));
-      m.scale.set(0.75, 1.15, 0.75); m.position.y = 0.95; host.add(m); pl._iceBlock = m; this.C.audio.play('ice');
+      m.scale.set(0.75, 1.15, 0.75); m.position.y = 0.95; host.add(m); pl._iceBlock = m; this.C.audio.play('freeze', pl.pos);
     }
-    if (!ice && pl._iceBlock) { host.remove(pl._iceBlock); this.C.fx.sparkle(pl.pos.clone().setY(pl.pos.y + 1), 20, 0xd8f6ff); this.C.audio.play('crystal'); pl._iceBlock = null; }
+    if (!ice && pl._iceBlock) { host.remove(pl._iceBlock); this.C.fx.sparkle(pl.pos.clone().setY(pl.pos.y + 1), 20, 0xd8f6ff); this.C.audio.play('thaw', pl.pos); pl._iceBlock = null; }
     if ((lift || lev) && !pl._aura) {
       const col = lift ? 0xb07aff : (pl.aura || 0xffd27a);
       const g = new THREE.Group(); const mat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.5, depthWrite: false, blending: add, side: THREE.DoubleSide });

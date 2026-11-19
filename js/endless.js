@@ -15,11 +15,11 @@ export const ENDLESS_ZONE = {
   lanterns: [], fragments: [],
 };
 const BIOMES = [
-  { name: 'Pradera flotante', music: 'bosque', top: 0x7cc35a, side: 0x7a5a3c, sky: [0x5aa8f0, 0xd8f0ff, 0xcfe8ff], deco: 'tree', crystal: 0x9ff0ff, foes: ['brote', 'avispa'] },
-  { name: 'Dunas del cielo', music: 'puerto', top: 0xe3c27a, side: 0xb07a4a, sky: [0x6ab0e8, 0xffe8c0, 0xf3dcb0], deco: 'rock', crystal: 0xffd27a, foes: ['brote', 'espora'] },
-  { name: 'Glaciar eterno', music: 'glaciar', top: 0xeef6ff, side: 0x8aa6c8, sky: [0x7aa8d8, 0xe8f4ff, 0xdde8f4], deco: 'pine', crystal: 0xbff4ff, foes: ['brote_hielo', 'avispa'] },
-  { name: 'Forjas ardientes', music: 'forja', top: 0x6a4a40, side: 0x3a2a2a, sky: [0x2a1018, 0xff7a3a, 0x8a3a2a], deco: 'rock', crystal: 0xff8a3a, foes: ['automata', 'espora'], jets: true },
-  { name: 'Ruinas de cristal', music: 'ruinas', top: 0xb8a8d8, side: 0x6a5a8a, sky: [0x10183a, 0x6a4aa8, 0x3a3a6a], deco: 'crystal', crystal: 0xc8a8ff, foes: ['sombra', 'avispa', 'brote'] },
+  { name: 'Pradera flotante', surface: 'grass', music: 'infinito', top: 0x7cc35a, side: 0x7a5a3c, sky: [0x5aa8f0, 0xd8f0ff, 0xcfe8ff], deco: 'tree', crystal: 0x9ff0ff, foes: ['brote', 'avispa'] },
+  { name: 'Dunas del cielo', surface: 'sand', music: 'puerto', top: 0xe3c27a, side: 0xb07a4a, sky: [0x6ab0e8, 0xffe8c0, 0xf3dcb0], deco: 'rock', crystal: 0xffd27a, foes: ['brote', 'espora'] },
+  { name: 'Glaciar eterno', surface: 'snow', music: 'glaciar', top: 0xeef6ff, side: 0x8aa6c8, sky: [0x7aa8d8, 0xe8f4ff, 0xdde8f4], deco: 'pine', crystal: 0xbff4ff, foes: ['brote_hielo', 'avispa'] },
+  { name: 'Forjas ardientes', surface: 'stone', music: 'forja', top: 0x6a4a40, side: 0x3a2a2a, sky: [0x2a1018, 0xff7a3a, 0x8a3a2a], deco: 'rock', crystal: 0xff8a3a, foes: ['automata', 'espora'], jets: true },
+  { name: 'Ruinas de cristal', surface: 'stone', music: 'ruinas', top: 0xb8a8d8, side: 0x6a5a8a, sky: [0x10183a, 0x6a4aa8, 0x3a3a6a], deco: 'crystal', crystal: 0xc8a8ff, foes: ['sombra', 'avispa', 'brote'] },
 ];
 const SECTOR_SEGS = 6;
 function rng(seed) { let s = (Math.floor(seed) * 9301 + 49297) % 233280 || 1; return () => (s = (s * 9301 + 49297) % 233280) / 233280; }
@@ -202,7 +202,7 @@ export class Endless {
     if (this.skyNow === B) return;
     this.skyNow = B;
     this.C.setSky(B.sky[0], B.sky[1], B.sky[2], instant);
-    this.C.setMusic(B.music);
+    this.C.setMusic(B.music); this.C.audio.surface = B.surface || 'grass';
     if (!instant) this.C.banner(B.name, `Sector ${sectorId + 1}`);
   }
 

@@ -143,7 +143,7 @@ function enemyTarget(e) {
     if (kind === 'ice' && canStun) {
       e.state = 'stagger'; e.stagger = x.t || 2.5;
       const m = new THREE.Mesh(new THREE.IcosahedronGeometry(0.9, 1), new THREE.MeshStandardMaterial({ color: 0xcff4ff, emissive: 0x3a8ad0, emissiveIntensity: 0.5, transparent: true, opacity: 0.55, flatShading: true, depthWrite: false }));
-      m.position.y = 0.6; m.userData.noFlash = true; e.group.add(m); audio.play('ice');
+      m.position.y = 0.6; m.userData.noFlash = true; e.group.add(m); audio.play('freeze', e.pos);
       powers.fx.push({ t: 0, update: (dt, f) => { f.t += dt; if (e.alive && e.state === 'stagger') e.stagger = Math.max(e.stagger, 0.1); if (f.t > (x.t || 2.5) || !e.alive) { e.group.remove(m); if (e.alive) { e.stagger = 0.05; fx.sparkle(e.pos.clone().setY(e.pos.y + 0.6), 14, 0xd8f6ff); } return true; } } });
     }
     if (kind === 'lift') {
@@ -218,6 +218,7 @@ Promise.all([
 // ---------- zonas ----------
 function loadZone(id, checkpointId) {
   zone = ZONES[id];
+  audio.surface = surfaceOf(zone);
   player.inSub = false; player.swimming = false; clearSeaFx(); powers.clear(); player.iceT = player.liftT = player.levT = 0; player.frozen = false;
   if (zone.sea && save && save.flags.mr_sub && !save.flags.mr_fosa) delete save.flags.mr_sub; // el submarino vuelve a su amarre
   if (zone.boss && zone.boss.type === 'eco') { // el Eco Sombrío es una copia oscura de la protagonista tal como la vistió el jugador
@@ -751,7 +752,7 @@ function handlePlayerEvents() {
     if (ev.type === 'hurt') { if (bossActive) bossHurt = true; combat.shake(0.25, 0.25); input.rumble(220, 0.7); $('hudHearts').classList.remove('hit'); void $('hudHearts').offsetWidth; $('hudHearts').classList.add('hit'); }
     if (ev.type === 'dead') startDeath();
     if (ev.type === 'pulse') doPulse(ev.pos, ev.radius);
-    if (ev.type === 'power' && state === 'play') { const r = powers.cast(player, ev.id, storyFoes); if (r === 'none') toast('No hay nadie al alcance'); else if (r === false) audio.play('hurt'); }
+    if (ev.type === 'power' && state === 'play') { const r = powers.cast(player, ev.id, storyFoes); if (r === 'none') { toast('No hay nadie al alcance'); audio.play('powerFail'); } else if (r === false) audio.play('powerFail'); }
   }
   player.events = player.events.filter(e => e.type === 'hitcheck' || e.type === 'swing');
 }
@@ -1495,7 +1496,7 @@ function menuNav() {
   if (!isSel && input.pressed('navLeft')) navI = (navI + items.length - 1) % items.length;
   if (!isSel && input.pressed('navRight')) navI = (navI + 1) % items.length;
   navI = Math.min(navI, items.length - 1);
-  const el = items[navI]; navKey = keyOf(el);
+  const el = items[navI]; if (keyOf(el) !== navKey && navKey) audio.play('uiMove'); navKey = keyOf(el);
   document.querySelectorAll('.padFocus').forEach(e => e !== el && e.classList.remove('padFocus'));
   if (!el.classList.contains('padFocus')) { el.classList.add('padFocus'); el.scrollIntoView && el.scrollIntoView({ block: 'nearest' }); if (el.onmouseenter) el.onmouseenter(); }
   if (el.tagName === 'SELECT' && (input.pressed('navLeft') || input.pressed('navRight'))) {
@@ -1504,7 +1505,7 @@ function menuNav() {
   }
   // ✕ (PlayStation) o A (Xbox) acepta
   if (input.pressed('jump') && el.tagName === 'BUTTON') { audio.play('open'); el.click(); }
-  if (input.pressed('dodge')) { const back = items.find(b => /Volver|Listo|Continuar|Seguir/.test(b.textContent) && b.tagName === 'BUTTON'); if (back && state !== 'title') back.click(); else if (back && /Volver/.test(back.textContent)) back.click(); }
+  if (input.pressed('dodge')) { audio.play('back'); const back = items.find(b => /Volver|Listo|Continuar|Seguir/.test(b.textContent) && b.tagName === 'BUTTON'); if (back && state !== 'title') back.click(); else if (back && /Volver/.test(back.textContent)) back.click(); }
 }
 
 // ---------- desafíos: Cristales del Cielo ----------
@@ -1901,6 +1902,8 @@ function simulate(dt) {
   skyTick(dt);
   powers.update(dt); powers.statusFx(player, dt);
   if (state !== 'title') updatePowerHUD();
+  audio.listener = { x: camera.position.x, z: camera.position.z, yaw: cam.yaw, ref: 10 };
+  musicMood(dt);
   soundHintTick(dt);
   fx.update(dt);
   for (const p of pulseFx) { p.t += dt; const k = p.t / 0.45; p.m.scale.setScalar(0.5 + k * p.r); p.m.material.opacity = 0.5 * (1 - k); if (k >= 1) { scene.remove(p.m); p.done = true; } }
@@ -2054,7 +2057,7 @@ const arena = new Arena({
   scene, physics, world, combat, fx, audio, music, input, cam, cam2, setSplit, player,
   charLib: () => charLib, getSave: () => save, toast, powers, enemyTarget,
   loadArenaZone(Z) {
-    zone = Z; player.inSub = false; player.swimming = false; clearSeaFx();
+    zone = Z; player.inSub = false; player.swimming = false; clearSeaFx(); audio.surface = 'stone';
     skyMat.uniforms.top.value.setHex(Z.sky.top); skyMat.uniforms.bottom.value.setHex(Z.sky.bottom);
     scene.fog = new THREE.Fog(Z.sky.fog, Z.sky.fogNear, Z.sky.fogFar);
     hemi.color.setHex(Z.light.hemiSky); hemi.groundColor.setHex(Z.light.hemiGround); sun.color.setHex(Z.light.sun);
@@ -2078,6 +2081,31 @@ function soundHintTick(dt) {
   $('soundHint').classList.toggle('hidden', on || soundHintT < 2.5 || (settings.volume ?? 0.7) <= 0);
 }
 $('soundHint').onclick = () => { wakeAudio(); $('soundHint').classList.add('hidden'); };
+
+// ---------- sonido: suelo bajo los pies y música de combate ----------
+function surfaceOf(Z) {
+  if (!Z) return 'grass';
+  if (Z.id === 'ciudad_engranajes' || Z.id === 'ciudadela_orden') return 'stone';
+  const c = new THREE.Color((Z.palette && Z.palette.top) || 0x7ccf6a), h = {}; c.getHSL(h);
+  if (h.l > 0.78 && h.s < 0.45) return 'snow';
+  if (h.h > 0.07 && h.h < 0.16 && h.s > 0.3) return 'sand';
+  if (h.s < 0.22 || h.l < 0.3) return 'stone';
+  return 'grass';
+}
+let moodT = 0;
+function musicMood(dt) {
+  if ((moodT -= dt) > 0) return; moodT = 0.25;
+  let I = 0;
+  if (state === 'play' || state === 'arena') {
+    for (const e of combat.enemies) {
+      if (!e.alive) continue;
+      const d = e.pos.distanceTo(player.pos);
+      if (d < 16 && (e.state === 'chase' || e.state === 'windup' || e.state === 'attack' || e.state === 'notice' || d < 7)) { I = 1; break; }
+      if (d < 22) I = Math.max(I, 0.4);
+    }
+  }
+  music.setIntensity(I);
+}
 
 // ---------- Aethra sin fin ----------
 const skyT = { top: new THREE.Color(), bottom: new THREE.Color(), fog: new THREE.Color(), on: false };
@@ -2240,7 +2268,7 @@ window.__aethra = {
   testNewGame(name = 'Prueba', difficulty = settings.difficulty, opts = {}) { nueva.name = name; nueva.diff = DIFF[difficulty] ? difficulty : 'normal'; nueva.slot = freeSlot() || getSlot() || 1; createPartida(settings.custom || {}); if (opts.sellos !== false) for (const id of Object.keys(SENDEROS)) save.flags['sello_' + id] = true; }, // las pruebas de capítulos saltan los Senderos
   openChallenges() { if (!loadSave()) { nueva.name = 'Prueba'; nueva.diff = DIFF[settings.difficulty] ? settings.difficulty : 'normal'; nueva.slot = freeSlot() || 1; const sv = newSave({ name: 'Prueba', difficulty: nueva.diff, custom: settings.custom || {} }); setSlot(nueva.slot); writeSlot(nueva.slot, sv); } $('bHubCh').click(); },
   playCredits: (then) => playCredits(save, then || (() => {})), showChapterEnd, startEnding, openTrophies, offerLowerDifficulty, get lossStreak() { return lossStreak; },
-  arena, openArena, openHeroes, openMisiones, openPoderes, powers, leaveArena, checkMissions, get arenaUI() { return arenaUI; }, Net,
+  arena, openArena, openHeroes, openMisiones, openPoderes, powers, audio, leaveArena, checkMissions, get arenaUI() { return arenaUI; }, Net,
   endless, startEndless, stopEndless, startChallenge,
   hold(on) { paused4test = on; }, S, combat, enterZone, choose, get zone() { return zone; }, get dialog() { return dialog; },
   step(n, press) {

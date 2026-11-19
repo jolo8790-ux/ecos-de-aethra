@@ -175,6 +175,40 @@ SONGS.desafio_noche = { ...SONGS.desafio, bpm: 116, chords: ['Am', 'F', 'C', 'G'
   tracks: [...SONGS.desafio.tracks.slice(0, 4), { type: 'pad', inst: 'pad', oct: 3, vol: 0.3 },
     { type: 'mel', inst: 'bell', from: 4, vol: 0.4, notes: ['A5 - E5 - C6 - B5 -', 'A5 - - - F5 - - -', 'G5 - E5 - C5 - E5 -', 'D5 - - - G5 - - -', 'A5 - C6 - E6 - D6 -', 'C6 - - - A5 - - -', 'F5 - A5 - D6 - C6 -', 'B5 - - - G#5 - - -'] }] };
 
+// Arena: batalla épica con tambores taiko, cuerdas que galopan y metales (re menor)
+SONGS.arena = {
+  bpm: 146, vol: 0.85, battle: true, chords: ['Dm', 'Bb', 'C', 'Am', 'Dm', 'Bb', 'Gm', 'A'],
+  tracks: [
+    { type: 'pad', inst: 'strings', oct: 3, vol: 0.3 },
+    { type: 'bass', inst: 'bass', oct: 2, pattern: 'R R O R R R O R R R O R F F O F', vol: 0.45 },
+    { type: 'stab', inst: 'strings', oct: 4, pattern: 'x.xx.xx.x.xx.xx.', vol: 0.35 },
+    { type: 'drum', inst: 'taiko', pattern: 'X..x..x.X..x.x..', vol: 0.6 },
+    { type: 'drum', inst: 'snare', from: 2, pattern: '....x.......x..x', vol: 0.45 },
+    { type: 'drum', inst: 'ohat', from: 2, pattern: '..x...x...x...x.', vol: 0.4 },
+    { type: 'drum', inst: 'crash', pattern: 'x...............', vol: 0.25, every: 2 },
+    { type: 'arp', inst: 'pluck', oct: 4, from: 4, pattern: '0 2 4 2 5 4 2 1', vol: 0.25 },
+    { type: 'mel', inst: 'brass', from: 4, vol: 0.5, notes: [
+      'D5 - - A4 D5 - F5 -', 'F5 - E5 - D5 - C5 -', 'E5 - - C5 E5 - G5 -', 'A5 - - - E5 - - -',
+      'D5 - - A4 D5 - F5 -', 'Bb5 - A5 - G5 - F5 -', 'G5 - F5 - E5 - D5 -', 'C#5 - - - E5 - A5 -'] },
+  ],
+};
+// Aethra sin fin: viaje alegre con piano eléctrico y cuerdas pulsadas
+SONGS.infinito = {
+  bpm: 112, vol: 0.85, chords: ['Fmaj7', 'G', 'Em', 'Am', 'Fmaj7', 'G', 'C', 'C'],
+  tracks: [
+    { type: 'pad', inst: 'pad', oct: 3, vol: 0.35, open: true },
+    { type: 'arp', inst: 'harp', oct: 4, pattern: '0 2 4 2 1 3 4 3', vol: 0.3 },
+    { type: 'bass', inst: 'bass', oct: 2, pattern: 'R . . R . . F . R . . R . . O .', vol: 0.42 },
+    { type: 'drum', inst: 'kick', pattern: 'x.....x...x.....', vol: 0.5 },
+    { type: 'drum', inst: 'snare', from: 2, pattern: '....x.......x...', vol: 0.35 },
+    { type: 'drum', inst: 'shaker', from: 2, pattern: 'x.x.x.x.x.x.x.x.', vol: 0.3 },
+    { type: 'mel', inst: 'epiano', from: 4, vol: 0.5, notes: [
+      'E5 - G5 - A5 - C6 -', 'B5 - - - G5 - - -', 'G5 - E5 - B4 - E5 -', 'A5 - - - C6 - B5 A5',
+      'A5 - C6 - E6 - D6 C6', 'B5 - G5 - D5 - G5 -', 'E5 - G5 - C6 - - -', 'C6 - - - - - . .'] },
+  ],
+};
+SONGS.boss.battle = true; SONGS.boss_escorpion.battle = true; SONGS.boss_coloso.battle = true; SONGS.boss_sierpe.battle = true; SONGS.vaelor.battle = true;
+
 // Capítulo extra: el tema de Aethra, nocturno y con campanas; su jefe usa el tema de Vaelor en otro tono
 SONGS.eco = { ...SONGS.title, bpm: 68, transpose: -3, vol: 0.9, tracks: [
   { type: 'pad', inst: 'choir', oct: 3, vol: 0.4, open: true },

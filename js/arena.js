@@ -177,7 +177,7 @@ export class Arena {
     if (opts.players === 'local' || opts.players === 'cpu') {
       const unlocked = HEROES.filter(h => heroUnlocked(h, (sv && sv.piezas || []).length) && h.id !== ((sv && sv.hero) || 'lia'));
       const hero = opts.players === 'local' ? (opts.p2hero || 'kael') : unlocked[Math.floor(Math.random() * unlocked.length)].id;
-      const pl = new Player(C.scene, C.physics, C.audio, C.fx);
+      const sp = C.audio.spatial(null), pl = new Player(C.scene, C.physics, sp, C.fx); sp.src = pl.pos; // su sonido sale de donde está
       if (C.charLib()) pl.useModel(C.charLib(), heroLook(hero, {}));
       const got = POWERS.filter(P => powerUnlocked(P, sv)).map(P => P.id);
       const slots = opts.players === 'local' ? loadout(sv) : got.sort(() => Math.random() - 0.5).slice(0, 2);
@@ -195,7 +195,7 @@ export class Arena {
       this.net.set({ n: this.fighters[0].name, h: this.fighters[0].hero, c: (sv && sv.custom) || {}, s: 'arena', mode: this.mode });
     } else this.newMatch();
     this._hud(true);
-    C.music.play('desafio', { fade: 1.2 });
+    C.music.play('arena', { fade: 1.2 });
   }
   _fighter(o) { return { score: 0, koT: 0, lastBy: null, lastByT: 0, ...o }; }
   _arm(pl, hero, slots = []) { // todos llegan a la Arena con el equipo completo y sus poderes
@@ -315,8 +315,8 @@ export class Arena {
     if (boss) { // jefe: un brote gigante; el de sombra lleva un aura que solo el pulso de luz deshace
       const e = add(n >= 10 ? 'automata' : 'sombra', 0, 0, -10);
       e.group.scale.setScalar(2); e.radius = 1.3; e.hp = e.maxHp = Math.round((10 + n * 2) * (1 + 0.5 * (Math.min(np, 12) - 1))); e.boss = true;
-      C.toast(`¡Oleada ${n}: llega un jefe!`); C.audio.play('roar'); C.combat.shake(0.4, 1);
-    } else C.toast(`Oleada ${n}`);
+      C.toast(`¡Oleada ${n}: llega un jefe!`); C.audio.play('roar'); C.audio.play('horn'); C.combat.shake(0.4, 1);
+    } else { C.toast(`Oleada ${n}`); C.audio.play('horn'); }
     for (let i = 0; i < count; i++) {
       const t = types[Math.floor(R() * types.length)], s = spots[Math.floor(R() * spots.length)];
       const x = s[0] + (R() - 0.5) * 2, z = s[1] + (R() - 0.5) * 2;
@@ -373,8 +373,8 @@ export class Arena {
   _hit(f, o, dmg, from, push) {
     const C = this.ctx;
     C.fx.sparkle(o.player.pos.clone().setY(o.player.pos.y + 1), 10, 0xffffff);
-    if (o.kind === 'remote') { this.net.event({ t: 'hit', to: o.id, d: dmg, x: r2(from.x), z: r2(from.z), p: push }); C.audio.play('hit'); return; }
-    if (o.player.damage(dmg, from)) { o.lastBy = this._fid(f); o.lastByT = 6; C.combat.shake(0.12, 0.15); if (o.kind === 'p1') C.input.rumble(160, 0.6); }
+    if (o.kind === 'remote') { this.net.event({ t: 'hit', to: o.id, d: dmg, x: r2(from.x), z: r2(from.z), p: push }); C.audio.play(dmg >= 2 ? 'hitHeavy' : 'hit', o.player.pos); return; }
+    if (o.player.damage(dmg, from)) { C.audio.play(dmg >= 2 ? 'hitHeavy' : 'hit', o.player.pos); o.lastBy = this._fid(f); o.lastByT = 6; C.combat.shake(0.12, 0.15); if (o.kind === 'p1') C.input.rumble(160, 0.6); }
   }
   _remoteEvent(from, ev) {
     const C = this.ctx;
@@ -429,7 +429,7 @@ export class Arena {
     if (f.koT > 0 || !this.m || this.phase !== 'play') return;
     const C = this.ctx;
     f.koT = this.mode === 'coop' ? 3.5 : 2.2;
-    C.fx.sparkle(f.player.pos.clone().setY(f.player.pos.y + 1), 30, 0xff8a6a); C.audio.play(why === 'fall' ? 'splash' : 'shatter');
+    C.fx.sparkle(f.player.pos.clone().setY(f.player.pos.y + 1), 30, 0xff8a6a); C.audio.play('ko', f.player.pos);
     f.player.mesh.visible = false; f.player.shadow.visible = false; f.player.koed = true;
     this._report(f, { t: 'ko', by: f.lastByT > 0 ? f.lastBy : null });
     this.flash(`${f.name}: ¡KO!`, f.color);
@@ -452,7 +452,7 @@ export class Arena {
       let f = this.fighters.find(x => x.id === p.id);
       const P = p.pres;
       if (!f) {
-        const pl = new Player(C.scene, C.physics, MUTE, C.fx); pl.remote = true; pl.damage = () => false; pl.blocks = () => false;
+        const sp = C.audio.spatial(null), pl = new Player(C.scene, C.physics, sp, C.fx); sp.src = pl.pos; pl.remote = true; pl.damage = () => false; pl.blocks = () => false;
         f = this._fighter({ id: p.id, kind: 'remote', name: String(P.n || 'Jugador').slice(0, 16), player: pl, color: COLORS[(this.fighters.length) % COLORS.length], hero: null });
         this.fighters.push(f); C.toast(`${f.name} entró en la Arena`); this._chatAdd('', '', `${f.name} entró en la Arena`, true);
       }
@@ -592,7 +592,7 @@ export class Arena {
     else if (this.mode === 'duelo') info = `Primero en lograr ${(m && m.goal) || M.goal} KO · ${this.fighters.length} jugador${this.fighters.length === 1 ? '' : 'es'}`;
     else info = `Primero en juntar ${M.goal} piezas`;
     $('arenaInfo').textContent = info;
-    if (m && m.s === 'count') { const n = Math.ceil(m.t); if (n !== this._lastCount) { this._lastCount = n; this.flash(n > 0 ? String(n) : '¡Ya!', '#ffd27a'); this.ctx.audio.play(n > 0 ? 'crystal' : 'unlock'); } }
+    if (m && m.s === 'count') { const n = Math.ceil(m.t); if (n !== this._lastCount) { this._lastCount = n; this.flash(n > 0 ? String(n) : '¡Ya!', '#ffd27a'); this.ctx.audio.play(n > 0 ? 'beep' : 'go'); } }
     if (m && m.s === 'play' && this._lastCount !== 0) { this._lastCount = 0; this.flash('¡Ya!', '#ffd27a'); }
     const scoreOf = f => (m && m.sc ? (m.sc[this._fid(f)] || 0) : 0);
     let shown = this.fighters;

@@ -28,6 +28,7 @@ export class Music {
   constructor(audio) {
     this.audio = audio; this.ctx = null;
     this.musicVol = 0.6; this.duckK = 1; this.song = null; this.amb = null; this.wanted = null; this.wantedAmb = null;
+    this.intensity = 0; this.intensityTarget = 0; this.ksCache = new Map(); // capa de combate y cuerdas pulsadas
   }
   // Se llama tras el primer gesto del jugador (los navegadores no dejan sonar antes).
   init() {
@@ -92,8 +93,11 @@ export class Music {
     setTimeout(() => out.disconnect(), (st.len * beat + 4) * 1000);
   }
 
+  // 0 = calma, 1 = combate: añade tambores grandes, platillos y metales graves a cualquier canción
+  setIntensity(v) { this.intensityTarget = Math.max(0, Math.min(1, v)); }
   _tick() {
     const c = this.ctx; if (!c) return;
+    const it = this.intensityTarget; this.intensity += (it - this.intensity) * (it > this.intensity ? 0.08 : 0.012);
     const s = this.song;
     if (s && !s.stopping) {
       const S = s.S, grid = 60 / S.bpm / 4; // semicorcheas
@@ -109,6 +113,15 @@ export class Music {
     const nBars = S.chords.length, ci = bar % nBars;
     const ch = chord(S.chords[ci]), tr = S.transpose || 0;
     if (S.swing && pos % 4 === 2) t += S.swing * grid;
+    // capa de combate (no en las canciones que ya son de batalla)
+    const I = this.intensity;
+    if (I > 0.08 && !S.battle) {
+      if ('x.....x.x..x..x.'[pos] === 'x') this._drum('taiko', s.out, t, 0.55 * I * (pos === 0 ? 1.3 : 1));
+      if (pos % 4 === 2) this._drum('ohat', s.out, t, 0.28 * I);
+      if (pos === 0 && bar % 4 === 0 && I > 0.5) this._drum('crash', s.out, t, 0.3 * I);
+      if (pos === 0 || pos === 10) { const r = ch.root + 12 * 3 + tr; for (const m of [r, r + 7]) this._note('brass', s.out, t, hz(m), grid * (pos === 0 ? 5 : 3), 0.32 * I); }
+      if (pos % 2 === 0 && I > 0.4) this._note('bass', s.out, t, hz(ch.root + 12 * 2 + tr + (pos % 8 === 6 ? 7 : 0)), grid * 1.6, 0.22 * I);
+    }
     for (let k = 0; k < S.tracks.length; k++) {
       const T = S.tracks[k];
       if (T.from && bar < T.from) continue;
@@ -175,6 +188,14 @@ export class Music {
         break;
       }
       case 'pluck': case 'harp': case 'oud': {
+        const buf = this._ks(f, inst);
+        if (buf) {
+          const src = c.createBufferSource(); src.buffer = buf; src.playbackRate.value = f / buf._f;
+          const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = inst === 'oud' ? 3200 : 6000; src.connect(lp); lp.connect(g);
+          g.gain.value = vel * (inst === 'harp' ? 0.55 : 0.5); src.start(t); src.stop(t + buf.duration);
+          if (inst === 'harp') { const g2 = c.createGain(); g2.connect(out); g2.gain.setValueAtTime(vel * 0.05, t); g2.gain.exponentialRampToValueAtTime(0.0001, t + 1.4); this._osc('sine', f * 2, t, t + 1.5, g2); }
+          break;
+        }
         const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.connect(g);
         lp.frequency.setValueAtTime(inst === 'oud' ? 2600 : 4200, t); lp.frequency.exponentialRampToValueAtTime(500, t + 0.6);
         this._osc(inst === 'oud' ? 'sawtooth' : 'triangle', f, t, t + 1.6, lp);
@@ -193,6 +214,13 @@ export class Music {
         mod.frequency.value = f * (inst === 'glass' ? 7.1 : 3.5); mg.gain.setValueAtTime(f * (inst === 'glass' ? 1.2 : 2.2), t); mg.gain.exponentialRampToValueAtTime(1, t + 1.2);
         mod.connect(mg); const car = this._osc('sine', f, t, t + 3.2, g); mg.connect(car.frequency); mod.start(t); mod.stop(t + 3.2);
         g.gain.setValueAtTime(vel * 0.22, t); g.gain.exponentialRampToValueAtTime(0.0001, t + (inst === 'glass' ? 2.4 : 3));
+        break;
+      }
+      case 'epiano': { // piano eléctrico (FM)
+        const mod = c.createOscillator(), mg = c.createGain(); mod.frequency.value = f * 1; mg.gain.setValueAtTime(f * 1.4, t); mg.gain.exponentialRampToValueAtTime(f * 0.1, t + 1);
+        mod.connect(mg); const car = this._osc('sine', f, t, t + 2.2, g); mg.connect(car.frequency); mod.start(t); mod.stop(t + 2.2);
+        this._osc('sine', f * 2, t, t + 0.4, g).detune.value = 4;
+        g.gain.setValueAtTime(vel * 0.24, t); g.gain.setTargetAtTime(vel * 0.12, t + 0.05, 0.3); g.gain.setTargetAtTime(0.0001, t + dur, 0.2);
         break;
       }
       case 'flute': case 'lead': case 'brass': {
@@ -228,6 +256,7 @@ export class Music {
     };
     switch (kind) {
       case 'kick': case 'tom': case 'toll': {
+        if (kind === 'kick') { const cl = c.createGain(); cl.connect(out); cl.gain.setValueAtTime(vel * 0.25, t); cl.gain.exponentialRampToValueAtTime(0.0001, t + 0.02); this._osc('square', 1800, t, t + 0.03, cl); }
         const o = c.createOscillator(); o.connect(g);
         const f0 = kind === 'kick' ? 130 : kind === 'tom' ? 180 : 90, f1 = kind === 'kick' ? 42 : kind === 'tom' ? 90 : 55;
         o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + (kind === 'toll' ? 0.6 : 0.14));
@@ -236,7 +265,13 @@ export class Music {
         if (kind === 'toll') { const g2 = c.createGain(); g2.connect(out); g2.gain.setValueAtTime(vel * 0.08, t); g2.gain.exponentialRampToValueAtTime(0.0001, t + 3); this._osc('sine', 392, t, t + 3, g2); this._osc('sine', 587, t, t + 3, g2); }
         break;
       }
-      case 'snare': noise(1900, 'bandpass', 0.2, 0.8); this._osc('triangle', 190, t, t + 0.1, g); g.gain.setValueAtTime(vel * 0.4, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18); break;
+      case 'snare': { noise(1900, 'bandpass', 0.22, 0.8); noise(5000, 'highpass', 0.12); const o = this._osc('triangle', 220, t, t + 0.12, g); o.frequency.exponentialRampToValueAtTime(160, t + 0.08); g.gain.setValueAtTime(vel * 0.42, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2); break; }
+      case 'ohat': noise(7500, 'highpass', 0.3); g.gain.setValueAtTime(vel * 0.13, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28); break;
+      case 'crash': { noise(5000, 'highpass', 1.8, 0.5); for (const f0 of [3150, 4440, 5830]) { const o = this._osc('square', f0, t, t + 1.5, g); o.detune.value = Math.random() * 30; } g.gain.setValueAtTime(vel * 0.12, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.6); break; }
+      case 'taiko': { // tambor grande de batalla
+        const o = c.createOscillator(); o.connect(g); o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(48, t + 0.25); o.start(t); o.stop(t + 0.7);
+        noise(400, 'lowpass', 0.12, 0.7); g.gain.setValueAtTime(vel * 0.75, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6); break;
+      }
       case 'hat': noise(8000, 'highpass', 0.06); g.gain.setValueAtTime(vel * 0.16, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05); break;
       case 'shaker': noise(6000, 'bandpass', 0.09, 1.5); g.gain.setValueAtTime(vel * 0.12, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08); break;
       case 'tick': noise(3200, 'bandpass', 0.03, 6); g.gain.setValueAtTime(vel * 0.5, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.03); break;
@@ -299,6 +334,19 @@ export class Music {
     }
   }
 
+  // Karplus-Strong: una cuerda pulsada de verdad, calculada una vez por instrumento y altura
+  _ks(f, inst) {
+    const c = this.ctx; if (!c) return null;
+    const m = Math.round(12 * Math.log2(f / 440)), key = inst + m;
+    if (this.ksCache.has(key)) return this.ksCache.get(key);
+    const F = 440 * Math.pow(2, m / 12), sr = c.sampleRate, N = Math.max(2, Math.round(sr / F)), len = Math.floor(sr * (inst === 'harp' ? 1.8 : 1.1));
+    const b = c.createBuffer(1, len, sr), d = b.getChannelData(0), ring = new Float32Array(N);
+    for (let i = 0; i < N; i++) ring[i] = (Math.random() * 2 - 1) * (inst === 'oud' ? 1 : 0.8);
+    const damp = inst === 'harp' ? 0.998 : inst === 'oud' ? 0.994 : 0.996, mix = inst === 'oud' ? 0.35 : 0.5;
+    let idx = 0;
+    for (let i = 0; i < len; i++) { const a = ring[idx], nx = ring[(idx + 1) % N]; d[i] = a; ring[idx] = damp * (mix * a + (1 - mix) * nx); idx = (idx + 1) % N; }
+    b._f = F; this.ksCache.set(key, b); return b;
+  }
   _noise(sec) {
     const c = this.ctx, n = Math.floor(c.sampleRate * sec), b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0);
     for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;

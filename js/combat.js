@@ -89,7 +89,7 @@ class Enemy {
     const dx = this.pos.x - from.x, dz = this.pos.z - from.z, l = Math.hypot(dx, dz) || 1;
     this.vel.x = dx / l * push; this.vel.z = dz / l * push; this.vel.y = push > 6 ? 4 : 2.5;
     this.stagger = 0.4; this.state = 'stagger';
-    this.c.audio.play(this.hp <= 0 ? 'shatter' : 'hit');
+    this.c.audio.play(this.hp <= 0 ? 'enemyDie' : 'enemyHurt', this.pos);
     if (this.hp <= 0) this.die();
     return true;
   }
@@ -164,10 +164,10 @@ class Avispa extends Enemy {
     if (this.hitCd <= 0 && dx * dx + dy * dy + dz * dz < 1.05 * 1.05) {
       this.hitCd = 1.4;
       const hit = pl.damage(1, this.pos);
-      if (hit) { pl.gliding = false; pl.tired = !pl.grounded; this.c.audio.play('hit'); }
+      if (hit) { pl.gliding = false; pl.tired = !pl.grounded; this.c.audio.play('hit', this.pos); }
       else if (pl.diff && pl.diff.auto && pl.invuln <= 0) { // en automático no quita vida, pero sí la desvía
         const l = Math.hypot(dx, dz) || 1; pl.vel.x = dx / l * 6; pl.vel.z = dz / l * 6; pl.vel.y = 2; pl.gliding = false; pl.tired = !pl.grounded; pl.invuln = 1.2;
-        this.c.audio.play('hit'); this.c.fx.sparkle(this.pos, 10, 0xffc85a);
+        this.c.audio.play('hit', this.pos); this.c.fx.sparkle(this.pos, 10, 0xffc85a);
       }
     }
   }
@@ -225,7 +225,7 @@ class Brote extends Enemy {
   }
   hurt(dmg, from, push) {
     if (this.aura) { // el bastón rebota en el aura
-      this.c.audio.play('dark'); this.c.fx.sparkle(this.pos.clone().setY(this.pos.y + 0.6), 6, 0xb07aff);
+      this.c.audio.play('dark', this.pos); this.c.fx.sparkle(this.pos.clone().setY(this.pos.y + 0.6), 6, 0xb07aff);
       this.c.onAuraClang && this.c.onAuraClang();
       return true;
     }
@@ -244,7 +244,7 @@ class Brote extends Enemy {
       case 'idle':
         this.vel.x *= 0.8; this.vel.z *= 0.8;
         hop = Math.abs(Math.sin(this.t * 2)) * 0.05;
-        if (sees) { this.state = 'notice'; this.st = 0.5; this.c.audio.play('crystal'); }
+        if (sees) { this.state = 'notice'; this.st = 0.5; this.c.audio.play('notice', this.pos); }
         if (this.pos.distanceTo(this.home) > 1.5) { const hx = this.home.x - this.pos.x, hz = this.home.z - this.pos.z, l = Math.hypot(hx, hz); this.vel.x = hx / l * 1.5; this.vel.z = hz / l * 1.5; this.facing += angDiff(Math.atan2(-hx, -hz), this.facing) * damp(5, dt); }
         break;
       case 'notice':
@@ -258,7 +258,7 @@ class Brote extends Enemy {
         const sp = dist > 2.3 ? 2.8 : 0;
         this.vel.x = -Math.sin(this.facing) * sp; this.vel.z = -Math.cos(this.facing) * sp;
         hop = Math.abs(Math.sin(this.t * 7)) * 0.18 * (sp > 0 ? 1 : 0.3);
-        if (dist < 3.2 && this.cd <= 0) { this.state = 'windup'; this.st = 0.7; this.c.audio.play('windup'); this.vel.set(0, this.vel.y, 0); }
+        if (dist < 3.2 && this.cd <= 0) { this.state = 'windup'; this.st = 0.7; this.c.audio.play('windup', this.pos); this.vel.set(0, this.vel.y, 0); }
         break;
       }
       case 'windup':
@@ -334,7 +334,7 @@ class Espora extends Enemy {
     if (dist < (this.look.range || 13) && Math.abs(pl.pos.y - this.pos.y) < 7 && pl.hp > 0) {
       this.cd -= dt;
       this.head.rotation.y += angDiff(Math.atan2(-(pl.pos.x - this.pos.x), -(pl.pos.z - this.pos.z)), this.head.rotation.y) * damp(4, dt);
-      if (this.cd < 0.6) { open = 1 - this.cd / 0.6; if (!this.warned) { this.warned = true; this.c.audio.play('windup'); } }
+      if (this.cd < 0.6) { open = 1 - this.cd / 0.6; if (!this.warned) { this.warned = true; this.c.audio.play('windup', this.pos); } }
       if (this.cd <= 0) {
         const from = this.pos.clone().setY(this.pos.y + 1.05);
         this.c.shoot(from, head, 7.5, this.look.core, this);
@@ -386,7 +386,7 @@ class RaizMadre {
   }
   get alive() { return this.state !== 'dead'; }
   get fighting() { return !['sleep', 'intro', 'dying', 'dead'].includes(this.state); }
-  wake() { if (this.state === 'sleep') { this.state = 'intro'; this.st = 2.2; this.c.audio.play('roar'); this.c.shake(0.6, 2); } }
+  wake() { if (this.state === 'sleep') { this.state = 'intro'; this.st = 2.2; this.c.audio.play('roar', this.pos); this.c.shake(0.6, 2); } }
 
   update(dt, pl) {
     this.t += dt;
@@ -424,7 +424,7 @@ class RaizMadre {
         if (g.y > -Infinity && Math.abs(g.y - this.pos.y) < 0.5) this.roots.push(new Root(this.c, this, p.x, g.y, p.z, this.phase === 1 ? 1.0 : 0.8));
       }
       this.cd = this.phase === 1 ? 3.4 : 2.4;
-      this.c.audio.play('rumble');
+      this.c.audio.play('rumble', this.pos);
     }
     if (this.phase === 2) {
       this.summonCd -= dt;
@@ -434,7 +434,7 @@ class RaizMadre {
           const e = this.c.addEnemy('brote', this.pos.x + Math.sin(a) * 6, this.pos.y + 0.5, this.pos.z + 5 + Math.cos(a) * 2);
           e.summoned = true; e.home.copy(pl.pos); this.c.fx.dust(e.pos, 10, 1.2, 0x7ff0d8);
         }
-        this.summonCd = 11; this.c.audio.play('roar');
+        this.summonCd = 11; this.c.audio.play('roar', this.pos);
       }
     }
     for (const r of this.roots) r.update(dt, pl);
@@ -445,7 +445,7 @@ class RaizMadre {
   wound(from) {
     if (this.state !== 'fight') return;
     this.hp -= 1; this.flash = 0.15; setFlash(this.group, true);
-    this.c.audio.play('roar'); this.c.shake(0.35, 0.5);
+    this.c.audio.play('roar', this.pos); this.c.shake(0.35, 0.5);
     if (this.hp <= this.maxHp / 2 && this.phase === 1) { this.phase = 2; this.summonCd = 2; this.crownMat.emissive.setHex(0xff3a2a); this.c.onBossPhase && this.c.onBossPhase(this); }
     if (this.hp <= 0) {
       this.state = 'dying'; this.st = 2.6; this.c.shake(0.8, 2.6);
@@ -454,7 +454,7 @@ class RaizMadre {
     }
   }
   // golpe al tronco: no hace daño, pero da una pista
-  clang() { this.c.audio.play('crystal'); this.c.onBossClang && this.c.onBossClang(); }
+  clang() { this.c.audio.play('crystal', this.pos); this.c.onBossClang && this.c.onBossClang(); }
   dispose() { for (const r of this.roots) r.remove(); }
 }
 
@@ -480,7 +480,7 @@ class Root {
       this.ring.material.opacity = 0.4 + Math.sin(this.t * 25) * 0.3;
       this.fill.material.opacity = k * 0.35; this.fill.scale.setScalar(Math.max(0.01, k));
       if (k >= 1) {
-        this.state = 'up'; this.t = 0; this.c.audio.play('slam'); this.c.shake(0.25, 0.3);
+        this.state = 'up'; this.t = 0; this.c.audio.play('slam', this.pos); this.c.shake(0.25, 0.3);
         this.c.fx.dust(this.pos, 12, 1.5, 0x8a6a4a);
         const d = Math.hypot(pl.pos.x - this.pos.x, pl.pos.z - this.pos.z);
         if (d < 1.4 && Math.abs(pl.pos.y - this.pos.y) < 1.5) pl.damage(1, this.pos);
@@ -500,7 +500,7 @@ class Root {
   hitKnot(from) {
     if (!this.hittable) return false;
     this.c.fx.sparkle(this.pos.clone().setY(this.pos.y + 0.7), 18, 0xffc06a);
-    this.c.audio.play('shatter');
+    this.c.audio.play('shatter', this.pos);
     this.boss.wound(from); this.retract();
     return true;
   }
@@ -561,7 +561,7 @@ class Escorpion {
   }
   get alive() { return this.state !== 'dead'; }
   get fighting() { return !['sleep', 'intro', 'dying', 'dead'].includes(this.state); }
-  wake() { if (this.state === 'sleep') { this.state = 'intro'; this.st = 2; this.c.audio.play('roar'); this.c.shake(0.5, 1.5); } }
+  wake() { if (this.state === 'sleep') { this.state = 'intro'; this.st = 2; this.c.audio.play('roar', this.pos); this.c.shake(0.5, 1.5); } }
   _place() {
     this.group.position.copy(this.pos); this.group.rotation.y = this.facing;
     if (this.skin) { this.skin.userData.glow(this.eyeMat.emissive, this.eyeMat.emissive.getHex() === 0xff3a2a ? 0.35 : 0.04); this.skin.position.y = Math.abs(Math.sin(this.t * 8)) * 0.04; }
@@ -588,14 +588,14 @@ class Escorpion {
         this.facing += angDiff(toP, this.facing) * damp(3, dt);
         const sp = dist > 7 ? 2.6 : 0; this.pos.x -= Math.sin(this.facing) * sp * dt; this.pos.z -= Math.cos(this.facing) * sp * dt;
         walk(sp > 0 ? 2.5 : 0.6); this.st -= dt;
-        if (this.st <= 0) { this.cycle++; if (this.cycle % 3 === 0) { this.state = 'sweep'; this.st = 2.8; this.sweepA = this.facing; this.c.audio.play('laser'); } else { this.state = 'windup'; this.st = 0.85; this.c.audio.play('windup'); } }
+        if (this.st <= 0) { this.cycle++; if (this.cycle % 3 === 0) { this.state = 'sweep'; this.st = 2.8; this.sweepA = this.facing; this.c.audio.play('laser', this.pos); } else { this.state = 'windup'; this.st = 0.85; this.c.audio.play('windup', this.pos); } }
         break;
       }
       case 'windup':
         this.st -= dt; if (this.st > 0.2) this.facing += angDiff(toP, this.facing) * damp(6, dt);
         this.claws.forEach(c => c.rotation.x = -0.7); this.eyeMat.emissive.setHex(0xff3a2a);
         this.group.position.x += (Math.random() - 0.5) * 0.08; walk(4);
-        if (this.st <= 0) { this.state = 'charge'; this.st = 2.2; this.hitDone = false; this.c.audio.play('rumble'); }
+        if (this.st <= 0) { this.state = 'charge'; this.st = 2.2; this.hitDone = false; this.c.audio.play('rumble', this.pos); }
         break;
       case 'charge': {
         const sp = this.phase === 1 ? 15 : 19;
@@ -604,7 +604,7 @@ class Escorpion {
         if (!this.hitDone && dist < 2.1 && Math.abs(pl.pos.y - this.pos.y) < 1.8) { this.hitDone = true; pl.damage(1, this.pos); }
         const front = this.pos.clone().add(new THREE.Vector3(-Math.sin(this.facing) * 2.2, 0, -Math.cos(this.facing) * 2.2));
         for (const p of this.c.world.pillars) if (p.alive && Math.hypot(front.x - p.pos.x, front.z - p.pos.z) < p.r + 0.6) {
-          p.break(); this.c.fx.sparkle(p.pos.clone().setY(p.pos.y + 2), 30, 0xbff0ff); this.c.audio.play('shatter'); this.c.shake(0.6, 0.5);
+          p.break(); this.c.fx.sparkle(p.pos.clone().setY(p.pos.y + 2), 30, 0xbff0ff); this.c.audio.play('shatter', this.pos); this.c.shake(0.6, 0.5);
           this.state = 'stunned'; this.st = 3.4; this.stunHits = 0; this.c.onBossStun && this.c.onBossStun();
           break;
         }
@@ -653,13 +653,13 @@ class Escorpion {
   wound() {
     if (this.state !== 'stunned') return false;
     this.hp -= 1; this.stunHits++; this.flash = 0.15; setFlash(this.group, true);
-    this.c.audio.play('shatter'); this.c.shake(0.3, 0.3);
+    this.c.audio.play('shatter', this.pos); this.c.shake(0.3, 0.3);
     this.c.fx.sparkle(this.weak.pos, 18, 0xbff8ff);
     if (this.hp <= this.maxHp / 2 && this.phase === 1) { this.phase = 2; this.c.onBossPhase && this.c.onBossPhase(this); }
     if (this.hp <= 0) { this.state = 'dying'; this.st = 2.6; this.c.shake(0.7, 2.2); this.beam.visible = false; }
     return true;
   }
-  clang() { this.c.audio.play('crystal'); this.c.onBossClang && this.c.onBossClang(); }
+  clang() { this.c.audio.play('crystal', this.pos); this.c.onBossClang && this.c.onBossClang(); }
   dispose() { this.c.root.remove(this.beam); }
 }
 
@@ -719,7 +719,7 @@ class Coloso {
   get grapplePoints() { return this.state === 'stuck' ? [this.gp] : []; }
   get alive() { return this.state !== 'dead'; }
   get fighting() { return !['sleep', 'intro', 'dying', 'dead'].includes(this.state); }
-  wake() { if (this.state === 'sleep') { this.state = 'intro'; this.st = 2.4; this.c.audio.play('roar'); this.c.shake(0.5, 2); } }
+  wake() { if (this.state === 'sleep') { this.state = 'intro'; this.st = 2.4; this.c.audio.play('roar', this.pos); this.c.shake(0.5, 2); } }
   local(x, y, z) { return new THREE.Vector3(x, y, z).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.facing).add(this.pos); }
   _place() {
     this.group.position.copy(this.pos); this.group.rotation.y = this.facing;
@@ -745,8 +745,8 @@ class Coloso {
         R.sh.rotation.x += (0.15 - R.sh.rotation.x) * damp(4, dt);
         if (this.st <= 0) {
           this.cycle++;
-          if (this.cycle % 2 === 0) { this.state = 'stomp'; this.st = 0.8; this.waveCount = this.phase === 1 ? 1 : 2; this.c.audio.play('windup'); }
-          else { this.state = 'raise'; this.st = this.phase === 1 ? 1.2 : 0.9; this.c.audio.play('windup'); }
+          if (this.cycle % 2 === 0) { this.state = 'stomp'; this.st = 0.8; this.waveCount = this.phase === 1 ? 1 : 2; this.c.audio.play('windup', this.pos); }
+          else { this.state = 'raise'; this.st = this.phase === 1 ? 1.2 : 0.9; this.c.audio.play('windup', this.pos); }
         }
         break;
       case 'raise': {
@@ -762,7 +762,7 @@ class Coloso {
         this.st -= dt; R.sh.rotation.x += (0.72 - R.sh.rotation.x) * damp(30, dt);
         if (this.st <= 0) {
           R.sh.rotation.x = 0.72; this.tele.material.opacity = 0;
-          const p = this.tele.position; this.c.audio.play('stomp'); this.c.shake(0.7, 0.5); this.c.fx.dust(p, 20, 2, 0xb8a080);
+          const p = this.tele.position; this.c.audio.play('stomp', this.pos); this.c.shake(0.7, 0.5); this.c.fx.dust(p, 20, 2, 0xb8a080);
           if (Math.hypot(pl.pos.x - p.x, pl.pos.z - p.z) < 2.5 && Math.abs(pl.pos.y - this.pos.y) < 1.5) pl.damage(1, p);
           this.state = 'stuck'; this.st = 4.2; this.stuckHits = 0; this.eyeMat.emissive.setHex(0x3a5a6a);
           const lp = this.local(0, 5.6, -2.45);
@@ -784,7 +784,7 @@ class Coloso {
       case 'stomp':
         this.st -= dt; this.group.position.y = this.pos.y + Math.max(0, Math.sin((0.8 - this.st) / 0.8 * Math.PI)) * 0.6;
         if (this.st <= 0) {
-          this.group.position.y = this.pos.y; this.c.audio.play('stomp'); this.c.shake(0.5, 0.4);
+          this.group.position.y = this.pos.y; this.c.audio.play('stomp', this.pos); this.c.shake(0.5, 0.4);
           this.spawnWave(); this.waveCount--;
           if (this.waveCount > 0) { this.st = 0.7; } else { this.state = 'idle'; this.st = 1.6; }
         }
@@ -821,7 +821,7 @@ class Coloso {
   wound() {
     if (this.state !== 'stuck') return false;
     this.hp -= 1; this.stuckHits++; this.flash = 0.15; setFlash(this.group, true);
-    this.c.audio.play('shatter'); this.c.shake(0.35, 0.3); this.c.fx.sparkle(this.weak.pos, 18, 0xbff8ff);
+    this.c.audio.play('shatter', this.pos); this.c.shake(0.35, 0.3); this.c.fx.sparkle(this.weak.pos, 18, 0xbff8ff);
     if (this.hp <= this.maxHp / 2 && this.phase === 1) { this.phase = 2; this.c.onBossPhase && this.c.onBossPhase(this); }
     if (this.hp <= 0) {
       this.state = 'dying'; this.st = 2.8; this.c.shake(0.8, 2.6);
@@ -829,7 +829,7 @@ class Coloso {
     }
     return true;
   }
-  clang() { this.c.audio.play('gear'); this.c.onBossClang && this.c.onBossClang(); }
+  clang() { this.c.audio.play('gear', this.pos); this.c.onBossClang && this.c.onBossClang(); }
   dispose() { for (const w of this.waves) this.c.root.remove(w.m); if (this.ledge) this.ledge.off = true; }
 }
 
@@ -879,7 +879,7 @@ class Sierpe {
   }
   get alive() { return this.state !== 'dead'; }
   get fighting() { return !['sleep', 'intro', 'dying', 'dead'].includes(this.state); }
-  wake() { if (this.state === 'sleep') { this.state = 'intro'; this.st = 2.4; this.c.audio.play('roar'); this.c.shake(0.5, 2); } }
+  wake() { if (this.state === 'sleep') { this.state = 'intro'; this.st = 2.4; this.c.audio.play('roar', this.pos); this.c.shake(0.5, 2); } }
   _orbitPoint(a, h = this.H) { return new THREE.Vector3(this.center.x + Math.cos(a) * this.R, this.center.y + h + Math.sin(a * 3) * 0.6, this.center.z + Math.sin(a) * this.R); }
   _place(dt) {
     if (this.skin) this.skin.userData.glow(this.eyeMat.emissive, Math.max(0, this.eyeMat.emissiveIntensity - 1.5) * 0.08);
@@ -933,7 +933,7 @@ class Sierpe {
         if (this.st <= 0) {
           this.cycle++;
           if (this.phase === 2 && this.cycle % 3 === 0) { this.state = 'rain'; this.st = 2.2; this._rain(pl); }
-          else { this.state = 'hover'; this.st = 1.0; this.shots = this.phase === 1 ? 1 : 3; this.c.audio.play('windup'); }
+          else { this.state = 'hover'; this.st = 1.0; this.shots = this.phase === 1 ? 1 : 3; this.c.audio.play('windup', this.pos); }
         }
         break;
       }
@@ -947,7 +947,7 @@ class Sierpe {
           const total = this.phase === 1 ? 1 : 3, idx = total - 1 - this.shots, spread = [0, -1.8, 1.8][idx] || 0; // el primero siempre va directo
           const tgt = plHead.clone().add(new THREE.Vector3(spread * Math.cos(this.headG.rotation.y), 0, -spread * Math.sin(this.headG.rotation.y)));
           this.c.shoot(from, tgt, this.phase === 1 ? 8 : 9.5, 0xbff4ff, this, 0.32);
-          this.c.audio.play('ice');
+          this.c.audio.play('ice', this.pos);
         } else if (this.st <= 0) { this.state = 'orbit'; this.st = this.phase === 1 ? 2.6 : 1.8; this.hornMat.emissiveIntensity = 0.8; }
         break;
       case 'rain':
@@ -958,13 +958,13 @@ class Sierpe {
         this.st -= dt;
         const tgt = this.downAt; this.head.lerp(tgt, damp(5, dt));
         this.headG.rotation.z = Math.sin(this.t * 30) * 0.2;
-        if (this.st <= 0) { this.state = 'downed'; this.st = 4; this.downHits = 0; this.headG.rotation.z = 0.25; this.c.shake(0.6, 0.5); this.c.audio.play('stomp'); this.c.fx.dust(this.head, 20, 2, 0xe8fbff); this.c.onBossStun && this.c.onBossStun(); }
+        if (this.st <= 0) { this.state = 'downed'; this.st = 4; this.downHits = 0; this.headG.rotation.z = 0.25; this.c.shake(0.6, 0.5); this.c.audio.play('stomp', this.pos); this.c.fx.dust(this.head, 20, 2, 0xe8fbff); this.c.onBossStun && this.c.onBossStun(); }
         break;
       }
       case 'downed':
         this.st -= dt; this.hornMat.emissiveIntensity = 2.2 + Math.sin(this.t * 10); this.eyeMat.emissiveIntensity = 0.3;
         this.head.y = this.downAt.y + Math.sin(this.t * 2) * 0.05;
-        if (this.st <= 0 || this.downHits >= 2) { this.state = 'rise'; this.st = 1.2; this.trail = this.segs.flatMap(sg => [sg.position.clone(), sg.position.clone(), sg.position.clone(), sg.position.clone()]); this.trail.unshift(this.head.clone()); this.layK = 0; this.headG.rotation.z = 0; this.eyeMat.emissiveIntensity = 1.5; this.hornMat.emissiveIntensity = 0.8; this.c.audio.play('roar'); }
+        if (this.st <= 0 || this.downHits >= 2) { this.state = 'rise'; this.st = 1.2; this.trail = this.segs.flatMap(sg => [sg.position.clone(), sg.position.clone(), sg.position.clone(), sg.position.clone()]); this.trail.unshift(this.head.clone()); this.layK = 0; this.headG.rotation.z = 0; this.eyeMat.emissiveIntensity = 1.5; this.hornMat.emissiveIntensity = 0.8; this.c.audio.play('roar', this.pos); }
         break;
       case 'rise':
         this.st -= dt; this.head.lerp(this._orbitPoint(this.ang), damp(3, dt));
@@ -980,7 +980,7 @@ class Sierpe {
     for (const ic of this.icicles) {
       ic.t += dt;
       if (ic.t < 1.0) { ic.ring.material.opacity = 0.3 + Math.sin(ic.t * 25) * 0.2; ic.m.position.y = ic.y + 8 - 0; }
-      else if (!ic.hit) { ic.m.position.y = Math.max(ic.y + 0.6, ic.m.position.y - dt * 30); if (ic.m.position.y <= ic.y + 0.61) { ic.hit = true; this.c.audio.play('ice'); this.c.fx.sparkle(ic.m.position, 10, 0xe8fbff); if (Math.hypot(pl.pos.x - ic.x, pl.pos.z - ic.z) < 1.3 && Math.abs(pl.pos.y - ic.y) < 1.5) pl.damage(1, new THREE.Vector3(ic.x, ic.y, ic.z)); } }
+      else if (!ic.hit) { ic.m.position.y = Math.max(ic.y + 0.6, ic.m.position.y - dt * 30); if (ic.m.position.y <= ic.y + 0.61) { ic.hit = true; this.c.audio.play('ice', this.pos); this.c.fx.sparkle(ic.m.position, 10, 0xe8fbff); if (Math.hypot(pl.pos.x - ic.x, pl.pos.z - ic.z) < 1.3 && Math.abs(pl.pos.y - ic.y) < 1.5) pl.damage(1, new THREE.Vector3(ic.x, ic.y, ic.z)); } }
       if (ic.t > 1.6) { ic.done = true; this.c.root.remove(ic.m); this.c.root.remove(ic.ring); }
     }
     this.icicles = this.icicles.filter(i => !i.done);
@@ -999,17 +999,17 @@ class Sierpe {
     if (!['orbit', 'hover', 'rain'].includes(this.state)) return;
     const c = this.center, d = this.head.clone().sub(c); d.y = 0; d.setLength(Math.min(this.R - 2, 5));
     this.downAt = new THREE.Vector3(c.x + d.x, c.y + 0.9, c.z + d.z);
-    this.state = 'fall'; this.st = 0.8; this.c.audio.play('shatter'); this.c.shake(0.4, 0.4);
+    this.state = 'fall'; this.st = 0.8; this.c.audio.play('shatter', this.pos); this.c.shake(0.4, 0.4);
   }
   wound() {
     if (this.state !== 'downed') return false;
     this.hp -= 1; this.downHits++; this.flash = 0.15; setFlash(this.group, true);
-    this.c.audio.play('shatter'); this.c.shake(0.3, 0.3); this.c.fx.sparkle(this.weak.pos, 18, 0xe8fbff);
+    this.c.audio.play('shatter', this.pos); this.c.shake(0.3, 0.3); this.c.fx.sparkle(this.weak.pos, 18, 0xe8fbff);
     if (this.hp <= this.maxHp / 2 && this.phase === 1) { this.phase = 2; this.c.onBossPhase && this.c.onBossPhase(this); }
     if (this.hp <= 0) { this.state = 'dying'; this.st = 2.6; this.c.shake(0.7, 2.4); }
     return true;
   }
-  clang() { this.c.audio.play('ice'); this.c.onBossClang && this.c.onBossClang(); }
+  clang() { this.c.audio.play('ice', this.pos); this.c.onBossClang && this.c.onBossClang(); }
   dispose() { for (const ic of this.icicles) { this.c.root.remove(ic.m); this.c.root.remove(ic.ring); } }
 }
 
@@ -1050,7 +1050,7 @@ class Vaelor {
   }
   get alive() { return this.state !== 'dead'; }
   get fighting() { return !['sleep', 'intro', 'dying', 'dead'].includes(this.state); }
-  wake() { if (this.state === 'sleep') { this.state = 'intro'; this.st = 1.6; this.c.audio.play('dark'); this.c.shake(0.4, 1.2); this._anim('Spellcast_Raise', { speed: 0.8 }); } }
+  wake() { if (this.state === 'sleep') { this.state = 'intro'; this.st = 1.6; this.c.audio.play('dark', this.pos); this.c.shake(0.4, 1.2); this._anim('Spellcast_Raise', { speed: 0.8 }); } }
   _anim(name, { speed = 1, hold = false } = {}) { if (!this.ch || !this.ch.actions[name]) return; this.oneShot = { name, t: 0, speed, hold, dur: this.ch.actions[name].getClip().duration }; }
   _animate(dt, moving) {
     if (!this.ch) return;
@@ -1096,9 +1096,9 @@ class Vaelor {
         this.st -= dt;
         if (this.st <= 0) {
           this.cycle++;
-          if (dist < 3.6) { this.state = 'windup'; this.st = 0.8; this._anim('1H_Melee_Attack_Chop', { speed: 0.45, hold: true }); this.c.audio.play('windup'); }
-          else if (this.cycle % 4 === 0) { this.state = 'vanish'; this.st = 0.5; this.c.audio.play('dark'); }
-          else { this.state = 'cast'; this.st = 0.9; this.shots = this.shotsTotal = this.phase === 1 ? 1 : 3; this._anim('Spellcast_Raise', { speed: 1.2 }); this.c.audio.play('windup'); }
+          if (dist < 3.6) { this.state = 'windup'; this.st = 0.8; this._anim('1H_Melee_Attack_Chop', { speed: 0.45, hold: true }); this.c.audio.play('windup', this.pos); }
+          else if (this.cycle % 4 === 0) { this.state = 'vanish'; this.st = 0.5; this.c.audio.play('dark', this.pos); }
+          else { this.state = 'cast'; this.st = 0.9; this.shots = this.shotsTotal = this.phase === 1 ? 1 : 3; this._anim('Spellcast_Raise', { speed: 1.2 }); this.c.audio.play('windup', this.pos); }
           if (this.phase === 2 && !this.summoned) { this.summoned = true; for (let i = 0; i < 2; i++) { const a = i * Math.PI + 0.7; const e = this.c.addEnemy('sombra', this.home.x + Math.cos(a) * 5, this.pos.y + 0.3, this.home.z + Math.sin(a) * 5); e.summoned = true; this.c.fx.dust(e.pos, 10, 1.2, 0xb07aff); } }
         }
         break;
@@ -1112,7 +1112,7 @@ class Vaelor {
           const idx = (this.shotsTotal || 1) - 1 - this.shots, off = [0, -1.6, 1.6][idx] || 0;
           const tgt = pl.pos.clone().setY(pl.pos.y + 0.9).add(new THREE.Vector3(off * Math.cos(this.facing), 0, -off * Math.sin(this.facing)));
           this.c.shoot(from, tgt, this.phase === 1 ? 8.5 : 10, 0xb07aff, this, 0.3);
-          this.c.audio.play('dark');
+          this.c.audio.play('dark', this.pos);
         } else if (this.st <= 0) { this.state = 'idle'; this.st = this.phase === 1 ? 1.8 : 1.2; }
         break;
       case 'windup': {
@@ -1124,7 +1124,7 @@ class Vaelor {
         if (this.st <= 0) {
           this.tele.material.opacity = 0; this.state = 'swing'; this.st = 0.5;
           if (this.oneShot) { this.oneShot.speed = 2.2; this.oneShot.hold = false; }
-          this.c.audio.play('swing'); this.c.shake(0.3, 0.2);
+          this.c.audio.play('swing', this.pos); this.c.shake(0.3, 0.2);
           const rel = (dx * fx + dz * fz) / Math.max(dist, 0.01);
           if (dist < 3.4 && rel > 0.2 && Math.abs(pl.pos.y - this.pos.y) < 1.6) pl.damage(1, this.pos);
         }
@@ -1145,7 +1145,7 @@ class Vaelor {
         break;
       case 'exposed':
         this.st -= dt;
-        if (this.st <= 0 || this.exposedHits >= 2) { this.barrier = true; this.state = 'idle'; this.st = 0.8; this.c.audio.play('dark'); this.oneShot = null; }
+        if (this.st <= 0 || this.exposedHits >= 2) { this.barrier = true; this.state = 'idle'; this.st = 0.8; this.c.audio.play('dark', this.pos); this.oneShot = null; }
         break;
       case 'dying':
         this.st -= dt; this.body.position.y = -(2.6 - this.st) * 0.15;
@@ -1163,7 +1163,7 @@ class Vaelor {
     if (!this.barrier || !this.fighting || this.state === 'exposed') return false;
     this.barrier = false; this.state = 'exposed'; this.st = 3.6; this.exposedHits = 0;
     this.tele.material.opacity = 0; if (this.sword) this.sword.userData.blade.emissiveIntensity = 0.8;
-    this.c.audio.play('shatter'); this.c.shake(0.4, 0.4); this.c.fx.sparkle(this.reflectPos, 30, 0xfff2a8);
+    this.c.audio.play('shatter', this.pos); this.c.shake(0.4, 0.4); this.c.fx.sparkle(this.reflectPos, 30, 0xfff2a8);
     this._anim('Hit_A', { speed: 0.6, hold: true });
     this.c.onBossStun && this.c.onBossStun();
     return true;
@@ -1173,7 +1173,7 @@ class Vaelor {
   wound() {
     if (this.state !== 'exposed') return false;
     this.hp -= 1; this.exposedHits++; this.flash = 0.15; setFlash(this.body, true);
-    this.c.audio.play('hit'); this.c.shake(0.3, 0.3); this.c.fx.sparkle(this.weak.pos, 14, 0xb07aff);
+    this.c.audio.play('hit', this.pos); this.c.shake(0.3, 0.3); this.c.fx.sparkle(this.weak.pos, 14, 0xb07aff);
     if (this.hp <= this.maxHp / 2 && this.phase === 1) { this.phase = 2; this.c.onBossPhase && this.c.onBossPhase(this); }
     if (this.hp <= 0) {
       this.state = 'dying'; this.st = 2.6; this.barrier = false; this.c.shake(0.6, 2);
@@ -1182,7 +1182,7 @@ class Vaelor {
     }
     return true;
   }
-  clang() { this.c.audio.play('dark'); this.c.onBossClang && this.c.onBossClang(); }
+  clang() { this.c.audio.play('dark', this.pos); this.c.onBossClang && this.c.onBossClang(); }
   dispose() { this.c.root.remove(this.tele); }
 }
 
@@ -1344,7 +1344,7 @@ export class Combat {
       let hit = false;
       for (const e of this.enemies) {
         if (!e.alive || ev.hitList.has(e) || !inArc(e.pos, e.radius)) continue;
-        ev.hitList.add(e); e.hurt(ev.dmg || ev.def.dmg, pl.pos, ev.def.push); hit = true;
+        ev.hitList.add(e); e.hurt(ev.dmg || ev.def.dmg, pl.pos, ev.def.push); if ((ev.dmg || ev.def.dmg) >= 2) this.audio.play('hitHeavy', e.pos); hit = true;
         this.fx.sparkle(e.pos.clone().setY(e.pos.y + 0.6), 8, 0xffffff);
       }
       for (const b of this.breakables || []) { // vasijas y geodas

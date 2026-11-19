@@ -4,7 +4,7 @@ Aventura 3D con historia para el navegador, hecha con [Three.js](https://threejs
 
 Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes para reunir los fragmentos del Corazón de Aethra y decidir el destino de su mundo.
 
-## Estado: versión 2.6.2 (sin cámara lenta en equipos lentos; la calidad automática ahora sí baja cuando hace falta)
+## Estado: versión 2.7
 
 | Etapa | Contenido | Estado |
 | --- | --- | --- |
@@ -29,6 +29,7 @@ Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes
 | 19. Cámara de cada jugador | Online y contra la CPU la cámara sigue siempre a tu personaje y ves a los demás moverse en el mundo; con dos jugadores en un mismo dispositivo, pantalla dividida (lado a lado en horizontal, arriba y abajo en vertical), cada uno con su cámara | Lista: versión 2.4 |
 | 20. Aethra sin fin | Mapa que nunca se acaba: sectores de unos 150 m que se crean por delante mientras avanzas y se borran por detrás (islas, escaleras, plataformas móviles, rocas que se desploman, corrientes de aire, chorros de fuego, péndulos, enemigos, vasijas, islotes laterales con chispas e islas lejanas de fondo); cinco paisajes que cambian cada 2 sectores; banderas de control, récord de distancia y misión «Sin fin». También: el mando enciende el sonido o avisa de que hay que tocar una vez, y ya no se queda congelada la heroína al salir de la Arena en su pantalla final | Lista: versión 2.5 |
 | 21. 100 desafíos | Después de los 7 desafíos hechos a mano se crean 93 más a partir de su número (siempre iguales): más largos y difíciles, con 7 paisajes, nombres propios, plataformas móviles y elevadores, rocas que caen, corrientes de aire, garfio cada 4 desafíos, puentes con mazas, fuego y enemigos; medallas calculadas por la longitud. La lista muestra los superados y el siguiente | Lista: versión 2.6 |
+| 22. Sonido nuevo | Motor de efectos por capas (golpe inicial, cuerpo y cola) con variaciones al azar, sonido a izquierda/derecha y por distancia, pasos según el suelo (hierba, piedra, nieve, arena), efectos propios para golpes, golpe fuerte, escudo, esquiva, saltos, cada poder (fuego, hielo y congelación, telequinesis, levitación, furia, rayo, lluvia de flechas), enemigos heridos y derrotados, KO, cuenta atrás, cuerno de oleada y menús. Música: cuerdas pulsadas reales (Karplus-Strong), piano eléctrico, mejores tambores (taiko, platillos), capa de combate que entra sola cuando hay enemigos cerca, tema de batalla para la Arena y tema propio para Aethra sin fin | Lista: versión 2.7 |
 
 ## Cómo jugar en tu computadora
 
