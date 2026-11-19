@@ -3,7 +3,7 @@ import { buildHumanoid, NpcAnimator } from './rig.js';
 import { createCharacter, NpcModelAnimator, LOOKS } from './characters.js';
 import { prop, freeGPU } from './props.js';
 import { Hazards } from './hazards.js';
-import { HD, makeCloudSea, makeCumulus, islandSideGeo, islandCapGeo, waterfall, fluffyTree, patchGround } from './hd.js';
+import { HD, makeCloudSea, makeCumulus, waterfall, fluffyTree, patchGround, organicIsland, canopyBlob } from './hd.js';
 import { Sea } from './sea.js';
 
 // Construye una zona a partir de sus datos (js/zones/*.js): mallas + colisiones + objetos interactivos.
@@ -182,15 +182,22 @@ export class World {
   _island({ x, z, w, d, top = 0, depth = 3, rock = true }) {
     const pal = this.pal || { top: C.grass, side: C.dirt };
     if (HD.on) {
-      this._mesh(islandSideGeo(w, depth, d, x * 0.37 + z), terrainMat(pal.side, 'strata'), x, top - depth / 2 - 0.2, z);
-      this._mesh(islandCapGeo(w + 0.3, d + 0.3, z * 0.5 - x), patchGround(terrainMat(pal.top, 'grain')), x, top - 0.2, z);
+      const og = organicIsland({ w, d, top: 0, depth, rock, seed: x * 0.37 + z * 0.71, sideMat: terrainMat(pal.side, 'strata'), topMat: patchGround(terrainMat(pal.top, 'grain')) });
+      og.position.set(x, top, z); this.root.add(og);
+      // la física se agranda lo mismo que el contorno redondeado, para no caerse por el borde de pasto
+      const rr = og.userData.r;
+      this.physics.addBox(x, top - depth / 2, z + d / 2 + rr / 2, w, depth, rr); this.physics.addBox(x, top - depth / 2, z - d / 2 - rr / 2, w, depth, rr);
+      this.physics.addBox(x + w / 2 + rr / 2, top - depth / 2, z, rr, depth, d); this.physics.addBox(x - w / 2 - rr / 2, top - depth / 2, z, rr, depth, d);
+      this.physics.addBox(x, top - depth / 2, z, w, depth, d);
       // cascada en las islas grandes, hacia el mar de nubes
       const zn = this.zone, seaY = zn && zn.water && !zn.lava ? zn.water.y : null;
       if (seaY != null && w * d > 140 && top - seaY > 1.5) {
         const rnd2 = seeded(x * 3.3 + z * 5.1), sideK = Math.floor(rnd2() * 4), off = (rnd2() - 0.5) * 0.5;
-        const pts = [[x + off * w, z + d / 2 - 0.1, 0], [x + w / 2 - 0.1, z + off * d, Math.PI / 2], [x + off * w, z - d / 2 + 0.1, Math.PI], [x - w / 2 + 0.1, z + off * d, -Math.PI / 2]];
-        const [fx, fz, dir] = pts[sideK];
-        waterfall(this.root, this.animated, { x: fx, z: fz, top: top - 0.15, seaY, dir });
+        // punto del contorno en el lado elegido (sin esquinas), pegado a la pared de roca
+        const ol = og.userData.outline, want = [[0, 1], [1, 0], [0, -1], [-1, 0]][sideK];
+        const cands = ol.filter(p => p.nx === want[0] && p.nz === want[1]);
+        const P = cands[Math.floor((0.5 + off * 0.6) * cands.length)] || ol[0];
+        waterfall(this.root, this.animated, { x: x + P.x * 0.97, z: z + P.z * 0.97, top: top - 0.35, seaY, dir: Math.atan2(P.nx, P.nz), outlet: terrainMat(pal.side, 'strata') });
       }
     } else {
     const side = new THREE.BoxGeometry(w, depth, d); worldUV(side, w, depth, d, 3.5);
@@ -198,7 +205,7 @@ export class World {
     const cap = new THREE.BoxGeometry(w + 0.16, 0.4, d + 0.16); worldUV(cap, w, 0.4, d, 3);
     this._mesh(cap, terrainMat(pal.top, 'grain'), x, top - 0.2, z);
     }
-    if (rock) { // roca colgante irregular (y alguna más pequeña al lado)
+    if (rock && !HD.on) { // roca colgante irregular (y alguna más pequeña al lado)
       const r = Math.min(w, d), rnd = seeded(x * 13.1 + z * 7.7);
       const hang = (rr, hh, ox, oz) => {
         const geo = new THREE.ConeGeometry(rr, hh, 9, 4); const pos = geo.attributes.position;
@@ -210,7 +217,7 @@ export class World {
       hang(r * 0.48, r * 0.75, 0, 0);
       if (r > 3.5 && r < 30) { hang(r * 0.18, r * 0.42, (rnd() - 0.5) * w * 0.5, (rnd() - 0.5) * d * 0.5); hang(r * 0.14, r * 0.3, (rnd() - 0.5) * w * 0.5, (rnd() - 0.5) * d * 0.5); }
     }
-    this.physics.addBox(x, top - depth / 2, z, w, depth, d);
+    if (!HD.on) this.physics.addBox(x, top - depth / 2, z, w, depth, d);
   }
 
   // ---------- vegetación y detalles sobre las islas (instanciados: muy baratos) ----------
@@ -793,6 +800,7 @@ export class World {
     }
     const leaf = mat(0x3f8a4a, { flatShading: true }), leaf2 = mat(0x5aa85a, { flatShading: true });
     [[0, h + 2, 0, 7], [5, h - 1, 2, 5], [-5, h, -2, 5.5], [1, h - 2, -5, 4.5], [-2, h - 3, 5, 4.5]].forEach(([a, b, c, rr], i) => {
+      if (HD.on) { const m = canopyBlob(rr, i % 2 ? 0x5aa85a : 0x3f8a4a, x + i * 2.3, 4); m.position.set(a, b, c); m.castShadow = false; g.add(m); return; }
       const m = this._mesh(new THREE.IcosahedronGeometry(rr, 0), i % 2 ? leaf2 : leaf, a, b, c, g); m.castShadow = false;
     });
     const vine = mat(0x4f8a3a);
@@ -870,7 +878,7 @@ export class World {
   _tree({ x, z, y = 0, s = 1 }) {
     const g = new THREE.Group(); g.position.set(x, y, z); g.scale.setScalar(s); this.root.add(g);
     if (HD.on) {
-      fluffyTree(g, null, { leaf: this.zone && this.zone.hdLeaf || 0x5fa83e }); g.rotation.y = (x * 7 + z * 3) % 6.28;
+      fluffyTree(g, null, { leaf: this.zone && this.zone.hdLeaf || 0x5fa83e, seed: x * 0.7 + z }); g.rotation.y = (x * 7 + z * 3) % 6.28;
       this.physics.addBox(x, y + 0.8 * s, z, 0.5 * s, 1.6 * s, 0.5 * s, { noCamera: true });
       const ph = Math.random() * 6; this.animated.push(t => { g.rotation.z = Math.sin(t * 1.3 + ph) * 0.015; });
       return;

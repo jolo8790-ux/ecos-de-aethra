@@ -237,7 +237,7 @@ export function islandCapGeo(w, d, seed = 0) {
 
 // ---------- cascadas que caen de las islas al mar de nubes ----------
 let fallMat = null;
-export function waterfall(root, animated, { x, z, top, seaY, dir }) {
+export function waterfall(root, animated, { x, z, top, seaY, dir, outlet }) {
   if (!fallMat) {
     fallMat = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: true,
@@ -261,8 +261,19 @@ export function waterfall(root, animated, { x, z, top, seaY, dir }) {
   const p = geo.attributes.position; for (let i = 0; i < p.count; i++) { const yy = p.getY(i), k = (h / 2 - yy) / h; p.setZ(i, Math.sqrt(Math.max(0, k)) * 1.6); }
   const m = new THREE.Mesh(geo, fallMat); m.renderOrder = 2;
   const g = new THREE.Group(); g.position.set(x, top - h / 2 + 0.05, z); g.rotation.y = dir; g.add(m); root.add(g);
+  // boca de roca de la que brota el agua (para que no parezca salir del pasto)
+  if (outlet) {
+    const rockAt = (rx, ry, rz, rs) => { const geo = new THREE.DodecahedronGeometry(rs, 1); const p = geo.attributes.position;
+      for (let i = 0; i < p.count; i++) { const k = 1 + nz(p.getX(i) * 3 + rx, p.getY(i) * 3, p.getZ(i) * 3) * 0.18; p.setXYZ(i, p.getX(i) * k, p.getY(i) * k * 0.8, p.getZ(i) * k); }
+      geo.computeVertexNormals(); const m = new THREE.Mesh(geo, outlet); m.position.set(rx, ry, rz); m.castShadow = true; g.add(m); };
+    const yTop = h / 2;
+    rockAt(-1.2, yTop - 0.55, -0.35, 0.55); rockAt(1.2, yTop - 0.5, -0.3, 0.58); rockAt(0, yTop - 0.45, -0.75, 0.6);
+    rockAt(-0.9, yTop - 0.9, 0.05, 0.42); rockAt(1.0, yTop - 1.0, 0.1, 0.38);
+  }
   // espuma en la cima y bruma abajo
   const tex = puffTexture();
+  { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, color: 0xffffff, transparent: true, depthWrite: false, opacity: 0.7, fog: true }));
+    sp.scale.set(2.2, 1.1, 1); sp.position.set(0, h / 2 - 0.15, 0.25); g.add(sp); }
   for (let i = 0; i < 5; i++) {
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, color: 0xffffff, transparent: true, depthWrite: false, opacity: 0.8, fog: true }));
     const sc = 3 + Math.random() * 3; sp.scale.set(sc, sc * 0.7, 1);
@@ -274,24 +285,39 @@ export function waterfall(root, animated, { x, z, top, seaY, dir }) {
 
 // ---------- árbol de copa esponjosa (en lugar del modelo facetado) ----------
 const leafMats = {};
-export function fluffyTree(g, rnd, { leaf = 0x5fa83e, trunk = 0x6b4a2e } = {}) {
-  const tm = new THREE.MeshStandardMaterial({ color: trunk, roughness: 0.9 });
-  const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.3, 1.9, 8), tm); tr.position.y = 0.95; tr.castShadow = true; g.add(tr);
-  const lm = leafMats[leaf] || (leafMats[leaf] = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }));
-  const base = new THREE.Color(leaf), dark = base.clone().multiplyScalar(0.55), lite = base.clone().lerp(new THREE.Color(0xfff2a0), 0.35);
-  const blobs = [[0, 2.5, 0, 1.25], [0.75, 2.1, 0.25, 0.85], [-0.7, 2.2, -0.2, 0.9], [0.1, 3.25, 0.1, 0.85], [-0.2, 2.0, 0.75, 0.75]];
-  for (const [bx, by, bz, r] of blobs) {
-    let geo = new THREE.IcosahedronGeometry(r, 3); geo.deleteAttribute('normal'); geo.deleteAttribute('uv'); geo = mergeVertices(geo);
-    const p = geo.attributes.position, cols = [];
-    for (let i = 0; i < p.count; i++) {
-      const v = new THREE.Vector3(p.getX(i), p.getY(i), p.getZ(i)), k = 1 + nz(v.x * 3 + bx, v.y * 3, v.z * 3 + bz) * 0.12;
-      v.multiplyScalar(k); p.setXYZ(i, v.x, v.y, v.z);
-      const up = v.y / r * 0.5 + 0.5, c = dark.clone().lerp(base, Math.min(1, up * 1.3)).lerp(lite, Math.max(0, up - 0.65) * 1.5);
-      cols.push(c.r, c.g, c.b);
-    }
-    geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3)); geo.computeVertexNormals();
-    const m = new THREE.Mesh(geo, lm); m.position.set(bx, by, bz); m.castShadow = true; m.receiveShadow = true; g.add(m);
+function leafMat(key) { return leafMats[key] || (leafMats[key] = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 })); }
+// una «nube» de hojas: esfera deformada con color más oscuro abajo y dorado arriba donde da el sol
+export function canopyBlob(r, leaf, seed = 0, detail = 3) {
+  let geo = new THREE.IcosahedronGeometry(r, detail); geo.deleteAttribute('normal'); geo.deleteAttribute('uv'); geo = mergeVertices(geo);
+  const p = geo.attributes.position, cols = [];
+  const base = new THREE.Color(leaf), dark = base.clone().multiplyScalar(0.5), lite = base.clone().lerp(new THREE.Color(0xfff0a0), 0.4);
+  const v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    v.set(p.getX(i), p.getY(i), p.getZ(i));
+    const n = nz(v.x / r * 2.6 + seed, v.y / r * 2.6, v.z / r * 2.6 - seed);
+    const lumps = 1 + n * 0.13 + nz(v.x / r * 7 + seed, v.y / r * 7, v.z / r * 7) * 0.05;
+    v.multiplyScalar(lumps); if (v.y < 0) v.y *= 0.8; p.setXYZ(i, v.x, v.y, v.z);
+    const up = Math.max(0, Math.min(1, v.y / r * 0.5 + 0.5)), sunK = Math.max(0, (v.x * 0.55 + v.y * 0.5 - v.z * 0.6) / r);
+    const c = dark.clone().lerp(base, Math.min(1, up * 1.4)).lerp(lite, Math.min(1, Math.max(0, up - 0.55) * 1.6 + sunK * 0.25));
+    cols.push(c.r, c.g, c.b);
   }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3)); geo.computeVertexNormals();
+  const m = new THREE.Mesh(geo, leafMat(leaf)); m.castShadow = true; m.receiveShadow = true;
+  return m;
+}
+export function fluffyTree(g, rnd, { leaf = 0x5fa83e, trunk = 0x6b4a2e, seed = 0 } = {}) {
+  const tm = new THREE.MeshStandardMaterial({ color: trunk, roughness: 0.9 });
+  // tronco algo curvo con raíces y dos ramas
+  const trG = new THREE.CylinderGeometry(0.14, 0.32, 2.1, 9, 6); const tp = trG.attributes.position;
+  for (let i = 0; i < tp.count; i++) { const yy = tp.getY(i) + 1.05; tp.setX(i, tp.getX(i) + Math.sin(yy * 1.3 + seed) * 0.08); if (yy < 0.25) { const k = 1 + (0.25 - yy) * 2.2; tp.setX(i, tp.getX(i) * k); tp.setZ(i, tp.getZ(i) * k); } }
+  trG.computeVertexNormals();
+  const tr = new THREE.Mesh(trG, tm); tr.position.y = 1.05; tr.castShadow = true; g.add(tr);
+  for (const [ax, az, len] of [[0.7, 0.2, 0.9], [-0.6, -0.3, 0.8]]) {
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.1, len, 6), tm); b.position.set(ax * 0.45, 1.85, az * 0.45); b.rotation.z = -ax * 0.9; b.rotation.x = az * 0.9; g.add(b);
+  }
+  const blobs = [[0, 2.65, 0, 1.15], [0.85, 2.25, 0.3, 0.8], [-0.8, 2.3, -0.25, 0.85], [0.15, 3.35, 0.15, 0.8], [-0.25, 2.15, 0.85, 0.72],
+    [0.3, 2.2, -0.8, 0.7], [0.65, 3.0, -0.35, 0.62], [-0.6, 3.0, 0.4, 0.6]];
+  blobs.forEach(([bx, by, bz, r], i) => { const m = canopyBlob(r, leaf, seed + i * 1.7, 3); m.position.set(bx, by, bz); g.add(m); });
 }
 
 // ---------- suelo con manchas de color (pasto más claro, más dorado o más oscuro por zonas) ----------
@@ -307,4 +333,100 @@ export function patchGround(mat) {
   mat.customProgramCacheKey = () => 'hdGround';
   mat.needsUpdate = true;
   return mat;
+}
+
+// ---------- islas orgánicas: contorno redondeado e irregular, raíz de roca que termina en punta ----------
+// El contorno contiene siempre al rectángulo de la física (se agranda r metros por fuera), así no hay huecos.
+function islandOutline(w, d, r, seed) {
+  const hw = w / 2, hd = d / 2, per = 2 * (w + d) + Math.PI * 2 * r;
+  const N = Math.max(28, Math.min(180, Math.round(per / 0.55)));
+  const pts = [];
+  for (let i = 0; i < N; i++) {
+    let s = (i / N) * per, x, z, nx, nz2;
+    // recorre: lado +z, esquina, lado +x, esquina, lado -z, esquina, lado -x, esquina
+    const segs = [[w, 'L'], [Math.PI / 2 * r, 'C'], [d, 'L'], [Math.PI / 2 * r, 'C'], [w, 'L'], [Math.PI / 2 * r, 'C'], [d, 'L'], [Math.PI / 2 * r, 'C']];
+    let k = 0; while (s > segs[k][0] && k < 7) { s -= segs[k][0]; k++; }
+    const side = Math.floor(k / 2), corner = k % 2 === 1;
+    // centros de esquina en orden: (+hw,+hd) (+hw,-hd) (-hw,-hd) (-hw,+hd)
+    const C = [[hw, hd], [hw, -hd], [-hw, -hd], [-hw, hd]];
+    const startAng = [Math.PI / 2, 0, -Math.PI / 2, Math.PI];
+    if (!corner) {
+      if (side === 0) { x = -hw + s; z = hd + r; nx = 0; nz2 = 1; }
+      else if (side === 1) { x = hw + r; z = hd - s; nx = 1; nz2 = 0; }
+      else if (side === 2) { x = hw - s; z = -hd - r; nx = 0; nz2 = -1; }
+      else { x = -hw - r; z = -hd + s; nx = -1; nz2 = 0; }
+    } else {
+      const a = startAng[side] - s / r; x = C[side][0] + Math.cos(a) * r; z = C[side][1] + Math.sin(a) * r; nx = Math.cos(a); nz2 = Math.sin(a);
+    }
+    const bump = (nz(x * 0.45 + seed, 0.3, z * 0.45 - seed) * 0.5 + 0.5) * Math.min(0.6, r * 0.6);
+    pts.push({ x: x + nx * bump, z: z + nz2 * bump, nx, nz: nz2 });
+  }
+  return pts;
+}
+export function organicIsland({ w, d, top, depth, rock = true, seed = 0, sideMat, topMat }) {
+  const g = new THREE.Group();
+  const r = Math.min(1.1, Math.max(0.35, Math.min(w, d) * 0.09));
+  const out = islandOutline(w, d, r, seed), N = out.length;
+  // --- cara de pasto (forma plana triangulada) ---
+  const shape = new THREE.Shape(out.map(p => new THREE.Vector2(p.x, -p.z)));
+  const topGeo = new THREE.ShapeGeometry(shape); topGeo.rotateX(-Math.PI / 2);
+  { const p = topGeo.attributes.position, uv = topGeo.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, p.getX(i) / 3, p.getZ(i) / 3); }
+  const topM = new THREE.Mesh(topGeo, topMat); topM.position.y = top; topM.receiveShadow = true; g.add(topM);
+  // --- borde de pasto que cuelga (faldón) ---
+  const lip = [], lipUv = [], lipIdx = [];
+  for (let i = 0; i < N; i++) {
+    const p = out[i], drop = 0.28 + (nz(p.x * 1.9 + seed, 1, p.z * 1.9) * 0.5 + 0.5) * 0.35;
+    lip.push(p.x, top, p.z, p.x + p.nx * 0.06, top - drop, p.z + p.nz * 0.06);
+    lipUv.push(i * 0.18, 0.4, i * 0.18, 0.4 - drop / 3);
+  }
+  for (let i = 0; i < N; i++) { const j = (i + 1) % N, a = i * 2, b = j * 2; lipIdx.push(a, a + 1, b, b, a + 1, b + 1); }
+  const lipGeo = new THREE.BufferGeometry(); lipGeo.setAttribute('position', new THREE.Float32BufferAttribute(lip, 3)); lipGeo.setAttribute('uv', new THREE.Float32BufferAttribute(lipUv, 2)); lipGeo.setIndex(lipIdx); lipGeo.computeVertexNormals();
+  const lipM = new THREE.Mesh(lipGeo, topMat); lipM.castShadow = true; g.add(lipM);
+  // --- raíz de roca: anillos que se estrechan y terminan en punta ---
+  const minS = Math.min(w, d), tipDepth = rock ? depth + Math.min(22, minS * 0.75) : depth + 0.3;
+  const rings = rock ? 7 : 3, pos = [], uvs = [], idx = [];
+  let cx = 0, cz = 0; // la punta se desplaza un poco para que no sea simétrica
+  const rs = (k) => nz(seed * 3.1 + k, k * 1.7, seed) ;
+  cx = rs(1) * minS * 0.12; cz = rs(2) * minS * 0.12;
+  for (let k = 0; k < rings; k++) {
+    const t = k / (rings - 1); // 0 = justo bajo el pasto, 1 = cerca de la punta
+    const yy = top - 0.25 - (rock ? Math.pow(t, 1.35) * (tipDepth - 0.6) : t * depth);
+    const sc = rock ? (k === 0 ? 0.985 : Math.max(0.06, 1 - Math.pow(t, 0.85) * 0.94)) : 0.98 - t * 0.06;
+    let acc = 0;
+    for (let i = 0; i <= N; i++) {
+      const p = out[i % N], q = out[(i + N - 1) % N];
+      if (i > 0) acc += Math.hypot(p.x - q.x, p.z - q.z);
+      const bumpy = k === 0 ? 0 : nz(p.x * 0.6 + k * 1.3, yy * 0.8, p.z * 0.6 - seed) * Math.min(1.1, minS * 0.06) * (1 - t * 0.5);
+      const px = cx * t + p.x * sc + p.nx * bumpy, pz = cz * t + p.z * sc + p.nz * bumpy;
+      pos.push(px, yy + (k ? nz(p.x, k, p.z) * 0.25 : 0), pz); uvs.push(acc / 3.5, yy / 3.5);
+    }
+  }
+  const tip = pos.length / 3; pos.push(cx, top - tipDepth, cz); uvs.push(0, (top - tipDepth) / 3.5);
+  const W = N + 1;
+  for (let k = 0; k < rings - 1; k++) for (let i = 0; i < N; i++) { const a = k * W + i, b = a + 1, c = a + W, e = c + 1; idx.push(a, c, b, b, c, e); }
+  if (rock) { const k = rings - 1; for (let i = 0; i < N; i++) idx.push(k * W + i, tip, k * W + i + 1); }
+  else { const k = rings - 1, ctr = tip; pos[ctr * 3 + 1] = top - depth - 0.25; for (let i = 0; i < N; i++) idx.push(k * W + i, ctr, k * W + i + 1); }
+  const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); rg.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2)); rg.setIndex(idx); rg.computeVertexNormals();
+  const rm = new THREE.Mesh(rg, sideMat); rm.castShadow = true; rm.receiveShadow = true; g.add(rm);
+  g.userData.outline = out; g.userData.r = r;
+  return g;
+}
+
+// ---------- contorno de ilustración en los personajes (casco invertido que sigue al esqueleto) ----------
+const outlineMats = {};
+function outlineMat(th) {
+  if (outlineMats[th]) return outlineMats[th];
+  const m = new THREE.MeshBasicMaterial({ color: 0x2b1a14, side: THREE.BackSide });
+  m.onBeforeCompile = sh => { sh.vertexShader = sh.vertexShader.replace('#include <skinning_vertex>', `#include <skinning_vertex>\n#ifdef USE_SKINNING\n transformed += normalize(objectNormal) * ${th.toFixed(4)};\n#endif`); };
+  m.customProgramCacheKey = () => 'hdOutline' + th;
+  return (outlineMats[th] = m);
+}
+export function outlineCharacter(model, th = 0.012) {
+  const list = []; model.traverse(o => { if (o.isSkinnedMesh && !o.userData.hdOutline) list.push(o); });
+  for (const o of list) {
+    const ol = new THREE.SkinnedMesh(o.geometry, outlineMat(th));
+    ol.bind(o.skeleton, o.bindMatrix); ol.userData.hdOutline = true; ol.frustumCulled = false; ol.castShadow = false;
+    ol.position.copy(o.position); ol.quaternion.copy(o.quaternion); ol.scale.copy(o.scale);
+    o.parent.add(ol); o.userData.hdOutline = true;
+  }
 }

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { HD, outlineCharacter } from './hd.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 // Personajes con malla y esqueleto reales (KayKit Adventurers, CC0, de Kay Lousberg)
@@ -169,6 +170,7 @@ export function createCharacter(lib, lookName) {
     a.enabled = true; a.setEffectiveWeight(0);
     actions[name] = a;
   }
+  if (HD.on) outlineCharacter(model);
   return { root, pivot, model, mixer, actions, bones, scale: look.scale, HIP };
 }
 
