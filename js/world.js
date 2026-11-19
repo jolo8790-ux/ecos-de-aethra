@@ -480,6 +480,10 @@ export class World {
     const prop = props[0];
     // pasarela desde el muelle
     const plank = this._mesh(new THREE.BoxGeometry(1.0, 0.08, 3.4), wood, 0, -0.62, -3.3, g); plank.rotation.x = -0.36;
+    if (HD.on) { // barco volador generado con Artlist (misma cubierta y física que el de siempre)
+      const bm = this._model('barco', { z: 6.1 }, 0, -0.85, 0.15, { parent: g, rotY: Math.PI });
+      if (bm) { for (const ch of [...g.children]) if (ch !== plank && ch !== bm) ch.visible = false; }
+    }
     const a = { group: g, plank, base: new THREE.Vector3(x, y, z), prop, spin: 3, seat: new THREE.Vector3(0.3, 0.84, 0.6), offset: new THREE.Vector3(), yaw: 0 };
     this.airships[id] = a;
     this.physics.addBox(x, y + 0.42, z, 2.2, 0.84, 4.2, { noCamera: true });
