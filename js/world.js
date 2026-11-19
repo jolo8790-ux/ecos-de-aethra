@@ -3,7 +3,7 @@ import { buildHumanoid, NpcAnimator } from './rig.js';
 import { createCharacter, NpcModelAnimator, LOOKS } from './characters.js';
 import { prop, freeGPU } from './props.js';
 import { Hazards } from './hazards.js';
-import { HD, makeCloudSea, makeCumulus, waterfall, fluffyTree, patchGround, organicIsland, canopyBlob } from './hd.js';
+import { HD, makeCloudSea, makeCumulus, waterfall, fluffyTree, patchGround, organicIsland, canopyBlob, waterMaterial } from './hd.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { Sea } from './sea.js';
 
@@ -287,7 +287,14 @@ export class World {
     if (HD.on && Math.min(w, d, h) > 0.35) { // bordes redondeados
       const rb = Math.min(0.28, Math.min(w, d, h - capH) * 0.18);
       this._mesh(new RoundedBoxGeometry(w, h - capH, d, 3, rb), mat(color), x, y - capH - (h - capH) / 2, z);
-      if (cap) this._mesh(new RoundedBoxGeometry(w + 0.14, Math.max(capH, 0.24), d + 0.14, 3, Math.min(0.11, rb)), mat(cap), x, y - capH / 2, z);
+      const hsl = {}; new THREE.Color(cap || 0).getHSL(hsl);
+      if (cap && hsl.h > 0.5 && hsl.h < 0.62 && hsl.s > 0.5) { // agua (fuentes, estanques)
+        const wm = waterMaterial({ shallow: 0x5fd0e8, deep: 0x1a6f9a, sky: 0xe6f6ff, opacity: 0.9, scale: 3 });
+        const wmesh = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.2, d - 0.2), wm); wmesh.rotation.x = -Math.PI / 2; wmesh.position.set(x, y - 0.06, z); this.root.add(wmesh);
+        this.animated.push(t => { wm.uniforms.uTime.value = t; });
+        // borde de piedra alrededor del agua
+        for (const [bx, bz, bw, bd] of [[0, d / 2, w + 0.2, 0.25], [0, -d / 2, w + 0.2, 0.25], [w / 2, 0, 0.25, d], [-w / 2, 0, 0.25, d]]) this._mesh(new RoundedBoxGeometry(bw, 0.3, bd, 2, 0.08), mat(color), x + bx, y - 0.02, z + bz);
+      } else if (cap) this._mesh(new RoundedBoxGeometry(w + 0.14, Math.max(capH, 0.24), d + 0.14, 3, Math.min(0.11, rb)), mat(cap), x, y - capH / 2, z);
     } else {
     this._mesh(new THREE.BoxGeometry(w, h - capH, d), mat(color), x, y - capH - (h - capH) / 2, z);
     if (cap) this._mesh(new THREE.BoxGeometry(w + 0.1, capH, d + 0.1), mat(cap), x, y - capH / 2, z);

@@ -454,3 +454,98 @@ export function backpack(model) {
   model.add(g); model.updateMatrixWorld(true); chest.attach(g);
   return g;
 }
+
+// ---------- lava: costra oscura que se agrieta sobre ríos incandescentes que fluyen ----------
+export function lavaMaterial() {
+  return new THREE.ShaderMaterial({
+    fog: true,
+    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uTime: { value: 0 } }]),
+    vertexShader: NOISE + `uniform float uTime; varying vec3 vW;
+      #include <fog_pars_vertex>
+      void main(){ vec4 w = modelMatrix * vec4(position,1.0); w.y += (hdNoise(w.xz*0.08 + uTime*0.05) - 0.5) * 0.8; vW = w.xyz;
+        vec4 mvPosition = viewMatrix * w; gl_Position = projectionMatrix * mvPosition;
+        #include <fog_vertex>
+      }`,
+    fragmentShader: NOISE + `uniform float uTime; varying vec3 vW;
+      #include <fog_pars_fragment>
+      void main(){
+        vec2 p = vW.xz * 0.06;
+        // corriente deformada (domain warping) para que parezca que fluye y se enrosca
+        vec2 q = vec2(hdFbm(p + vec2(0.0, uTime*0.03)), hdFbm(p + vec2(5.2, 1.3) - uTime*0.02));
+        float f = hdFbm(p * 1.6 + q * 2.2 + vec2(uTime*0.04, -uTime*0.025));
+        // placas de costra: celdas con bordes calientes
+        float cell = hdFbm(p * 3.5 + q * 1.4 - uTime*0.01);
+        float crack = smoothstep(0.08, 0.0, abs(cell - 0.5)) ;
+        float heat = smoothstep(0.45, 0.75, f) + crack * 0.8;
+        heat = clamp(heat, 0.0, 1.0);
+        vec3 crust = mix(vec3(0.05,0.02,0.02), vec3(0.18,0.07,0.04), hdNoise(vW.xz*0.9));
+        vec3 hot = mix(vec3(0.9,0.18,0.02), vec3(1.0,0.62,0.12), smoothstep(0.5, 0.95, heat));
+        hot = mix(hot, vec3(1.0,0.95,0.6), smoothstep(0.9, 1.0, heat));
+        float pulse = 0.85 + 0.15 * sin(uTime*1.7 + f*8.0);
+        vec3 col = mix(crust, hot * (1.4 * pulse), heat);
+        gl_FragColor = vec4(col, 1.0);
+        #include <colorspace_fragment>
+        #include <fog_fragment>
+      }`,
+  });
+}
+
+// ---------- fuego: llama con ruido que sube, del blanco amarillo al rojo y humo arriba ----------
+export function flameMaterial(strength = 1) {
+  return new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    uniforms: { uTime: { value: 0 }, uStr: { value: strength } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: NOISE + `uniform float uTime; uniform float uStr; varying vec2 vUv;
+      void main(){
+        float y = vUv.y, x = vUv.x;
+        float n = hdFbm(vec2(x * 6.0, y * 2.5 - uTime * 3.2)) ;
+        float n2 = hdNoise(vec2(x * 14.0, y * 6.0 - uTime * 5.0));
+        float body = smoothstep(1.05, 0.15, y + n * 0.55 + n2 * 0.15);   // se deshilacha arriba
+        float a = body * (0.55 + n * 0.6) * uStr;
+        vec3 col = mix(vec3(1.0,0.95,0.7), vec3(1.0,0.55,0.12), smoothstep(0.0, 0.45, y + n*0.2));
+        col = mix(col, vec3(0.85,0.18,0.03), smoothstep(0.4, 0.85, y + n*0.25));
+        gl_FragColor = vec4(col * a * 1.6, a);
+      }`,
+  });
+}
+
+// ---------- agua: olas en dos direcciones, reflejo del cielo en ángulo (Fresnel), brillo del sol ----------
+export function waterMaterial({ shallow = 0x3fc2d8, deep = 0x0d4f7a, sky = 0xcfe8ff, opacity = 0.88, scale = 1 } = {}) {
+  return new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, fog: true, side: THREE.DoubleSide,
+    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {
+      uTime: { value: 0 }, shallow: { value: new THREE.Color(shallow) }, deep: { value: new THREE.Color(deep) }, sky: { value: new THREE.Color(sky) },
+      sunDir: { value: HD.sunDir }, sunCol: { value: HD.sunCol }, uOp: { value: opacity }, uScale: { value: scale },
+    }]),
+    vertexShader: `varying vec3 vW;
+      #include <fog_pars_vertex>
+      void main(){ vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; vec4 mvPosition = viewMatrix * w; gl_Position = projectionMatrix * mvPosition;
+        #include <fog_vertex>
+      }`,
+    fragmentShader: NOISE + `uniform float uTime, uOp, uScale; uniform vec3 shallow, deep, sky, sunDir, sunCol; varying vec3 vW;
+      #include <fog_pars_fragment>
+      float h(vec2 p){ p *= uScale;
+        float w = sin(dot(p, vec2(0.21, 0.13)) + uTime*0.9) * 0.3 + sin(dot(p, vec2(-0.117, 0.273)) + uTime*1.13) * 0.22 + sin(dot(p, vec2(0.371, -0.313)) + uTime*1.61) * 0.12
+                + sin(dot(p, vec2(-0.53, -0.41)) + uTime*2.3) * 0.07 + sin(dot(p, vec2(0.71, 0.29)) + uTime*2.9) * 0.05;
+        return 0.5 + w * 0.5 + (hdFbm(p*0.6 + vec2(uTime*0.06, uTime*0.035)) - 0.5) * 0.7; }
+      void main(){
+        float e = 0.15; float h0 = h(vW.xz);
+        vec3 V = normalize(cameraPosition - vW);
+        float fadeN = exp(-length(cameraPosition - vW) / 70.0); // lejos el agua se ve lisa (sin parpadeo)
+        vec3 n = normalize(vec3((h0 - h(vW.xz + vec2(e,0.))) * 1.4 * fadeN, e, (h0 - h(vW.xz + vec2(0.,e))) * 1.4 * fadeN));
+        if (V.y < 0.0) n.y = -n.y; // visto desde abajo (submarino)
+        float fres = pow(1.0 - max(dot(n, V), 0.0), 3.0);
+        float lit = clamp(dot(n, normalize(sunDir)) * 0.5 + 0.5, 0.0, 1.0);
+        vec3 col = deep * (0.75 + 0.35 * lit) + shallow * 0.22 * pow(lit, 3.0);
+        col = mix(col, sky, fres * 0.5);
+        vec3 R = reflect(-V, n);
+        float spec = pow(max(dot(R, normalize(sunDir)), 0.0), 180.0) * 2.5 + pow(max(dot(R, normalize(sunDir)), 0.0), 18.0) * 0.18;
+        col += sunCol * spec;
+        float foam = smoothstep(0.95, 1.1, h0) * 0.15 * fadeN; col += vec3(foam);
+        gl_FragColor = vec4(col, mix(uOp, 1.0, fres * 0.6));
+        #include <colorspace_fragment>
+        #include <fog_fragment>
+      }`,
+  });
+}

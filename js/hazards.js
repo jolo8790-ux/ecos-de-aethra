@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { HD, lavaMaterial, flameMaterial } from './hd.js';
 
 // Peligros y plataformas especiales:
 //  · crumbles  — rocas flotantes que tiemblan al pisarlas y se desploman un momento después (vuelven a aparecer)
@@ -52,7 +53,7 @@ export class Hazards {
     const core = new THREE.Mesh(new THREE.CircleGeometry(r, 16), glowMat); core.rotation.x = -Math.PI / 2; core.position.y = 0.36; g.add(core);
     // tres capas de llama (blanca-amarilla dentro, naranja, roja fuera)
     const flames = [[0xfff2a0, 0.45, 0.9], [0xffa020, 0.8, 0.75], [0xff3a10, 1.05, 0.55]].map(([c, s, o]) => {
-      const m = new THREE.Mesh(new THREE.CylinderGeometry(r * s * 0.35, r * s, 1, 14, 1, true), additive(c, o));
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(r * s * 0.35, r * s, 1, 14, 1, true), HD.on ? flameMaterial(o * 1.2) : additive(c, o));
       m.position.y = 0.5; m.visible = false; g.add(m); return m;
     });
     // chispas
@@ -120,6 +121,13 @@ export class Hazards {
 
   // ---------- lava ----------
   _lava({ y = -6, size = 420, color = 0xff4a10 }) {
+    if (HD.on) {
+      const lm = lavaMaterial(), m = new THREE.Mesh(new THREE.PlaneGeometry(size, size, 120, 120), lm);
+      m.rotation.x = -Math.PI / 2; m.position.y = y; this.root.add(m);
+      this.w.water = { y, mesh: m, lava: true };
+      this.w.animated.push(t => { lm.uniforms.uTime.value = t; });
+      return;
+    }
     const cv = document.createElement('canvas'); cv.width = cv.height = 256; const cx = cv.getContext('2d');
     cx.fillStyle = '#7a1200'; cx.fillRect(0, 0, 256, 256);
     for (let i = 0; i < 140; i++) { const gx = Math.random() * 256, gy = Math.random() * 256, rr = 8 + Math.random() * 34; const gr = cx.createRadialGradient(gx, gy, 0, gx, gy, rr); gr.addColorStop(0, `hsla(${30 + Math.random() * 25},100%,${55 + Math.random() * 20}%,0.9)`); gr.addColorStop(1, 'hsla(10,100%,30%,0)'); cx.fillStyle = gr; cx.beginPath(); cx.arc(gx, gy, rr, 0, 7); cx.fill(); }
@@ -151,6 +159,7 @@ export class Hazards {
   // Devuelve los golpes de este paso: [{ dmg, from: Vector3, push: Vector3, kind }]
   update(dt, player) {
     this.t += dt; const t = this.t, hits = [];
+    if (HD.on) for (const J of this.jets) for (const f of J.flames) if (f.material.uniforms) f.material.uniforms.uTime.value = t + J.x;
     const P = player.pos;
     for (const C of this.crumbles) {
       if (C.state === 'idle') {

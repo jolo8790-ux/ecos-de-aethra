@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { HD, waterMaterial } from './hd.js';
 
 // Mundo submarino: cúpulas de aire, burbujas de oxígeno, algas, peces, rayos de luz, cáusticas,
 // medusas que pican, corrientes que empujan, muros de coral que solo rompe el submarino, y el submarino.
@@ -30,7 +31,8 @@ export class Sea {
     c.fillStyle = '#2a8fb8'; c.fillRect(0, 0, 128, 128);
     for (let i = 0; i < 70; i++) { c.strokeStyle = `rgba(255,255,255,${0.15 + Math.random() * 0.3})`; c.lineWidth = 1 + Math.random() * 2; c.beginPath(); const x = Math.random() * 128, y = Math.random() * 128; c.arc(x, y, 4 + Math.random() * 10, 0, Math.PI * (0.3 + Math.random())); c.stroke(); }
     const tex = new THREE.CanvasTexture(cv); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(size / 12, size / 12); tex.colorSpace = THREE.SRGBColorSpace;
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.82, side: THREE.DoubleSide, depthWrite: false }));
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), HD.on ? waterMaterial({ shallow: 0x46c8e0, deep: 0x0b5a86, sky: 0xd8f0ff, opacity: 0.84 }) : new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.82, side: THREE.DoubleSide, depthWrite: false }));
+    if (HD.on) this.w.animated.push(t => { m.material.uniforms.uTime.value = t; });
     m.rotation.x = -Math.PI / 2; m.position.y = surface; m.renderOrder = 2; this.root.add(m);
     this.surf = m; this.surfTex = tex;
   }
