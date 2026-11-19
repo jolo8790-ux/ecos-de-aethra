@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { HD, outlineCharacter } from './hd.js';
+import { HD, outlineCharacter, rigHeroine, setSkeletonClone, heroClips } from './hd.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 // Personajes con malla y esqueleto reales (KayKit Adventurers, CC0, de Kay Lousberg)
@@ -25,6 +25,16 @@ export async function loadCharacterLibrary(onProgress) {
   const lib = { clips: {}, models: {} };
   for (const c of anims.animations) lib.clips[c.name] = c;
   MODELS.forEach((m, i) => { lib.models[m] = models[i].scene; });
+  if (HD.on) { // protagonista HD generada con Artlist, con el esqueleto del juego
+    try {
+      setSkeletonClone(SkeletonUtils.clone);
+      const mod = await import('../assets/props/heroina.glb.js');
+      const bin = Uint8Array.from(atob(mod.default), ch => ch.charCodeAt(0));
+      const g = await loader.parseAsync(bin.buffer, '');
+      lib.models.heroina = rigHeroine(g.scene, lib.models.lia);
+      lib.heroClips = heroClips(lib.clips); HD.heroReady = true;
+    } catch (e) { console.warn('heroína HD', e); }
+  }
   return lib;
 }
 
@@ -113,6 +123,10 @@ export function customLook(cfg = {}) {
   const rp = pick(CUSTOM.ropa, c.ropa)[2];
   if (rp === 'negro') rules.push({ from: [40, 300], minSat: 0.2, setSat: 0.12, light: 0.55 });
   else if (rp != null) rules.push({ from: [40, 300], minSat: 0.2, shift: rp });
+  if (HD.on && base.model === 'lia' && HD.heroReady) { // en la versión HD la exploradora es la protagonista nueva
+    const clothes = rules.filter(r => !r.parts);
+    return { model: 'heroina', scale: 1.0, recolor: clothes.length ? clothes : undefined, glider: pick(CUSTOM.planeador, c.planeador)[2] };
+  }
   return { model: base.model, scale: 1.0, recolor: rules.length ? [...rules, ...(base.recolor || [])] : base.recolor, glider: pick(CUSTOM.planeador, c.planeador)[2] };
 }
 
@@ -165,7 +179,7 @@ export function createCharacter(lib, lookName) {
 
   const mixer = new THREE.AnimationMixer(model);
   const actions = {};
-  for (const [name, clip] of Object.entries(lib.clips)) {
+  for (const [name, clip] of Object.entries(look.model === 'heroina' && lib.heroClips ? lib.heroClips : lib.clips)) {
     const a = mixer.clipAction(clip);
     a.enabled = true; a.setEffectiveWeight(0);
     actions[name] = a;

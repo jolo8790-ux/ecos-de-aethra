@@ -70,8 +70,9 @@ export class Player {
     if (hand) { hand.add(this.staff); this.staff.rotation.y = Math.PI; } // igual que las armas originales del paquete
     this.staff.visible = this.canFight;
     for (const p of this.armorParts || []) if (p.parent) p.parent.remove(p);
-    this.armorParts = buildArmor(a, this.ch.model);
-    if (HD.on && !this.hdPack) this.hdPack = backpack(this.ch.model);
+    const heroHD = this.ch.model.name === 'Heroina'; // la protagonista HD ya trae mochila y su ropa propia
+    this.armorParts = heroHD ? [] : buildArmor(a, this.ch.model);
+    if (HD.on && !heroHD && !this.hdPack) this.hdPack = backpack(this.ch.model);
   }
   setFight(on) { this.canFight = on; if (this.staff) this.staff.visible = on; }
 
