@@ -4,7 +4,7 @@ Aventura 3D con historia para el navegador, hecha con [Three.js](https://threejs
 
 Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes para reunir los fragmentos del Corazón de Aethra y decidir el destino de su mundo.
 
-## Estado: versión 2.8.1 (la historia sigue sin cortes: sin tarjeta de «fin de capítulo», Marta zarpa directo al siguiente destino)
+## Estado: versión 2.9 (intro cinematográfica, Armería con espadas y armaduras, efectos al cumplir cada meta)
 
 | Etapa | Contenido | Estado |
 | --- | --- | --- |
@@ -31,6 +31,7 @@ Lía, una aprendiz de cartógrafa, recorre islas flotantes sobre un mar de nubes
 | 21. 100 desafíos | Después de los 7 desafíos hechos a mano se crean 93 más a partir de su número (siempre iguales): más largos y difíciles, con 7 paisajes, nombres propios, plataformas móviles y elevadores, rocas que caen, corrientes de aire, garfio cada 4 desafíos, puentes con mazas, fuego y enemigos; medallas calculadas por la longitud. La lista muestra los superados y el siguiente | Lista: versión 2.6 |
 | 22. Sonido nuevo | Motor de efectos por capas (golpe inicial, cuerpo y cola) con variaciones al azar, sonido a izquierda/derecha y por distancia, pasos según el suelo (hierba, piedra, nieve, arena), efectos propios para golpes, golpe fuerte, escudo, esquiva, saltos, cada poder (fuego, hielo y congelación, telequinesis, levitación, furia, rayo, lluvia de flechas), enemigos heridos y derrotados, KO, cuenta atrás, cuerno de oleada y menús. Música: cuerdas pulsadas reales (Karplus-Strong), piano eléctrico, mejores tambores (taiko, platillos), capa de combate que entra sola cuando hay enemigos cerca, tema de batalla para la Arena y tema propio para Aethra sin fin | Lista: versión 2.7 |
 | 23. El camino sigue | Al terminar un capítulo, en la isla más lejana aparece un arco dorado: al cruzarlo, el camino continúa sin fin desde ahí mismo con el paisaje de la zona (y después los demás paisajes). La corriente de regreso sigue disponible para volver con Marta | Lista: versión 2.8 |
+| 24. Metas, Armería e intro | Columna de luz sobre el objetivo y celebración al cumplir cada meta; Armería con 5 armas y 6 armaduras visibles sobre el personaje que se compran con Ecos (✧); intro con video e imagen generados con Artlist, historia narrada y logo; vuelo de cámara sobre cada isla al llegar | Lista: versión 2.9 |
 
 ## Cómo jugar en tu computadora
 

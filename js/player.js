@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { STEP_HEIGHT } from './physics.js';
 import { buildHumanoid, HeroAnimator } from './rig.js';
 import { createCharacter, HeroModelAnimator } from './characters.js';
+import { buildWeapon, buildArmor } from './gear.js';
 
 export const RADIUS = 0.35, HEIGHT = 1.55;
 const RUN = 6.6, WALK = 2.6, ACCEL = 40, AIR_ACCEL = 16, GRAVITY = 28, JUMP_V = 10, DOUBLE_JUMP_V = 9;
@@ -51,15 +52,25 @@ export class Player {
     const ch = createCharacter(lib, look);
     scene.remove(this.mesh); scene.add(ch.root);
     this.ch = ch; this.mesh = ch.root; this.anim = new HeroModelAnimator(ch);
-    this.staff = buildStaff();
-    const hand = findBone(ch.model, 'handslotr') || findBone(ch.model, 'handr');
-    if (hand) { hand.add(this.staff); this.staff.rotation.y = Math.PI; } // igual que las armas originales del paquete
-    this.staff.visible = this.canFight;
+    this.staff = null; this.armorParts = [];
+    this.equip(this.gear && this.gear.w, this.gear && this.gear.a);
     this.glider = buildGlider(); ch.root.add(this.glider);
     if (look && look.glider) this.glider.traverse(o => { if (o.isMesh && o.material && o.material.color && o.material.color.getHex() === 0x2f9fae) { o.material = o.material.clone(); o.material.color.setHex(look.glider); } });
     this.shieldMesh = buildShield(); ch.root.add(this.shieldMesh);
   }
   gesture(name, opts) { if (this.anim.gesture) this.anim.gesture(name, opts); }
+  // arma y armadura de la Armería (se ven sobre el modelo)
+  equip(w = 'baston', a = 'tunica') {
+    this.gear = { w, a };
+    if (!this.ch) return;
+    if (this.staff && this.staff.parent) this.staff.parent.remove(this.staff);
+    this.staff = buildWeapon(w) || buildStaff();
+    const hand = findBone(this.ch.model, 'handslotr') || findBone(this.ch.model, 'handr');
+    if (hand) { hand.add(this.staff); this.staff.rotation.y = Math.PI; } // igual que las armas originales del paquete
+    this.staff.visible = this.canFight;
+    for (const p of this.armorParts || []) if (p.parent) p.parent.remove(p);
+    this.armorParts = buildArmor(a, this.ch.model);
+  }
   setFight(on) { this.canFight = on; if (this.staff) this.staff.visible = on; }
 
   teleport(x, y, z, facing = this.facing) {

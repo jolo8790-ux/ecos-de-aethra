@@ -624,6 +624,7 @@ export class Arena {
       sub = this.mode === 'duelo' ? 'Duelo terminado.' : 'Carrera terminada.';
       if (won && sv) {
         const k = this.mode === 'duelo' ? 'duelos' : 'carreras', goal = this.mode === 'duelo' ? 3 : 2, v = C.bump(k);
+        if (C.addEcos) { C.addEcos(20); rewards.push('✧ +20 Ecos para la Armería'); }
         rewards.push(this.mode === 'duelo' ? `Duelos ganados: ${v} (misión «Gladiadora»: ${Math.min(v, goal)}/${goal})` : `Carreras ganadas: ${v} (misión «Más rápida que el viento»: ${Math.min(v, goal)}/${goal})`);
       }
       C.audio.play(won ? 'unlock' : 'hurt');

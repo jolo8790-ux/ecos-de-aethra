@@ -34,6 +34,8 @@ import { Arena, ARENA_MODES, wireChat } from './arena.js';
 import { Powers, POWERS, loadout, powerUnlocked, powerPoints, powerById, ENERGY_MAX } from './powers.js';
 import { Net } from './net.js';
 import { Endless, ENDLESS_ZONE } from './endless.js';
+import { runIntro } from './intro.js';
+import { WEAPONS, ARMORS, weaponById, armorById, gearOf, mergeMods, ECO_REWARD } from './gear.js';
 
 const ZONES_BASE = { puerto_bruma: puertoBruma, bosque_colgante: bosqueColgante, ruinas_vidrio: ruinasVidrio, ciudad_engranajes: ciudadEngranajes, glaciar_eco: glaciarEco, ciudadela_orden: ciudadelaOrden, eco_olvidado: ecoOlvidado, forja_ignis: forjaIgnis, abismo_mareth: abismoMareth };
 applySenderos(ZONES_BASE); // cada zona de la historia gana su Sendero
@@ -171,6 +173,7 @@ let dialog = null;
 let focus = null;
 let talkCooldown = 0;
 const lookTarget = new THREE.Vector3();
+let lastGoalZone = null;
 let pendingWarp = null, pendingChapterEnd = false, pendingEnding = false, cutscene = null, lastGoal = '';
 
 // Estado de la historia que ven los datos de la zona (objetivos y diálogos).
@@ -199,9 +202,80 @@ const marker = new THREE.Group(); scene.add(marker);
 const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 40, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide }));
 beam.position.y = 20; marker.add(beam);
 const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.7, 4), new THREE.MeshBasicMaterial({ color: 0xffd27a })); arrow.rotation.x = Math.PI; marker.add(arrow);
+// faro: una columna de luz suave sobre el objetivo que se ve desde lejos
+const beacon = new THREE.Group(); scene.add(beacon);
+const beaconMat = new THREE.MeshBasicMaterial({ color: 0xffe6a0, transparent: true, opacity: 0.16, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+const beaconCol = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 1.1, 60, 20, 1, true), beaconMat); beaconCol.position.y = 30; beacon.add(beaconCol);
+const beaconCore = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.3, 60, 10, 1, true), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.25, depthWrite: false, blending: THREE.AdditiveBlending })); beaconCore.position.y = 30; beacon.add(beaconCore);
+beacon.visible = false;
+// meta cumplida: columna de luz que sube, anillo en el suelo, destellos y un rótulo
+const goalFx = [];
+function celebrateGoal(pos, big = false) {
+  const g = new THREE.Group(); g.position.copy(pos); scene.add(g);
+  const colM = new THREE.MeshBasicMaterial({ color: big ? 0xffe08a : 0xbff4ff, transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+  const col = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.6, 40, 24, 1, true), colM); col.position.y = 20; col.scale.y = 0.01; g.add(col);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.8, 1.1, 48), colM.clone()); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.08; g.add(ring);
+  goalFx.push({ g, col, ring, t: 0, big });
+  fx.rainbow(pos.clone().setY(pos.y + 1), big ? 60 : 30); fx.sparkle(pos.clone().setY(pos.y + 1.5), big ? 50 : 25, big ? 0xffe08a : 0xbff4ff);
+  audio.play('unlock'); if (big) { music.stinger('hallazgo'); combat.shake(0.25, 0.4); }
+  const el = $('goalDone'); el.textContent = big ? '✦ ¡Gran meta alcanzada! ✦' : '✦ ¡Meta alcanzada!'; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+}
+function goalFxTick(dt) {
+  for (let i = goalFx.length - 1; i >= 0; i--) {
+    const e = goalFx[i]; e.t += dt;
+    e.col.scale.y = Math.min(1, e.t * 2.5); e.col.material.opacity = 0.6 * Math.max(0, 1 - Math.max(0, e.t - 0.8) / 1.6);
+    const r = 1 + e.t * (e.big ? 9 : 6); e.ring.scale.setScalar(r); e.ring.material.opacity = 0.7 * Math.max(0, 1 - e.t / 1.4);
+    e.g.rotation.y += dt;
+    if (e.t > 0.3 && e.t < 1.6 && Math.random() < 0.5) fx.sparkle(e.g.position.clone().setY(e.g.position.y + Math.random() * 10), 1, e.big ? 0xffe08a : 0xffffff);
+    if (e.t > 2.6) { scene.remove(e.g); goalFx.splice(i, 1); }
+  }
+}
 marker.visible = false;
 
 applySettings();
+
+// ---------- vuelo de cámara sobre la isla al llegar (mientras se narra la introducción) ----------
+let flyover = null;
+function startFlyover() {
+  const isl = (zone.islands || []).slice(0, zone._baseIslands || (zone.islands || []).length);
+  if (!isl.length || splitView) return;
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity, top = 0;
+  for (const I of isl) { x0 = Math.min(x0, I.x - I.w / 2); x1 = Math.max(x1, I.x + I.w / 2); z0 = Math.min(z0, I.z - I.d / 2); z1 = Math.max(z1, I.z + I.d / 2); top = Math.max(top, I.top || 0); }
+  const R = Math.min(90, Math.max(18, Math.hypot(x1 - x0, z1 - z0) / 2));
+  const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+  const a0 = Math.atan2(player.pos.x - cx, player.pos.z - cz) + Math.PI * 0.85; // empieza al otro lado y gira hacia la heroína
+  flyover = { t: 0, e: 0, ending: false, cx, cz, top, R, a0, pos: new THREE.Vector3(), look: new THREE.Vector3() };
+  document.body.classList.add('cine');
+}
+function flyoverTick(dt) {
+  const f = flyover; f.t += dt;
+  if (state !== 'dialog' && !f.ending) f.ending = true;
+  if (f.t > 14 && !f.ending) f.ending = true; // si se queda leyendo mucho, vuelve igual
+  const k = Math.min(1, f.t / 12), ease = k * k * (3 - 2 * k);
+  const ang = f.a0 - ease * Math.PI * 0.85;
+  const r = f.R * (1.25 - 0.55 * ease) + 6, h = f.top + f.R * (0.55 - 0.35 * ease) + 6;
+  f.pos.set(f.cx + Math.sin(ang) * r, h, f.cz + Math.cos(ang) * r);
+  f.look.set(f.cx, f.top + 2, f.cz).lerp(player.pos.clone().setY(player.pos.y + 1.2), ease * 0.8);
+  if (f.ending) f.e = Math.min(1, f.e + dt / 1.3);
+  const b = f.e * f.e * (3 - 2 * f.e);
+  const normPos = camera.position.clone(), normLook = player.pos.clone().setY(player.pos.y + 1.2);
+  camera.position.copy(f.pos).lerp(normPos, b);
+  camera.lookAt(f.look.clone().lerp(normLook, b));
+  if (f.e >= 1) { flyover = null; document.body.classList.remove('cine'); cam.snap && cam.snap(player); }
+}
+
+// ---------- presentación ----------
+let introRun = null;
+function showIntro() {
+  introRun = { done: false };
+  const r = runIntro({
+    sfx: n => audio.play(n),
+    onStart: () => { audio.unlock(); if (music.init()) music.play('title'); },
+    onEnd: () => { introRun.done = true; },
+  });
+  Object.assign(introRun, { skip: r.skip, finish: r.finish });
+}
+if (!navigator.webdriver && !/[?&]nointro/.test(location.search)) showIntro();
 
 // ---------- carga de personajes animados ----------
 let charsReady = false;
@@ -217,6 +291,7 @@ Promise.all([
 
 // ---------- zonas ----------
 function loadZone(id, checkpointId) {
+  if (flyover) { flyover = null; document.body.classList.remove('cine'); }
   zone = ZONES[id];
   audio.surface = surfaceOf(zone);
   removeReturnWind();
@@ -294,7 +369,7 @@ function enterZone(id, checkpointId) {
   const flag = id === 'puerto_bruma' ? 'intro' : 'intro_' + id;
   if (zone.story && zone.story.intro && !save.flags[flag]) {
     save.flags[flag] = true; writeSave(save);
-    setTimeout(() => { if (state === 'play') startDialog(zone.story.intro, '', null, () => zone.story.onIntroEnd && zone.story.onIntroEnd(S)); }, 900);
+    setTimeout(() => { if (state === 'play') { startDialog(zone.story.intro, '', null, () => zone.story.onIntroEnd && zone.story.onIntroEnd(S)); startFlyover(); } }, 900);
   }
 }
 
@@ -344,7 +419,7 @@ combat.onBreak = B => {
   if (B.loot === 'reliquia') world.spawnRelic(B.id, B.pos.clone().setY(B.pos.y - 0.45));
   else if (B.loot === 'corazon') combat.spawnHeal(B.pos.x, B.pos.y - 0.45, B.pos.z);
   else if (B.loot === 'reloj' && challenge) { challenge.t = Math.max(0, challenge.t - 3); audio.play('unlock'); toast('⏳ ¡Reloj de arena! −3 segundos'); }
-  if (!challenge && save && !isAutoMode()) bump('rotos');
+  if (!challenge && save && !isAutoMode()) { bump('rotos'); addEcos(ECO_REWARD.roto); }
   const pid = zone && 'pz_' + zone.id;
   if (B.id === pieceBk && save && !piecesOf(save).includes(pid)) { world.spawnPieza(pid, B.pos.clone().setY(B.pos.y - 0.45)); fx.sparkle(B.pos, 30, 0xffe08a); toast('¡Algo dorado brilla entre los pedazos!'); }
 };
@@ -353,6 +428,7 @@ function collectPieza(it) {
   world.interactables.splice(world.interactables.indexOf(it), 1);
   world.root.remove(it.mesh);
   if (!givePiece(save, it.id)) return;
+  addEcos(ECO_REWARD.pieza);
   music.stinger('hallazgo'); fx.sparkle(it.pos.clone().setY(it.pos.y + 1), 34, 0xffe08a); audio.play('fragment');
   player.gesture('Cheer', { speed: 1.2, fadeOut: 0.3 });
   announcePiece(`${ZONE_PIECES[zone.id] || 'Pieza especial'}`);
@@ -382,7 +458,7 @@ function collectRelic(it) {
   world.interactables.splice(world.interactables.indexOf(it), 1);
   world.root.remove(it.mesh);
   save.relics = save.relics || [];
-  if (!save.relics.includes(it.id)) save.relics.push(it.id);
+  if (!save.relics.includes(it.id)) { save.relics.push(it.id); addEcos(ECO_REWARD.reliquia); }
   music.stinger('hallazgo'); fx.sparkle(it.pos.clone().setY(it.pos.y + 1), 26, 0xffd27a);
   player.gesture('Cheer', { speed: 1.2, fadeOut: 0.3 });
   const n = save.relics.length, before = player.maxHp;
@@ -396,7 +472,7 @@ function collectFragment(it) {
   world.interactables.splice(world.interactables.indexOf(it), 1);
   world.root.remove(it.mesh);
   fx.sparkle(it.pos.clone().setY(it.pos.y + 0.8)); fx.rainbow(it.pos.clone().setY(it.pos.y + 0.8), 26);
-  save.fragments.push(it.id);
+  save.fragments.push(it.id); addEcos(ECO_REWARD.fragmento);
   audio.play('fragment');
   updateHUD();
   const total = zone.fragments.length, got = zone.fragments.filter(f => save.fragments.includes(f.id)).length;
@@ -510,8 +586,8 @@ $('dialog').addEventListener('click', () => input._pressed.add('click'));
 
 // ---------- objetivo y brújula ----------
 function updateGoal(dt) {
-  if (endless.active && endless.inZone) { $('objective').classList.add('hidden'); marker.visible = false; returnWindTick(dt, zone.story && zone.story.goal(S)); return; }
-  if (!zone.story) { $('objective').classList.add('hidden'); marker.visible = false; return; }
+  if (endless.active && endless.inZone) { $('objective').classList.add('hidden'); marker.visible = false; beacon.visible = false; returnWindTick(dt, zone.story && zone.story.goal(S)); return; }
+  if (!zone.story) { $('objective').classList.add('hidden'); marker.visible = false; beacon.visible = false; return; }
   const g0 = zone.story.goal(S);
   let g = g0;
   if (g0 && /^(Prólogo|Capítulo)[^.]*completado\.\s*/i.test(g0.text)) {
@@ -522,7 +598,12 @@ function updateGoal(dt) {
   }
   $('objective').classList.toggle('hidden', state === 'title');
   if (g.text !== lastGoal) {
-    if (lastGoal) { const o = $('objective'); o.classList.remove('flash'); void o.offsetWidth; o.classList.add('flash'); audio.play('open'); }
+    if (lastGoal && lastGoalZone === zone.id && state === 'play' || lastGoal && state === 'dialog') {
+      const o = $('objective'); o.classList.remove('flash'); void o.offsetWidth; o.classList.add('flash');
+      const big = /vuelve con marta|zarpar|os espera/i.test(g.text); // se cerró la historia de la isla
+      celebrateGoal(player.pos.clone(), big);
+    }
+    lastGoalZone = zone.id;
     lastGoal = g.text; $('objText').textContent = g.text; lossStreak = 0;
   }
   returnWindTick(dt, g);
@@ -531,8 +612,10 @@ function updateGoal(dt) {
     $('objDist').textContent = d > 3 ? `${Math.round(d)} m` : '';
     marker.visible = d > 3 && state === 'play';
     marker.position.set(g.at[0], g.at[1], g.at[2]);
+    beacon.visible = d > 12 && state === 'play'; beacon.position.set(g.at[0], g.at[1], g.at[2]);
+    beaconMat.opacity = 0.1 + Math.min(0.14, d / 600) + Math.sin(time * 2) * 0.03;
     arrow.position.y = 2.7 + Math.sin(time * 3) * 0.18; arrow.rotation.y = time * 2;
-  } else { $('objDist').textContent = ''; marker.visible = false; }
+  } else { $('objDist').textContent = ''; marker.visible = false; beacon.visible = false; }
 
   // brújula: apunta al fragmento más cercano, relativo a la cámara
   const hasCompass = S.has('brujula');
@@ -789,6 +872,7 @@ function handlePlayerEvents() {
     if (ev.type === 'hurt') { if (bossActive) bossHurt = true; combat.shake(0.25, 0.25); input.rumble(220, 0.7); $('hudHearts').classList.remove('hit'); void $('hudHearts').offsetWidth; $('hudHearts').classList.add('hit'); }
     if (ev.type === 'dead') startDeath();
     if (ev.type === 'pulse') doPulse(ev.pos, ev.radius);
+    if (ev.type === 'swing' && ev.idx === 2 && player.gear && player.gear.w === 'eco' && state === 'play') { doPulse(player.pos.clone(), 4.5); audio.play('beam'); }
     if (ev.type === 'power' && state === 'play') { const r = powers.cast(player, ev.id, storyFoes); if (r === 'none') { toast('No hay nadie al alcance'); audio.play('powerFail'); } else if (r === false) audio.play('powerFail'); }
   }
   player.events = player.events.filter(e => e.type === 'hitcheck' || e.type === 'swing');
@@ -964,15 +1048,24 @@ combat.onBossDefeated = () => {
   if (!bossHurt) logro('jefe_intacto');
   if (zone.id === 'eco_olvidado') logro('eco_secreto');
   else if (!isAutoMode() && addTo('guardianes', zone.id) >= 5) logro('cinco_guardianes');
-  music.stinger('victoria');
+  music.stinger('victoria'); addEcos(ECO_REWARD.jefe);
   bossActive = false;
   setTimeout(() => { startDialog(zone.story.bossDefeated, '', null, () => { zone.story.onBossDefeated && zone.story.onBossDefeated(S); player.gesture('Cheer', { speed: 1.2 }); }); }, 300);
 };
 combat.onBossClang = () => { if (!hintClang) { hintClang = true; toast({ bosque_colgante: 'El tronco es demasiado duro. ¡Golpea los nudos brillantes de las raíces!', ruinas_vidrio: 'Su caparazón es irrompible. Haz que choque contra un pilar.', ciudad_engranajes: 'El latón es demasiado duro. Espera a que se atasque tras el puñetazo.', glaciar_eco: 'Está demasiado alto. Devuélvele un orbe de hielo con el escudo (mantén V).', ciudadela_orden: 'La barrera de sombra lo protege. Rómpela con el pulso de luz (Z) o devolviéndole un orbe con el escudo.' }[zone.id] || 'Demasiado duro'); } };
 combat.onKill = e => {
   if (arena.active) { arena.onKill(e); return; }
-  if (!isAutoMode() && !challenge) bump('enemigos');
+  if (!isAutoMode() && !challenge) { bump('enemigos'); addEcos(ECO_REWARD.enemigo, e.pos); }
   if (e.constructor.name === 'Avispa' && !isAutoMode() && bump('avispas') >= 10) logro('cazavispas');
+};
+// efectos especiales de las espadas de la Armería
+combat.onWeaponHit = (e, pl) => {
+  if (pl !== player || !player.gear) return;
+  const W = weaponById(player.gear.w);
+  if (W.fx === 'burn' && e.alive) {
+    let n = 0; powers.fx.push({ t: 0, update: (dt, f) => { f.t += dt; if (!e.alive) return true; if (Math.random() < 0.4) fx.sparkle(e.pos.clone().setY(e.pos.y + 0.5 + Math.random() * 0.6), 1, 0xff8a3a); if (f.t > 0.9 * (n + 1)) { n++; e.hurt(1, e.pos.clone().add(new THREE.Vector3(0, 0, 0.01)), 0); audio.play('fire', e.pos); } return n >= 2; } });
+  }
+  if (W.fx === 'freeze' && e.alive && Math.random() < 0.25) enemyTarget(e).hit(0, 'ice', player.pos, { t: 1.5 });
 };
 combat.onBossPhase = b => toast((b && b.phaseMsg) || '¡El guardián está furioso!');
 combat.onLockHit = L => { world.openLock(L); if (L.flag) S.set(L.flag); audio.play('unlock'); fx.sparkle(L.pos, 30, 0xbff4ff); toast('¡La cerradura de hielo se rompe!'); };
@@ -1002,6 +1095,16 @@ function updateHUD() {
   updateGlideBar();
   const total = zone.fragments.length, got = zone.fragments.filter(f => save.fragments.includes(f.id)).length;
   $('hudFrag').textContent = `◆ ${got}/${total}`;
+  $('hudEcos').textContent = `✧ ${save.ecos || 0}`;
+}
+// Ecos (✧): la moneda de la Armería
+let ecoPopT = 0;
+function addEcos(n, pos) {
+  if (!save || isAutoMode() || !n) return;
+  save.ecos = (save.ecos || 0) + n;
+  const el = $('hudEcos'); el.textContent = `✧ ${save.ecos}`; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+  if (pos && n >= 3) fx.sparkle(pos.clone().setY(pos.y + 1), Math.min(16, 4 + n), 0xffe9a8);
+  if (n >= 10) toast(`✧ +${n} Ecos`);
 }
 let toastT = 0;
 function toast(msg) { $('toast').textContent = msg; $('toast').style.opacity = 1; toastT = 2.4; }
@@ -1079,7 +1182,8 @@ function applySlotLook() {
 function applyHero() {
   if (!save) return;
   const h = heroUnlocked(heroById(save.hero), pieceCount(save)) ? heroById(save.hero) : HEROES[0];
-  save.hero = h.id; player.mods = { ...h.mods };
+  save.hero = h.id; const gg = gearOf(save); player.gear = { w: gg.arma, a: gg.armadura }; player.mods = mergeMods(h.mods, save);
+  if (!charLib) player.equip(gg.arma, gg.armadura);
   if (charLib) { player.useModel(charLib, heroLook(h.id, save.custom)); player.setFight(player.canFight); }
   if (!isAutoMode() && !challenge) addTo('heroes', h.id);
 }
@@ -1511,6 +1615,7 @@ function autoFly(dt) {
 // ---------- menús con el mando: cruceta para elegir, ✕/A para aceptar, ○/B para volver ----------
 let navOv = null, navKey = '';
 function menuNav() {
+  if (introRun && !introRun.done) return;
   if (!input.usingGamepad) { document.querySelectorAll('.padFocus').forEach(e => e.classList.remove('padFocus')); return; }
   if (state === 'play' || state === 'dialog' || state === 'dead' || state === 'cutscene') return;
   // en la Arena solo cuentan sus cuadros de pausa y de final de ronda
@@ -1583,6 +1688,7 @@ function finishChallenge() {
   else if (isAuto && !prev) { rec[C.L.id] = { t: null }; saveCh(rec); } // desbloquea el siguiente, sin tiempo
   const m = isAuto ? null : medalFor(C.L, C.t), next = DESAFIOS[C.i + 1];
   if (m === 'oro') logro('oro');
+  if (save && !isAuto) { save.ecos = (save.ecos || 0) + ECO_REWARD.desafio + (m === 'oro' ? 10 : 0); writeSave(save); }
   if (DESAFIOS.slice(0, BASE_DESAFIOS).every(L => rec[L.id] && rec[L.id].t != null && medalFor(L, rec[L.id].t) === 'oro')) logro('todo_oro');
   state = 'end'; document.body.classList.add('cine'); player.frozen = true;
   music.stinger('victoria'); fx.sparkle(player.pos.clone().setY(player.pos.y + 1.2), 30, 0xc8b8ff);
@@ -1907,6 +2013,7 @@ function simulate(dt) {
     updateGrapple();
     if (state === 'dialog') updateDialog(dt); else updateInteractions();
     cam.update(dt, state === 'dialog' ? { look: { x: 0, y: 0 }, zoom: 0, move: { x: 0, y: 0 } } : input, player);
+    if (flyover) flyoverTick(dt);
     world.updateFade(camera.position, cam.target, dt);
     const floor = world.sea ? -75 : world.water ? world.water.y + 0.3 : -20;
     const fallMsg = () => world.water && world.water.lava ? '¡Caíste a la lava!' : zone.id === 'puerto_bruma' ? 'Caíste al mar de nubes' : 'Caíste al vacío';
@@ -1937,7 +2044,7 @@ function simulate(dt) {
   world.update(time, dt);
   if (endless.active && state === 'play') { endless.update(dt, time); updateEndlessHud(); }
   skyTick(dt);
-  powers.update(dt); powers.statusFx(player, dt);
+  powers.update(dt); powers.statusFx(player, dt); goalFxTick(dt);
   if (state !== 'title') updatePowerHUD();
   audio.listener = { x: camera.position.x, z: camera.position.z, yaw: cam.yaw, ref: 10 };
   musicMood(dt);
@@ -2055,6 +2162,41 @@ $('bMisBack').onclick = () => { $('misiones').classList.add('hidden'); $(misUI.f
 $('bMisPause').onclick = () => openMisiones('pause');
 $('bHubMis').onclick = () => openMisiones('title');
 
+// ---------- Armería ----------
+const armUI = { from: null, tab: 'arma' };
+function openArmeria(from) {
+  const sv = from === 'title' ? loadSave() : save; if (!sv) return;
+  armUI.from = from; armUI.sv = sv;
+  $(from).classList.add('hidden'); $('armeria').classList.remove('hidden');
+  buildArmeria();
+}
+function buildArmeria() {
+  const sv = armUI.sv, g = gearOf(sv), ecos = sv.ecos || 0;
+  $('armSub').innerHTML = `Tienes <b class="ecoTag">✧ ${ecos} Ecos</b>. Los ganas venciendo enemigos, rompiendo vasijas, encontrando fragmentos, reliquias y piezas, en la Arena, en los desafíos y en Aethra sin fin.`;
+  $('armTabs').innerHTML = `<button class="${armUI.tab === 'arma' ? 'sel' : ''}" data-t="arma"><b>🗡</b><small>Armas</small></button><button class="${armUI.tab === 'armadura' ? 'sel' : ''}" data-t="armadura"><b>🛡</b><small>Armaduras</small></button>`;
+  $('armTabs').querySelectorAll('button').forEach(b => b.onclick = () => { armUI.tab = b.dataset.t; audio.play('uiMove'); buildArmeria(); });
+  const grid = $('armGrid'); grid.innerHTML = '';
+  for (const it of armUI.tab === 'arma' ? WEAPONS : ARMORS) {
+    const own = g.owned.includes(it.id), on = g[armUI.tab] === it.id, can = ecos >= it.cost, b = document.createElement('button');
+    b.className = 'powCard' + (own || can ? '' : ' locked') + (on ? ' on' : '');
+    b.innerHTML = `<span class="ic">${it.icon}</span><b>${it.name}</b><small>${it.desc}</small><em>${on ? 'Equipado' : own ? 'Tuyo · pulsa para equipar' : `✧ ${it.cost} Ecos${can ? ' · pulsa para comprar' : ` (te faltan ${it.cost - ecos})`}`}</em>${on ? '<span class="slotTag">Puesto</span>' : ''}`;
+    b.onclick = () => {
+      if (!own) {
+        if (!can) { audio.play('powerFail'); return; }
+        sv.ecos = ecos - it.cost; g.owned.push(it.id); audio.play('unlock'); music.stinger('hallazgo');
+      } else audio.play('open');
+      g[armUI.tab] = it.id;
+      if (sv === save) { writeSave(save); applyHero(); applyAbilities(); player.hp = Math.min(player.hp, player.maxHp); updateHUD(); }
+      else writeSaveRaw(sv);
+      buildArmeria();
+    };
+    grid.appendChild(b);
+  }
+}
+$('bArmBack').onclick = () => { $('armeria').classList.add('hidden'); $(armUI.from).classList.remove('hidden'); if (armUI.from === 'arenaMenu') refreshArenaMenu(); };
+$('bArmPause').onclick = () => openArmeria('pause');
+$('bHubArm').onclick = () => openArmeria('title');
+
 // ---------- poderes especiales ----------
 const powUI = { from: null, slot: 0 };
 function openPoderes(from) {
@@ -2104,6 +2246,7 @@ const arena = new Arena({
     marker.visible = false; $('objective').classList.add('hidden'); $('compass').classList.add('hidden'); $('prompt').classList.add('hidden');
     banner(Z.subtitle, Z.title);
   },
+  addEcos: n => { addEcos(n); if (save) writeSave(save); },
   bump: k => (isAutoMode() ? 0 : bump(k)), bumpMax: (k, v) => (save && !isAutoMode() ? bumpMaxL(save, k, v) : v),
   checkMissions: () => { checkMissions(); if (save) writeSave(save); },
   pulseFx: (pos, r) => { const sph = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshBasicMaterial({ color: 0xfff2a8, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending })); sph.position.copy(pos).setY(pos.y + 0.9); scene.add(sph); pulseFx.push({ m: sph, t: 0, r }); },
@@ -2297,7 +2440,7 @@ function endlessOver() {
   $('fade').style.opacity = 0;
   const m = Math.round(endless.dist), prev = (storeOf(save).n.infinitoMax) || 0;
   const best = isAutoMode() ? prev : bumpMaxL(save, 'infinitoMax', m);
-  if (!isAutoMode()) { storeOf(save).n.chispas = (storeOf(save).n.chispas || 0) + endless.chispas; checkMissions(); writeSave(save); }
+  if (!isAutoMode()) { addEcos(endless.chispas * ECO_REWARD.chispa); storeOf(save).n.chispas = (storeOf(save).n.chispas || 0) + endless.chispas; checkMissions(); writeSave(save); }
   $('endlessEndTitle').textContent = m > prev && !isAutoMode() ? '¡Nuevo récord!' : 'Fin del viaje';
   $('endlessEndSub').textContent = `Llegaste a ${m} m (sector ${endless.sectorNow + 1}, ${endless.biomeOf(endless.sectorNow).name}) y juntaste ${endless.chispas} chispas. Tu récord: ${best} m.`;
   music.stinger(m > prev ? 'victoria' : 'derrota');
@@ -2411,7 +2554,7 @@ window.__aethra = {
   testNewGame(name = 'Prueba', difficulty = settings.difficulty, opts = {}) { nueva.name = name; nueva.diff = DIFF[difficulty] ? difficulty : 'normal'; nueva.slot = freeSlot() || getSlot() || 1; createPartida(settings.custom || {}); if (opts.sellos !== false) for (const id of Object.keys(SENDEROS)) save.flags['sello_' + id] = true; }, // las pruebas de capítulos saltan los Senderos
   openChallenges() { if (!loadSave()) { nueva.name = 'Prueba'; nueva.diff = DIFF[settings.difficulty] ? settings.difficulty : 'normal'; nueva.slot = freeSlot() || 1; const sv = newSave({ name: 'Prueba', difficulty: nueva.diff, custom: settings.custom || {} }); setSlot(nueva.slot); writeSlot(nueva.slot, sv); } $('bHubCh').click(); },
   playCredits: (then) => playCredits(save, then || (() => {})), showChapterEnd, startEnding, openTrophies, offerLowerDifficulty, get lossStreak() { return lossStreak; },
-  arena, openArena, openHeroes, openMisiones, openPoderes, powers, audio, leaveArena, checkMissions, get arenaUI() { return arenaUI; }, Net,
+  showIntro, get introRun() { return introRun; }, arena, openArena, openArmeria, openHeroes, openMisiones, openPoderes, powers, audio, leaveArena, checkMissions, get arenaUI() { return arenaUI; }, Net,
   endless, startEndless, stopEndless, startChallenge,
   hold(on) { paused4test = on; }, S, combat, enterZone, choose, get zone() { return zone; }, get dialog() { return dialog; },
   step(n, press) {

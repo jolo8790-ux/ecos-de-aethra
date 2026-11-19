@@ -1344,7 +1344,7 @@ export class Combat {
       let hit = false;
       for (const e of this.enemies) {
         if (!e.alive || ev.hitList.has(e) || !inArc(e.pos, e.radius)) continue;
-        ev.hitList.add(e); e.hurt(ev.dmg || ev.def.dmg, pl.pos, ev.def.push); if ((ev.dmg || ev.def.dmg) >= 2) this.audio.play('hitHeavy', e.pos); hit = true;
+        ev.hitList.add(e); e.hurt(ev.dmg || ev.def.dmg, pl.pos, ev.def.push); this.onWeaponHit && this.onWeaponHit(e, pl); if ((ev.dmg || ev.def.dmg) >= 2) this.audio.play('hitHeavy', e.pos); hit = true;
         this.fx.sparkle(e.pos.clone().setY(e.pos.y + 0.6), 8, 0xffffff);
       }
       for (const b of this.breakables || []) { // vasijas y geodas
