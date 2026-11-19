@@ -35,6 +35,8 @@ import { Powers, POWERS, loadout, powerUnlocked, powerPoints, powerById, ENERGY_
 import { Net } from './net.js';
 import { Endless, ENDLESS_ZONE } from './endless.js';
 import { runIntro } from './intro.js';
+import { HD, patchRim, upgradeSky, GradeShader, warmZone } from './hd.js';
+patchRim();
 import { WEAPONS, ARMORS, weaponById, armorById, gearOf, mergeMods, ECO_REWARD, buildWeapon, buildArmor } from './gear.js';
 
 const ZONES_BASE = { puerto_bruma: puertoBruma, bosque_colgante: bosqueColgante, ruinas_vidrio: ruinasVidrio, ciudad_engranajes: ciudadEngranajes, glaciar_eco: glaciarEco, ciudadela_orden: ciudadelaOrden, eco_olvidado: ecoOlvidado, forja_ignis: forjaIgnis, abismo_mareth: abismoMareth };
@@ -66,12 +68,12 @@ const sun = new THREE.DirectionalLight(0xfff1d6, 1.6);
 sun.castShadow = true; sun.shadow.mapSize.set(LOW_GPU ? 1024 : 2048, LOW_GPU ? 1024 : 2048);
 if (LOW_GPU) renderer.shadowMap.type = THREE.PCFShadowMap;
 const QUALITY = {
-  alta: { ratio: 2, shadows: true, soft: true, map: 2048, fx: 1, bloom: true },
-  media: { ratio: 1, shadows: true, soft: false, map: 1024, fx: 1 },
+  alta: { ratio: 2, shadows: true, soft: true, map: 2048, fx: 1, bloom: true, grade: true },
+  media: { ratio: 1, shadows: true, soft: false, map: 1024, fx: 1, grade: true },
   baja: { ratio: 0.75, shadows: false, soft: false, map: 512, fx: 0.5 },
 };
 let qualityNow = '';
-let composer = null, bloomLoading = false; // resplandor (bloom) en calidad Alta
+let composer = null, bloomLoading = false, bloomPass = null; // resplandor (bloom) en calidad Alta
 const aq = { t: 0, n: 0, slow: 0 };
 
 // Si la tarjeta gráfica se reinicia (pasa en algunas integradas), el juego no se queda en blanco:
@@ -97,7 +99,8 @@ const skyMat = new THREE.ShaderMaterial({
   vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
   fragmentShader: 'uniform vec3 top; uniform vec3 bottom; varying vec3 vP; void main(){ float h = clamp(vP.y*1.4+0.25,0.0,1.0); gl_FragColor = vec4(mix(bottom, top, h),1.0); }',
 });
-const sky = new THREE.Mesh(new THREE.SphereGeometry(500, 24, 12), skyMat); scene.add(sky);
+upgradeSky(skyMat);
+const sky = new THREE.Mesh(new THREE.SphereGeometry(500, 48, 24), skyMat); scene.add(sky);
 
 const physics = new Physics();
 const input = new Input(renderer.domElement);
@@ -307,6 +310,7 @@ function loadZone(id, checkpointId) {
   scene.fog = new THREE.Fog(zone.sky.fog, zone.sky.fogNear, zone.sky.fogFar);
   const li = zone.light || {};
   hemi.color.setHex(li.hemiSky || 0xdff1ff); hemi.groundColor.setHex(li.hemiGround || 0x5c6a50); sun.color.setHex(li.sun || 0xfff1d6);
+  if (HD.on) warmZone(zone, skyMat, scene, hemi, sun);
   world.build(zone, save); music.ambient(ZONE_AMB[zone.id]);
   player.updrafts = world.updrafts;
   combat.spawnZone(zone, save); combat.breakables = world.breakables;
@@ -1909,19 +1913,23 @@ function applyQuality() {
   }
   if (sun.shadow.mapSize.x !== Q.map) { sun.shadow.mapSize.set(Q.map, Q.map); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
   fx.density = Q.fx; world.detail = k === 'alta' ? 1 : k === 'media' ? 0.55 : 0.25;
-  if (Q.bloom) ensureBloom(); else if (composer) composer.setPixelRatio(renderer.getPixelRatio());
+  if (Q.bloom || Q.grade) ensureBloom(); if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); if (bloomPass) bloomPass.enabled = !!Q.bloom; }
 }
 // Resplandor (bloom) en calidad Alta: el fuego, los cristales y los fragmentos brillan de verdad.
 async function ensureBloom() {
   if (composer || bloomLoading) return; bloomLoading = true;
   try {
-    const [{ EffectComposer }, { RenderPass }, { UnrealBloomPass }, { OutputPass }] = await Promise.all([
+    const [{ EffectComposer }, { RenderPass }, { UnrealBloomPass }, { OutputPass }, { ShaderPass }] = await Promise.all([
       import('three/addons/postprocessing/EffectComposer.js'), import('three/addons/postprocessing/RenderPass.js'),
-      import('three/addons/postprocessing/UnrealBloomPass.js'), import('three/addons/postprocessing/OutputPass.js')]);
+      import('three/addons/postprocessing/UnrealBloomPass.js'), import('three/addons/postprocessing/OutputPass.js'),
+      import('three/addons/postprocessing/ShaderPass.js')]);
     const c = new EffectComposer(renderer);
     c.addPass(new RenderPass(scene, camera));
-    c.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.45, 0.45, 0.88));
+    bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.5, 0.55, 0.82);
+    bloomPass.enabled = !!(QUALITY[qualityNow] && QUALITY[qualityNow].bloom);
+    c.addPass(bloomPass);
     c.addPass(new OutputPass());
+    c.addPass(new ShaderPass(GradeShader)); // corrección de color «HD»
     c.setPixelRatio(renderer.getPixelRatio()); c.setSize(innerWidth, innerHeight);
     composer = c;
   } catch (e) { console.warn('Sin resplandor', e); }
@@ -1939,7 +1947,7 @@ function renderScene() {
     renderer.setScissorTest(false); renderer.setViewport(0, 0, w, h);
     return;
   }
-  if (composer && QUALITY[qualityNow] && QUALITY[qualityNow].bloom) composer.render(); else renderer.render(scene, camera);
+  if (composer && QUALITY[qualityNow] && (QUALITY[qualityNow].bloom || QUALITY[qualityNow].grade)) composer.render(); else renderer.render(scene, camera);
 }
 // En «Automática», si el juego va lento un buen rato, baja un nivel (y lo recuerda para la próxima vez).
 
@@ -2048,7 +2056,7 @@ function simulate(dt) {
     camera.lookAt(0, 2, 0);
   }
 
-  world.update(time, dt);
+  world.update(time, dt); skyMat.uniforms.uTime.value = time;
   if (endless.active && state === 'play') { endless.update(dt, time); updateEndlessHud(); }
   skyTick(dt);
   powers.update(dt); powers.statusFx(player, dt); goalFxTick(dt);
@@ -2402,7 +2410,7 @@ function skyTick(dt) {
   const k = Math.min(1, dt * 0.5);
   skyMat.uniforms.top.value.lerp(skyT.top, k); skyMat.uniforms.bottom.value.lerp(skyT.bottom, k);
   if (scene.fog) scene.fog.color.lerp(skyT.fog, k);
-  if (world.water && world.water.mesh) world.water.mesh.material.color.lerp(skyT.fog, k);
+  if (world.water && world.water.mesh) { const wm = world.water.mesh.material; if (wm.color) wm.color.lerp(skyT.fog, k); else if (wm.uniforms && wm.uniforms.base) { wm.uniforms.base.value.lerp(skyT.fog, k); wm.uniforms.shade.value.lerp(skyT.fog, k * 0.5); } }
 }
 const endless = new Endless({
   scene, world, physics, combat, fx, audio, player, toast, banner: (a, b) => banner(a, b),

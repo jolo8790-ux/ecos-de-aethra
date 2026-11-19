@@ -3,6 +3,7 @@ import { buildHumanoid, NpcAnimator } from './rig.js';
 import { createCharacter, NpcModelAnimator, LOOKS } from './characters.js';
 import { prop, freeGPU } from './props.js';
 import { Hazards } from './hazards.js';
+import { HD, makeCloudSea, makeCumulus, islandSideGeo, islandCapGeo, waterfall, fluffyTree, patchGround } from './hd.js';
 import { Sea } from './sea.js';
 
 // Construye una zona a partir de sus datos (js/zones/*.js): mallas + colisiones + objetos interactivos.
@@ -180,10 +181,23 @@ export class World {
 
   _island({ x, z, w, d, top = 0, depth = 3, rock = true }) {
     const pal = this.pal || { top: C.grass, side: C.dirt };
+    if (HD.on) {
+      this._mesh(islandSideGeo(w, depth, d, x * 0.37 + z), terrainMat(pal.side, 'strata'), x, top - depth / 2 - 0.2, z);
+      this._mesh(islandCapGeo(w + 0.3, d + 0.3, z * 0.5 - x), patchGround(terrainMat(pal.top, 'grain')), x, top - 0.2, z);
+      // cascada en las islas grandes, hacia el mar de nubes
+      const zn = this.zone, seaY = zn && zn.water && !zn.lava ? zn.water.y : null;
+      if (seaY != null && w * d > 140 && top - seaY > 1.5) {
+        const rnd2 = seeded(x * 3.3 + z * 5.1), sideK = Math.floor(rnd2() * 4), off = (rnd2() - 0.5) * 0.5;
+        const pts = [[x + off * w, z + d / 2 - 0.1, 0], [x + w / 2 - 0.1, z + off * d, Math.PI / 2], [x + off * w, z - d / 2 + 0.1, Math.PI], [x - w / 2 + 0.1, z + off * d, -Math.PI / 2]];
+        const [fx, fz, dir] = pts[sideK];
+        waterfall(this.root, this.animated, { x: fx, z: fz, top: top - 0.15, seaY, dir });
+      }
+    } else {
     const side = new THREE.BoxGeometry(w, depth, d); worldUV(side, w, depth, d, 3.5);
     this._mesh(side, terrainMat(pal.side, 'strata'), x, top - depth / 2 - 0.2, z);
     const cap = new THREE.BoxGeometry(w + 0.16, 0.4, d + 0.16); worldUV(cap, w, 0.4, d, 3);
     this._mesh(cap, terrainMat(pal.top, 'grain'), x, top - 0.2, z);
+    }
     if (rock) { // roca colgante irregular (y alguna más pequeña al lado)
       const r = Math.min(w, d), rnd = seeded(x * 13.1 + z * 7.7);
       const hang = (rr, hh, ox, oz) => {
@@ -207,7 +221,7 @@ export class World {
     const R = seeded((z.seed || 7) * 1.37), spots = [];
     for (const I of z.islands || []) {
       if (I.w < 3 || I.d < 3) continue;
-      const n = Math.min(160, Math.floor(I.w * I.d * (kind === 'grass' ? 0.32 : 0.1) * (this.detail ?? 1)));
+      const n = Math.min(HD.on ? 320 : 160, Math.floor(I.w * I.d * (kind === 'grass' ? (HD.on ? 0.55 : 0.32) : 0.1) * (this.detail ?? 1)));
       for (let i = 0; i < n; i++) spots.push([I.x + (R() - 0.5) * (I.w - 0.6), I.top, I.z + (R() - 0.5) * (I.d - 0.6)]);
     }
     if (!spots.length) return;
@@ -855,6 +869,12 @@ export class World {
 
   _tree({ x, z, y = 0, s = 1 }) {
     const g = new THREE.Group(); g.position.set(x, y, z); g.scale.setScalar(s); this.root.add(g);
+    if (HD.on) {
+      fluffyTree(g, null, { leaf: this.zone && this.zone.hdLeaf || 0x5fa83e }); g.rotation.y = (x * 7 + z * 3) % 6.28;
+      this.physics.addBox(x, y + 0.8 * s, z, 0.5 * s, 1.6 * s, 0.5 * s, { noCamera: true });
+      const ph = Math.random() * 6; this.animated.push(t => { g.rotation.z = Math.sin(t * 1.3 + ph) * 0.015; });
+      return;
+    }
     if (this._model('arbol', { h: 3.6 }, 0, 0, 0, { parent: g, rotY: (x * 7 + z * 3) % 6.28 })) {
       this.physics.addBox(x, y + 0.8 * s, z, 0.5 * s, 1.6 * s, 0.5 * s, { noCamera: true });
       const ph = Math.random() * 6; this.animated.push(t => { g.rotation.z = Math.sin(t * 1.3 + ph) * 0.015; });
@@ -905,6 +925,12 @@ export class World {
   }
 
   _water({ y = -2, size = 400, color = C.water }) {
+    if (HD.on && !(this.zone && this.zone.lava)) { // mar de nubes HD
+      const m = makeCloudSea({ y, color, sunDir: HD.sunDir, sunCol: HD.sunCol });
+      this.root.add(m); this.water = { y, mesh: m };
+      this.animated.push(t => { m.material.uniforms.uTime.value = t; });
+      return;
+    }
     const geo = new THREE.PlaneGeometry(size, size, 60, 60);
     const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness: 0.9, transparent: true, opacity: 0.92, flatShading: true }));
     m.rotation.x = -Math.PI / 2; m.position.y = y; m.receiveShadow = true; this.root.add(m);
@@ -1003,6 +1029,18 @@ export class World {
     let s = seed * 9973;
     const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
     const cm = mat(0xffffff, { roughness: 1, transparent: true, opacity: 0.9, emissive: (this.zone && this.zone.sky.bottom) || 0xffffff, emissiveIntensity: 0.45 });
+    if (HD.on) {
+      const tint = new THREE.Color(0xffffff).lerp(new THREE.Color((this.zone && this.zone.sky.bottom) || 0xffffff), 0.35);
+      for (let i = 0; i < 22; i++) {
+        const c = makeCumulus(rnd, { tint, sunCol: HD.sunCol });
+        const ang = rnd() * Math.PI * 2, r = 70 + rnd() * 90;
+        c.position.set(Math.cos(ang) * r, 4 + rnd() * 30, Math.sin(ang) * r);
+        this.root.add(c);
+        const sp = 0.3 + rnd() * 0.5;
+        this.animated.push((t, dt) => { c.position.x += sp * dt; if (c.position.x > 170) c.position.x = -170; });
+      }
+      return;
+    }
     for (let i = 0; i < 26; i++) {
       const c = new THREE.Group();
       const n = 3 + Math.floor(rnd() * 4);
