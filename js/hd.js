@@ -73,7 +73,7 @@ export function upgradeSky(skyMat) {
 export function makeCloudSea({ y, color, size = 900, sunDir, sunCol }) {
   const geo = new THREE.PlaneGeometry(size, size, 160, 160);
   geo.rotateX(-Math.PI / 2);
-  const base = new THREE.Color(color ?? 0xeaf2ff);
+  const base = new THREE.Color(color ?? 0xeaf2ff).lerp(new THREE.Color(0xffffff), 0.3);
   const mat = new THREE.ShaderMaterial({
     fog: true, transparent: false,
     uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {
@@ -178,11 +178,12 @@ export const GradeShader = {
 export function warmZone(zone, skyMat, scene, hemi, sun) {
   if (!zone || !zone.sky) return;
   const warm = new THREE.Color(0xffd6a6), deep = new THREE.Color(0x3f7fd6);
-  const k = zone.hdWarm ?? 0.42;
+  const zb = new THREE.Color(zone.sky.bottom), already = Math.max(0, (zb.r - zb.b) * 1.6);
+  const k = zone.hdWarm ?? Math.max(0.08, 0.42 - already);
   skyMat.uniforms.bottom.value.setHex(zone.sky.bottom).lerp(warm, k);
   skyMat.uniforms.top.value.setHex(zone.sky.top).lerp(deep, 0.15);
   skyMat.uniforms.horizon.value.copy(warm).lerp(new THREE.Color(0xffb27a), 0.3);
-  if (scene.fog) { scene.fog.color.setHex(zone.sky.fog).lerp(warm, k * 0.8); scene.fog.near *= 1.15; scene.fog.far *= 1.35; }
+  if (scene.fog) { scene.fog.color.setHex(zone.sky.fog).lerp(warm, k * 0.8); scene.fog.near *= 1.3; scene.fog.far *= 1.6; }
   sun.color.lerp(new THREE.Color(0xffd2a0), 0.3); sun.intensity = 1.9;
   hemi.color.lerp(new THREE.Color(0xbcd4ff), 0.2); hemi.groundColor.lerp(new THREE.Color(0x6a5a7a), 0.25);
 }
@@ -429,4 +430,27 @@ export function outlineCharacter(model, th = 0.012) {
     ol.position.copy(o.position); ol.quaternion.copy(o.quaternion); ol.scale.copy(o.scale);
     o.parent.add(ol); o.userData.hdOutline = true;
   }
+}
+
+// ---------- mochila de exploradora con manta enrollada (como en el video), colgada del pecho por detrás ----------
+export function backpack(model) {
+  let chest = null; model.traverse(o => { if (!chest && o.isBone && o.name === 'chest') chest = o; });
+  if (!chest || model.userData.hdPack) return null; model.userData.hdPack = true;
+  const sk = []; model.traverse(o => { if (o.isSkinnedMesh) sk.push(o); }); if (sk[0]) sk[0].skeleton.pose();
+  model.updateMatrixWorld(true);
+  const inv = model.matrixWorld.clone().invert(), c = chest.getWorldPosition(new THREE.Vector3()).applyMatrix4(inv);
+  const leather = new THREE.MeshStandardMaterial({ color: 0x8a5a34, roughness: 0.85 }), dark = new THREE.MeshStandardMaterial({ color: 0x5a3a22, roughness: 0.9 });
+  const cloth = new THREE.MeshStandardMaterial({ color: 0xb8a27a, roughness: 0.95 }), brass = new THREE.MeshStandardMaterial({ color: 0xd8b060, metalness: 0.6, roughness: 0.35 });
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.2, 0.22, 6, 12), leather); body.scale.set(1.15, 1, 0.62); g.add(body);
+  const flap = new THREE.Mesh(new THREE.SphereGeometry(0.235, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), dark); flap.scale.set(1.12, 0.5, 0.66); flap.position.y = 0.16; g.add(flap);
+  const pocket = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.16, 0.06), dark); pocket.position.set(0, -0.06, -0.14); g.add(pocket);
+  const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.02), brass); buckle.position.set(0, 0.0, -0.18); g.add(buckle);
+  const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.5, 12), cloth); roll.rotation.z = Math.PI / 2; roll.position.set(0, 0.33, 0.01); g.add(roll);
+  for (const sx of [-0.13, 0.13]) { const st = new THREE.Mesh(new THREE.TorusGeometry(0.095, 0.012, 5, 12), dark); st.position.set(sx, 0.33, 0.01); st.rotation.y = Math.PI / 2; g.add(st); }
+  const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.04, 0.08, 8), brass); cup.position.set(0.24, -0.08, 0); g.add(cup);
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  g.scale.setScalar(0.85); g.position.set(c.x, c.y - 0.16, c.z - 0.38);
+  model.add(g); model.updateMatrixWorld(true); chest.attach(g);
+  return g;
 }

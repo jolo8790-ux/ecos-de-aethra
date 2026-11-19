@@ -4,6 +4,7 @@ import { createCharacter, NpcModelAnimator, LOOKS } from './characters.js';
 import { prop, freeGPU } from './props.js';
 import { Hazards } from './hazards.js';
 import { HD, makeCloudSea, makeCumulus, waterfall, fluffyTree, patchGround, organicIsland, canopyBlob } from './hd.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { Sea } from './sea.js';
 
 // Construye una zona a partir de sus datos (js/zones/*.js): mallas + colisiones + objetos interactivos.
@@ -274,8 +275,23 @@ export class World {
   _box({ x, y, z, w, h, d, color = C.stone, cap }) {
     // y = altura de la cara superior
     const capH = cap ? 0.2 : 0;
+    if (HD.on && cap && Math.min(w, d) >= 5 && h >= 1.5) { // colinas y mesetas: misma forma orgánica que las islas
+      const og = organicIsland({ w, d, top: 0, depth: h, rock: false, seed: x * 0.53 + z * 0.29, sideMat: terrainMat(color, 'strata'), topMat: patchGround(terrainMat(cap, 'grain')) });
+      og.position.set(x, y, z); this.root.add(og);
+      const rr = og.userData.r;
+      this.physics.addBox(x, y - h / 2, z + d / 2 + rr / 2, w, h, rr); this.physics.addBox(x, y - h / 2, z - d / 2 - rr / 2, w, h, rr);
+      this.physics.addBox(x + w / 2 + rr / 2, y - h / 2, z, rr, h, d); this.physics.addBox(x - w / 2 - rr / 2, y - h / 2, z, rr, h, d);
+      this.physics.addBox(x, y - h / 2, z, w, h, d);
+      return;
+    }
+    if (HD.on && Math.min(w, d, h) > 0.35) { // bordes redondeados
+      const rb = Math.min(0.28, Math.min(w, d, h - capH) * 0.18);
+      this._mesh(new RoundedBoxGeometry(w, h - capH, d, 3, rb), mat(color), x, y - capH - (h - capH) / 2, z);
+      if (cap) this._mesh(new RoundedBoxGeometry(w + 0.14, Math.max(capH, 0.24), d + 0.14, 3, Math.min(0.11, rb)), mat(cap), x, y - capH / 2, z);
+    } else {
     this._mesh(new THREE.BoxGeometry(w, h - capH, d), mat(color), x, y - capH - (h - capH) / 2, z);
     if (cap) this._mesh(new THREE.BoxGeometry(w + 0.1, capH, d + 0.1), mat(cap), x, y - capH / 2, z);
+    }
     this.physics.addBox(x, y - h / 2, z, w, h, d);
   }
 

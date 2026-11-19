@@ -3,6 +3,7 @@ import { STEP_HEIGHT } from './physics.js';
 import { buildHumanoid, HeroAnimator } from './rig.js';
 import { createCharacter, HeroModelAnimator } from './characters.js';
 import { buildWeapon, buildArmor } from './gear.js';
+import { HD, backpack } from './hd.js';
 
 export const RADIUS = 0.35, HEIGHT = 1.55;
 const RUN = 6.6, WALK = 2.6, ACCEL = 40, AIR_ACCEL = 16, GRAVITY = 28, JUMP_V = 10, DOUBLE_JUMP_V = 9;
@@ -52,7 +53,7 @@ export class Player {
     const ch = createCharacter(lib, look);
     scene.remove(this.mesh); scene.add(ch.root);
     this.ch = ch; this.mesh = ch.root; this.anim = new HeroModelAnimator(ch);
-    this.staff = null; this.armorParts = [];
+    this.staff = null; this.armorParts = []; this.hdPack = null;
     this.equip(this.gear && this.gear.w, this.gear && this.gear.a);
     this.glider = buildGlider(); ch.root.add(this.glider);
     if (look && look.glider) this.glider.traverse(o => { if (o.isMesh && o.material && o.material.color && o.material.color.getHex() === 0x2f9fae) { o.material = o.material.clone(); o.material.color.setHex(look.glider); } });
@@ -70,6 +71,7 @@ export class Player {
     this.staff.visible = this.canFight;
     for (const p of this.armorParts || []) if (p.parent) p.parent.remove(p);
     this.armorParts = buildArmor(a, this.ch.model);
+    if (HD.on && !this.hdPack) this.hdPack = backpack(this.ch.model);
   }
   setFight(on) { this.canFight = on; if (this.staff) this.staff.visible = on; }
 
