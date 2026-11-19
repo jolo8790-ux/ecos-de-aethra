@@ -28,11 +28,14 @@ export class Endless {
   // C: { scene, world, physics, combat, fx, audio, player, toast, setSky(top,bottom,fog), setMusic(key) }
   constructor(C) { this.C = C; this.active = false; }
 
-  start() {
-    const C = this.C;
+  // opts.origin: seguir desde el final de una zona de la historia (punto, rumbo); opts.first: su paisaje
+  start(opts = {}) {
+    const C = this.C, O = opts.origin;
     this.active = true; this.sectors = []; this.nextId = 0; this.dist = 0; this.chispas = 0; this.best = 0; this.over = false;
-    this.cur = { x: 0, y: 0, z: -5, h: 0, len: 5 }; // cursor del camino: posición, rumbo y metros recorridos
-    this.spawn = { x: 0, y: 0.05, z: 3, f: 0 }; this.sectorNow = 0; this.orbs = []; this.flags = [];
+    this.inZone = !!O; this.first = opts.first || null; this.h0 = O ? O.h : 0;
+    const f = O ? { x: -Math.sin(O.h), z: -Math.cos(O.h) } : null;
+    this.cur = O ? { x: O.x + f.x * 7.5, y: O.y, z: O.z + f.z * 7.5, h: O.h, len: 5 } : { x: 0, y: 0, z: -5, h: 0, len: 5 }; // cursor del camino: posición, rumbo y metros recorridos
+    this.spawn = O ? { x: O.x, y: O.y + 0.05, z: O.z, f: O.h } : { x: 0, y: 0.05, z: 3, f: 0 }; this.sectorNow = 0; this.orbs = []; this.flags = [];
     this.skyNow = null;
     for (let i = 0; i < 3; i++) this._makeSector();
     this._biomeFx(0, true);
@@ -42,7 +45,7 @@ export class Endless {
     for (const s of this.sectors) this._unload(s, true);
     this.sectors = []; this.active = false;
   }
-  biomeOf(sectorId) { return BIOMES[Math.floor(sectorId / 2) % BIOMES.length]; }
+  biomeOf(sectorId) { const k = Math.floor(sectorId / 2); if (this.first) return k === 0 ? this.first : BIOMES[(k - 1) % BIOMES.length]; return BIOMES[k % BIOMES.length]; }
 
   // ---------- un sector nuevo al final del camino ----------
   _makeSector() {
@@ -96,7 +99,7 @@ export class Endless {
     if (B.jets) kinds.push('jets', 'jets');
     for (let sgi = 0; sgi < SECTOR_SEGS; sgi++) {
       // curva suave del camino (sin alejarse demasiado de la dirección inicial)
-      if (R() < 0.35) this.cur.h = Math.max(-0.9, Math.min(0.9, this.cur.h + (R() - 0.5) * 0.7));
+      if (R() < 0.35) this.cur.h = Math.max(this.h0 - 0.9, Math.min(this.h0 + 0.9, this.cur.h + (R() - 0.5) * 0.7));
       const kind = sgi === SECTOR_SEGS - 1 ? 'stones' : kinds[Math.floor(R() * kinds.length)];
       const gap = () => 2.0 + R() * (1.0 + d * 1.2);
       if (kind === 'stones') {
@@ -109,7 +112,7 @@ export class Endless {
         advance(2.2 + 2.5, -0.4); const p = at(0); island(p.x, p.y, p.z, 5, 5); deco(p.x, p.y, p.z, R()); advance(2.5);
       }
       if (kind === 'mover') {
-        this.cur.h = 0; // la plataforma va y viene en línea recta con el camino
+        this.cur.h = Math.round(this.h0 / (Math.PI / 2)) * (Math.PI / 2); // la plataforma va y viene en línea recta con el camino
         advance(2.5); const p0 = at(0); // plataforma que va y viene sobre un hueco grande
         const span = 8 + d * 4; const mid = at(span / 2);
         const f = fwd(); const axis = Math.abs(f.x) > Math.abs(f.z) ? 'x' : 'z';
@@ -201,9 +204,9 @@ export class Endless {
     const B = this.biomeOf(sectorId);
     if (this.skyNow === B) return;
     this.skyNow = B;
-    this.C.setSky(B.sky[0], B.sky[1], B.sky[2], instant);
+    if (B.sky) this.C.setSky(B.sky[0], B.sky[1], B.sky[2], instant);
     this.C.setMusic(B.music); this.C.audio.surface = B.surface || 'grass';
-    if (!instant) this.C.banner(B.name, `Sector ${sectorId + 1}`);
+    if (!instant && !(this.inZone && B === this.first)) this.C.banner(B.name, `Sector ${sectorId + 1}`);
   }
 
   // ---------- cada fotograma ----------

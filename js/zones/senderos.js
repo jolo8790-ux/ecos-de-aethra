@@ -20,6 +20,7 @@ const NARR = '', LIA = 'Lía';
 export function applySenderos(ZONES) {
   for (const [id, C] of Object.entries(SENDEROS)) {
     const Z = ZONES[id]; if (!Z || Z._sendero) continue;
+    Z._baseIslands = (Z.islands || []).length; // las islas propias de la zona (sin el Sendero)
     const r = buildRoute({ ...C, idp: 'sd_' + id });
     const flag = 'sello_' + id, back = 'sendero_vuelta';
     for (const k of ['islands', 'crumbles', 'movers', 'bridges', 'updrafts', 'grapples', 'fireJets', 'pendulums', 'enemies', 'lanterns', 'fragments', 'breakables', 'crystals']) {

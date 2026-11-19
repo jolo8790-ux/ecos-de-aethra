@@ -118,7 +118,7 @@ function updateMusic() {
   if (d !== duckNow) { duckNow = d; music.duck(d); }
   if (state !== 'play' && state !== 'dialog' || !zone) return;
   const b = combat.boss, fighting = b && (b.state === 'intro' || b.fighting);
-  music.play(fighting ? (BOSS_MUSIC[zone.id] || 'boss') : (ZONE_MUSIC[zone.id] || CH_MUSIC[zone.id]), { fade: fighting ? 0.8 : 2.5 });
+  music.play(fighting ? (BOSS_MUSIC[zone.id] || 'boss') : endless.active && endless.inZone ? ZONE_MUSIC.infinito : (ZONE_MUSIC[zone.id] || CH_MUSIC[zone.id]), { fade: fighting ? 0.8 : 2.5 });
 }
 const world = new World(scene, physics);
 const fx = new FX(scene);
@@ -510,6 +510,7 @@ $('dialog').addEventListener('click', () => input._pressed.add('click'));
 
 // ---------- objetivo y brújula ----------
 function updateGoal(dt) {
+  if (endless.active && endless.inZone) { $('objective').classList.add('hidden'); marker.visible = false; returnWindTick(dt, zone.story && zone.story.goal(S)); return; }
   if (!zone.story) { $('objective').classList.add('hidden'); marker.visible = false; return; }
   const g = zone.story.goal(S);
   $('objective').classList.toggle('hidden', state === 'title');
@@ -1723,7 +1724,7 @@ $('bTrophyBack').onclick = () => { $('trophies').classList.add('hidden'); $(trop
 $('bSettingsBack').onclick = () => showPausePanel('main');
 $('bSaveMenu').onclick = () => { $('exportCode').value = exportCode(save); $('importCode').value = ''; $('saveMsg').textContent = ''; showPausePanel('save'); };
 $('bSaveBack').onclick = () => showPausePanel('main');
-$('bTitle').onclick = () => { if (endless.active) stopEndless(); writeSave(save); if (dialog) closeDialog(false); endChallenge(); state = 'title'; music.play('title'); music.ambient(null); $('objective').classList.add('hidden'); $('compass').classList.add('hidden'); marker.visible = false; showOverlay('title'); refreshTitle(); if (loadSave()) openHub(); };
+$('bTitle').onclick = () => { if (endless.active) { if (endless.inZone) stopEndlessInZone(true); else stopEndless(); } writeSave(save); if (dialog) closeDialog(false); endChallenge(); state = 'title'; music.play('title'); music.ambient(null); $('objective').classList.add('hidden'); $('compass').classList.add('hidden'); marker.visible = false; showOverlay('title'); refreshTitle(); if (loadSave()) openHub(); };
 $('bCopy').onclick = async () => {
   try { await navigator.clipboard.writeText($('exportCode').value); $('saveMsg').textContent = 'Código copiado.'; }
   catch (e) { $('exportCode').select(); $('saveMsg').textContent = 'No se pudo copiar solo: selecciona el texto y cópialo a mano.'; }
@@ -2088,7 +2089,59 @@ $('soundHint').onclick = () => { wakeAudio(); $('soundHint').classList.add('hidd
 // Al terminar un capítulo hay que volver con Marta, a veces a más de 100 m. Aparece un remolino de viento
 // junto a la protagonista que la lleva de vuelta en un momento (también se puede volver andando).
 let rWind = null;
-function removeReturnWind() { if (rWind) { scene.remove(rWind.g); rWind = null; } }
+function removeReturnWind() { if (rWind) { scene.remove(rWind.g); rWind = null; } if (cArch) { scene.remove(cArch.g); cArch = null; } }
+// Arco «El camino sigue»: en la isla más lejana de una zona ya terminada, el camino continúa sin fin
+let cArch = null;
+function zoneEnd(g) {
+  let best = null, bd = -1;
+  for (const I of (zone.islands || []).slice(0, zone._baseIslands ?? Infinity)) { const d = Math.hypot(I.x - g.at[0], I.z - g.at[2]); if (d > bd) { bd = d; best = I; } }
+  return best && bd > 45 ? { I: best, d: bd } : null;
+}
+function continueArchTick(dt, g) {
+  if (endless.active) { if (cArch) { scene.remove(cArch.g); cArch = null; } return; }
+  const E = zoneEnd(g); if (!E) return;
+  const I = E.I, dx = I.x - g.at[0], dz = I.z - g.at[2], L = Math.hypot(dx, dz), ux = dx / L, uz = dz / L;
+  const half = Math.min(I.w, I.d) / 2, ex = I.x + ux * (half - 0.8), ez = I.z + uz * (half - 0.8), ey = I.top ?? 0;
+  if (Math.hypot(player.pos.x - I.x, player.pos.z - I.z) > 40) { if (cArch) { scene.remove(cArch.g); cArch = null; } return; }
+  if (!cArch) {
+    const G = new THREE.Group(); G.position.set(ex, ey, ez); G.rotation.y = Math.atan2(ux, uz); scene.add(G);
+    const gold = new THREE.MeshStandardMaterial({ color: 0xffd27a, emissive: 0xff9a20, emissiveIntensity: 1.2, metalness: 0.5, roughness: 0.3 });
+    const arch = new THREE.Mesh(new THREE.TorusGeometry(1.7, 0.16, 8, 40, Math.PI), gold); arch.position.y = 0.1; arch.rotation.z = 0; G.add(arch);
+    for (const sx of [-1.7, 1.7]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 0.3, 8), gold); p.position.set(sx, 0.15, 0); G.add(p); }
+    const veil = new THREE.Mesh(new THREE.CircleGeometry(1.55, 32, 0, Math.PI), new THREE.MeshBasicMaterial({ color: 0xffe6a0, transparent: true, opacity: 0.25, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+    veil.position.y = 0.1; G.add(veil);
+    cArch = { g: G, veil, t: 0, ex, ey, ez, h: Math.atan2(-ux, -uz) };
+    toast('Al borde de la isla brilla un arco dorado: ¡el camino sigue más allá!');
+  }
+  cArch.t += dt; cArch.veil.material.opacity = 0.2 + Math.sin(cArch.t * 3) * 0.1;
+  if (Math.random() < 0.25) fx.sparkle(cArch.g.position.clone().setY(cArch.ey + 0.5 + Math.random() * 1.5), 1, 0xffd27a);
+  if (Math.hypot(player.pos.x - cArch.ex, player.pos.z - cArch.ez) < 2.6 && Math.abs(player.pos.y - cArch.ey) < 2.5) startEndlessInZone(cArch);
+}
+let inZoneOpts = null;
+function startEndlessInZone(A) {
+  const B = { name: `Más allá de ${zone.title}`, music: ZONE_MUSIC[zone.id] || CH_MUSIC[zone.id] || 'infinito', surface: audio.surface,
+    top: (zone.palette && zone.palette.top) || 0x7ccf6a, side: (zone.palette && zone.palette.side) || 0x7a5a3c, deco: zone.lava ? 'rock' : 'tree', crystal: 0xffd27a,
+    foes: [...new Set((zone.enemies || []).map(e => e.type).filter(t => ['brote', 'espora', 'avispa', 'automata', 'brote_hielo', 'sombra'].includes(t)))].concat(['brote']).slice(0, 3), jets: !!zone.lava };
+  inZoneOpts = { origin: { x: A.ex, y: A.ey, z: A.ez, h: A.h }, first: B };
+  scene.remove(A.g); cArch = null;
+  if (rWind) { scene.remove(rWind.g); rWind = null; }
+  endUI.from = 'zone';
+  player.setFight(true); player.canAirDash = player.canGlide = player.canShield = player.canPulse = true;
+  player.powerSlots = loadout(save); powerHudSig = '';
+  endless.start(inZoneOpts);
+  $('endlessHud').classList.remove('hidden');
+  banner('El camino continúa', B.name); audio.play('unlock'); music.stinger && music.stinger('hallazgo');
+}
+function restoreZoneSky() {
+  skyT.on = false;
+  skyMat.uniforms.top.value.setHex(zone.sky.top); skyMat.uniforms.bottom.value.setHex(zone.sky.bottom);
+  if (scene.fog) scene.fog.color.setHex(zone.sky.fog);
+}
+function stopEndlessInZone(quiet = false) {
+  endless.stop(); $('endlessHud').classList.add('hidden'); $('endlessEnd').classList.add('hidden');
+  restoreZoneSky(); applyAbilities();
+  if (!quiet) toast('Volviste a la isla');
+}
 function placeReturnWind(g) {
   const f = new THREE.Vector3(-Math.sin(player.facing), 0, -Math.cos(player.facing));
   let x = player.pos.x + f.x * 2.6, z = player.pos.z + f.z * 2.6;
@@ -2108,17 +2161,19 @@ function placeReturnWind(g) {
   rWind.g.position.set(x, gr.y, z);
 }
 function returnWindTick(dt, g) {
-  const wants = state === 'play' && g && g.at && !challenge && !endless.active && /vuelve con|vuelve al barco|regresa/i.test(g.text) && !player.inSub && !player.swimming;
+  const wants = state === 'play' && g && g.at && !challenge && !(endless.active && !endless.inZone) && /vuelve con|vuelve al barco|regresa/i.test(g.text) && !player.inSub && !player.swimming;
   const far = wants && Math.hypot(player.pos.x - g.at[0], player.pos.z - g.at[2]) > 45;
   if (!far) { if (rWind && (!wants || Math.hypot(player.pos.x - g.at[0], player.pos.z - g.at[2]) < 30)) removeReturnWind(); return; }
   if (!rWind || rWind.g.position.distanceTo(player.pos) > 28) placeReturnWind(g);
+  continueArchTick(dt, g);
+  if (!rWind) return;
   const W = rWind; W.t += dt;
   W.rings.forEach((r, i) => { r.rotation.z += dt * (2 + i); r.position.y = 0.2 + ((i * 0.6 + W.t * 1.2) % 3); r.scale.setScalar(1 + Math.sin(W.t * 3 + i) * 0.08); });
   if (Math.random() < 0.3) fx.sparkle(W.g.position.clone().setY(W.g.position.y + Math.random() * 3), 1, 0xbff4ff);
   const p = W.g.position;
   if (Math.hypot(player.pos.x - p.x, player.pos.z - p.z) < 1.1 && player.pos.y - p.y > -0.5 && player.pos.y - p.y < 3) {
     // ¡adentro! viaje de vuelta
-    removeReturnWind(); player.frozen = true; $('fade').style.opacity = 1; audio.play('dash'); fx.rainbow(player.pos.clone().setY(player.pos.y + 1), 24);
+    removeReturnWind(); if (endless.active && endless.inZone) stopEndlessInZone(true); player.frozen = true; $('fade').style.opacity = 1; audio.play('dash'); fx.rainbow(player.pos.clone().setY(player.pos.y + 1), 24);
     const to = g.at;
     setTimeout(() => {
       let best = null;
@@ -2201,7 +2256,7 @@ function updateEndlessHud() {
   if ($('endlessHud').textContent !== txt) $('endlessHud').textContent = txt;
   // el mar de nubes acompaña siempre por debajo
   const sec = endless.sectors.find(s => s.id === endless.sectorNow) || endless.sectors[0];
-  if (world.water && sec) { world.water.y = sec.minY - 14; world.water.mesh.position.set(player.pos.x, world.water.y, player.pos.z); }
+  if (world.water && sec && !endless.inZone) { world.water.y = sec.minY - 14; world.water.mesh.position.set(player.pos.x, world.water.y, player.pos.z); }
 }
 function endlessOver() {
   state = 'endlessEnd'; endless.over = true;
@@ -2214,8 +2269,13 @@ function endlessOver() {
   music.stinger(m > prev ? 'victoria' : 'derrota');
   $('endlessEnd').classList.remove('hidden');
 }
-$('bEndlessAgain').onclick = () => { $('endlessEnd').classList.add('hidden'); startEndless(endUI.from); };
+$('bEndlessAgain').onclick = () => {
+  $('endlessEnd').classList.add('hidden');
+  if (endUI.from === 'zone') { endless.stop(); restoreZoneSky(); endless.start(inZoneOpts); respawn(); player.hp = player.maxHp; player.dead = false; state = 'play'; $('fade').style.opacity = 0; return; }
+  startEndless(endUI.from);
+};
 $('bEndlessLeave').onclick = () => {
+  if (endUI.from === 'zone') { stopEndlessInZone(true); player.hp = player.maxHp; state = 'play'; respawn(save.checkpoint); $('fade').style.opacity = 0; return; }
   stopEndless();
   if (endUI.from === 'title') { state = 'title'; zone = null; music.play('title'); showOverlay('title'); openHub(); }
   else { applyAbilities(); enterZone(save.zone, save.checkpoint); }
