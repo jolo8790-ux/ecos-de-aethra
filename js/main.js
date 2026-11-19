@@ -219,6 +219,7 @@ Promise.all([
 function loadZone(id, checkpointId) {
   zone = ZONES[id];
   audio.surface = surfaceOf(zone);
+  removeReturnWind();
   player.inSub = false; player.swimming = false; clearSeaFx(); powers.clear(); player.iceT = player.liftT = player.levT = 0; player.frozen = false;
   if (zone.sea && save && save.flags.mr_sub && !save.flags.mr_fosa) delete save.flags.mr_sub; // el submarino vuelve a su amarre
   if (zone.boss && zone.boss.type === 'eco') { // el Eco Sombrío es una copia oscura de la protagonista tal como la vistió el jugador
@@ -516,6 +517,7 @@ function updateGoal(dt) {
     if (lastGoal) { const o = $('objective'); o.classList.remove('flash'); void o.offsetWidth; o.classList.add('flash'); audio.play('open'); }
     lastGoal = g.text; $('objText').textContent = g.text; lossStreak = 0;
   }
+  returnWindTick(dt, g);
   if (g.at) {
     const d = Math.hypot(player.pos.x - g.at[0], player.pos.z - g.at[2]);
     $('objDist').textContent = d > 3 ? `${Math.round(d)} m` : '';
@@ -2081,6 +2083,53 @@ function soundHintTick(dt) {
   $('soundHint').classList.toggle('hidden', on || soundHintT < 2.5 || (settings.volume ?? 0.7) <= 0);
 }
 $('soundHint').onclick = () => { wakeAudio(); $('soundHint').classList.add('hidden'); };
+
+// ---------- corriente de regreso ----------
+// Al terminar un capítulo hay que volver con Marta, a veces a más de 100 m. Aparece un remolino de viento
+// junto a la protagonista que la lleva de vuelta en un momento (también se puede volver andando).
+let rWind = null;
+function removeReturnWind() { if (rWind) { scene.remove(rWind.g); rWind = null; } }
+function placeReturnWind(g) {
+  const f = new THREE.Vector3(-Math.sin(player.facing), 0, -Math.cos(player.facing));
+  let x = player.pos.x + f.x * 2.6, z = player.pos.z + f.z * 2.6;
+  let gr = physics.groundAt(x, z, 0.1, player.pos.y + 2);
+  if (!(gr.y > player.pos.y - 1.5)) { x = player.pos.x + f.z * 2; z = player.pos.z - f.x * 2; gr = physics.groundAt(x, z, 0.1, player.pos.y + 2); }
+  if (!(gr.y > player.pos.y - 1.5)) { x = player.pos.x; z = player.pos.z; gr = { y: player.pos.y }; }
+  if (!rWind) {
+    const G = new THREE.Group(); scene.add(G);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xbff4ff, transparent: true, opacity: 0.45, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+    const rings = [0, 1, 2, 3, 4].map(i => { const r = new THREE.Mesh(new THREE.TorusGeometry(0.9 - i * 0.08, 0.05, 6, 36), mat); r.rotation.x = Math.PI / 2; r.position.y = 0.2 + i * 0.6; G.add(r); return r; });
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.5, 3.2, 24, 1, true), new THREE.MeshBasicMaterial({ color: 0x9fe3ff, transparent: true, opacity: 0.16, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+    col.position.y = 1.6; G.add(col);
+    rWind = { g: G, rings, text: g.text, t: 0 };
+    toast('Una corriente de viento puede llevarte de vuelta con Marta: entra en ella');
+    audio.play('glide', G.position);
+  }
+  rWind.g.position.set(x, gr.y, z);
+}
+function returnWindTick(dt, g) {
+  const wants = state === 'play' && g && g.at && !challenge && !endless.active && /vuelve con|vuelve al barco|regresa/i.test(g.text) && !player.inSub && !player.swimming;
+  const far = wants && Math.hypot(player.pos.x - g.at[0], player.pos.z - g.at[2]) > 45;
+  if (!far) { if (rWind && (!wants || Math.hypot(player.pos.x - g.at[0], player.pos.z - g.at[2]) < 30)) removeReturnWind(); return; }
+  if (!rWind || rWind.g.position.distanceTo(player.pos) > 28) placeReturnWind(g);
+  const W = rWind; W.t += dt;
+  W.rings.forEach((r, i) => { r.rotation.z += dt * (2 + i); r.position.y = 0.2 + ((i * 0.6 + W.t * 1.2) % 3); r.scale.setScalar(1 + Math.sin(W.t * 3 + i) * 0.08); });
+  if (Math.random() < 0.3) fx.sparkle(W.g.position.clone().setY(W.g.position.y + Math.random() * 3), 1, 0xbff4ff);
+  const p = W.g.position;
+  if (Math.hypot(player.pos.x - p.x, player.pos.z - p.z) < 1.1 && player.pos.y - p.y > -0.5 && player.pos.y - p.y < 3) {
+    // ¡adentro! viaje de vuelta
+    removeReturnWind(); player.frozen = true; $('fade').style.opacity = 1; audio.play('dash'); fx.rainbow(player.pos.clone().setY(player.pos.y + 1), 24);
+    const to = g.at;
+    setTimeout(() => {
+      let best = null;
+      for (const [dx, dz] of [[2.4, 1.5], [-2.4, 1.5], [0, 2.6], [2.6, -1], [-2.6, -1]]) { const gr = physics.groundAt(to[0] + dx, to[2] + dz, 0.1, to[1] + 3); if (gr.y > to[1] - 1.2) { best = [to[0] + dx, gr.y, to[2] + dz]; break; } }
+      if (!best) best = [to[0], to[1] + 0.05, to[2] + 1.5];
+      player.teleport(best[0], best[1] + 0.05, best[2], Math.atan2(best[0] - to[0], best[2] - to[2]));
+      cam.snap(player); player.frozen = false; $('fade').style.opacity = 0;
+      toast('El viento te dejó de vuelta'); audio.play('checkpoint');
+    }, 650);
+  }
+}
 
 // ---------- sonido: suelo bajo los pies y música de combate ----------
 function surfaceOf(Z) {
