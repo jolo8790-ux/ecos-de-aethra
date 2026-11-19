@@ -2,6 +2,7 @@
 // Un pequeño "secuenciador": cada canción tiene acordes, bajo, arpegios, melodía y percusión,
 // escritos como texto. Las canciones cambian con un fundido (zona → jefe → victoria…).
 import { SONGS, STINGERS } from './songs.js';
+const FILE_SONGS = { title: { url: 'assets/intro/tema.mp3', vol: 0.6 } };
 
 const NOTE = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 export function midi(name) {
@@ -59,11 +60,23 @@ export class Music {
   }
 
   // ---------- canciones ----------
+  // (FILE_SONGS: canciones que vienen de un archivo de audio en lugar de tocarse nota a nota)
   play(name, { fade = 1.6 } = {}) {
     if (!this.ctx) { this.wanted = name; return; }
     if (this.song && this.song.name === name && !this.song.stopping) return;
     const old = this.song;
     if (old) this._stopSong(old, fade);
+    if (FILE_SONGS[name]) { // canción grabada (tema principal hecho con Artlist), pasa por el mismo bus de música
+      const c = this.ctx, F = FILE_SONGS[name];
+      this.files = this.files || {};
+      let f = this.files[name];
+      if (!f) { const el = new Audio(F.url); el.loop = true; el.preload = 'auto'; const src = c.createMediaElementSource(el); f = this.files[name] = { el, src }; }
+      const out = c.createGain(); out.gain.value = 0.0001; f.src.disconnect(); f.src.connect(out); out.connect(this.musicBus);
+      out.gain.setTargetAtTime(F.vol, c.currentTime + (old ? fade * 0.4 : 0), fade / 3);
+      clearTimeout(f.pauseT); const p = f.el.play(); if (p && p.catch) p.catch(() => {});
+      this.song = { name, S: { vol: F.vol }, out, file: f, stopping: false };
+      return;
+    }
     if (!name || !SONGS[name]) { this.song = null; return; }
     const S = SONGS[name], c = this.ctx;
     const out = c.createGain(); out.gain.value = 0.0001; out.connect(this.musicBus);
@@ -74,6 +87,7 @@ export class Music {
   _stopSong(s, fade) {
     s.stopping = true; const t = this.ctx.currentTime;
     s.out.gain.cancelScheduledValues(t); s.out.gain.setTargetAtTime(0.0001, t, fade / 4);
+    if (s.file) { const f = s.file; f.pauseT = setTimeout(() => { if (!(this.song && this.song.file === f && !this.song.stopping)) f.el.pause(); s.out.disconnect(); }, fade * 1000 + 600); return; }
     setTimeout(() => s.out.disconnect(), fade * 1000 + 600);
   }
   // fanfarria corta; la canción de fondo baja mientras suena
@@ -99,7 +113,7 @@ export class Music {
     const c = this.ctx; if (!c) return;
     const it = this.intensityTarget; this.intensity += (it - this.intensity) * (it > this.intensity ? 0.08 : 0.012);
     const s = this.song;
-    if (s && !s.stopping) {
+    if (s && !s.stopping && !s.file) {
       const S = s.S, grid = 60 / S.bpm / 4; // semicorcheas
       while (s.next < c.currentTime + 0.15) {
         this._step(s, s.step, s.next, grid);

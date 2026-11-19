@@ -270,7 +270,8 @@ function showIntro() {
   introRun = { done: false };
   const r = runIntro({
     sfx: n => audio.play(n),
-    onStart: () => { audio.unlock(); if (music.init()) music.play('title'); },
+    onStart: () => { audio.unlock(); music.init(); music.play('title'); music.duck(0.4); },
+    onLogo: () => music.duck(1),
     onEnd: () => { introRun.done = true; },
   });
   Object.assign(introRun, { skip: r.skip, finish: r.finish });
