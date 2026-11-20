@@ -4,10 +4,11 @@
 // coloca a la izquierda o a la derecha y baja con la distancia.
 const MAX_VOICES = 72;
 // voces grabadas (generadas con Artlist): se suman al efecto sintetizado. p = probabilidad, para que no se repitan siempre
+const HERO_V = new Set(['hurt1', 'hurt2', 'hurt3', 'jump1', 'jump2', 'atk1', 'atk2', 'atk3', 'ko', 'bien']); // la voz de cada personaje
 const VOICES = {
   hurt: { f: ['hurt1', 'hurt2', 'hurt3'], p: 1, vol: 0.9 },
   jump: { f: ['jump1', 'jump2'], p: 0.3, vol: 0.55, gap: 0.6 },
-  djump: { f: ['jump2', 'uf'], p: 0.6, vol: 0.6, gap: 0.4 },
+  djump: { f: ['jump2'], p: 0.6, vol: 0.6, gap: 0.4 },
   swing: { f: ['atk1', 'atk2', 'atk3'], p: 0.4, vol: 0.6, gap: 0.45 },
   hitHeavy: { f: ['atk3'], p: 0.5, vol: 0.6, gap: 0.5 },
   ko: { f: ['ko'], p: 1, vol: 1 },
@@ -29,16 +30,27 @@ export class Audio {
   }
   // muestras de voz: se cargan una vez (si fallan, solo queda el sonido sintetizado)
   _loadSamples() {
-    const c = this.ctx, names = new Set(); this.smp = {};
-    for (const v of Object.values(VOICES)) v.f.forEach(n => names.add(n));
-    for (const n of names) fetch(`assets/sfx/${n}.mp3`).then(r => r.ok ? r.arrayBuffer() : Promise.reject()).then(b => c.decodeAudioData(b)).then(buf => { this.smp[n] = buf; }).catch(() => {});
+    const names = new Set(); this.smp = this.smp || {};
+    for (const v of Object.values(VOICES)) v.f.forEach(n => { if (!HERO_V.has(n)) names.add(n); });
+    for (const n of names) this._fetch(`assets/sfx/${n}.mp3`, n);
+    this.setVoice(this.voiceSet || '', this.voiceRate || 1);
+  }
+  _fetch(url, key) {
+    if (this.smp[key] !== undefined) return; this.smp[key] = null;
+    fetch(url).then(r => r.ok ? r.arrayBuffer() : Promise.reject()).then(b => this.ctx.decodeAudioData(b)).then(buf => { this.smp[key] = buf; }).catch(() => {});
+  }
+  // voz del personaje con el que juegas ('' = la exploradora); rate < 1 la hace más grave
+  setVoice(set = '', rate = 1) {
+    this.voiceSet = set; this.voiceRate = rate;
+    if (!this.ctx || !this.smp) return;
+    for (const n of HERO_V) this._fetch(`assets/sfx/${set ? set + '/' : ''}${n}.mp3`, (set || '_') + '/' + n);
   }
   _voice(name) {
     const V = VOICES[name]; if (!V || !this.smp || Math.random() > V.p) return;
     if (V.gap && !this._throttle('v_' + name, V.gap)) return;
-    const n = V.f[Math.floor(Math.random() * V.f.length)], buf = this.smp[n]; if (!buf || this.voices > MAX_VOICES) return;
+    const n = V.f[Math.floor(Math.random() * V.f.length)], hero = HERO_V.has(n), buf = this.smp[hero ? (this.voiceSet || '_') + '/' + n : n]; if (!buf || this.voices > MAX_VOICES) return;
     const c = this.ctx, s = c.createBufferSource(); s.buffer = buf;
-    s.playbackRate.value = 1 + (Math.random() - 0.5) * (V.rate || 0.06);
+    s.playbackRate.value = (hero ? this.voiceRate || 1 : 1) * (1 + (Math.random() - 0.5) * (V.rate || 0.06));
     const g = this._out(0, 0); g.gain.value = V.vol * this._k * this._g; s.connect(g); s.start(); this.voices++; s.onended = () => { this.voices--; };
   }
   // ruidos blanco, rosa y marrón calculados una sola vez

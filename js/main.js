@@ -37,6 +37,7 @@ import { Endless, ENDLESS_ZONE } from './endless.js';
 import { runIntro } from './intro.js';
 import { HD, patchRim, upgradeSky, GradeShader, warmZone, skyEnvironment } from './hd.js';
 import { VFX } from './vfx.js';
+import { Reef } from './reef.js';
 patchRim();
 import { WEAPONS, ARMORS, weaponById, armorById, gearOf, mergeMods, ECO_REWARD, buildWeapon, buildArmor } from './gear.js';
 
@@ -142,7 +143,8 @@ const combat = new Combat(scene, physics, fx, audio);
 combat.world = world;
 // color de las motas de luz que flotan en cada isla
 const ZONE_MOTES = { puerto_bruma: 0xffe2a8, bosque_colgante: 0xb8ff9a, ruinas_vidrio: 0xffd27a, ciudad_engranajes: 0xffb36a, glaciar_eco: 0xbfeaff, ciudadela_orden: 0xc89aff, abismo_mareth: 0x8fe8ff, forja_ignis: 0xff8a3a, eco_olvidado: 0xd8c8ff };
-const vfx = HD.on ? new VFX(scene) : null; // efectos de cine (círculos mágicos, destellos, chispas, motas de luz)
+const vfx = HD.on ? new VFX(scene) : null;
+let reef = null; // efectos de cine (círculos mágicos, destellos, chispas, motas de luz)
 combat.vfx = vfx; fx.vfx = vfx;
 const powers = new Powers({ scene, physics, fx, audio, combat, vfx });
 // un enemigo como objetivo de los poderes: fuego y golpes lo dañan, el hielo lo congela y la telequinesis lo levanta
@@ -316,8 +318,10 @@ function loadZone(id, checkpointId) {
   const li = zone.light || {};
   hemi.color.setHex(li.hemiSky || 0xdff1ff); hemi.groundColor.setHex(li.hemiGround || 0x5c6a50); sun.color.setHex(li.sun || 0xfff1d6);
   if (vfx) { vfx.clear(); vfx.setMotes(ZONE_MOTES[zone.id] ?? 0xbfe4ff); }
+  if (reef) { reef.dispose(); reef = null; }
   if (HD.on) { warmZone(zone, skyMat, scene, hemi, sun); hemi.intensity = 0.45; try { skyEnvironment(renderer, scene, skyMat); } catch (e) { console.warn(e); } }
   world.build(zone, save); music.ambient(ZONE_AMB[zone.id]);
+  if (HD.on && zone.id === 'abismo_mareth') reef = new Reef(world.root, scene); // corales, cardúmenes, tortugas, mantas
   player.updrafts = world.updrafts;
   combat.spawnZone(zone, save); combat.breakables = world.breakables;
   pieceBk = save && !zone.challenge ? pieceBreakable(zone) : null;
@@ -512,8 +516,38 @@ function openDialog(it) {
   else if (it.type === 'trigger') player.gesture('Interact', { speed: 1.2 });
   startDialog(res.lines, it.who, it, res.then);
 }
+// --- diálogos adaptados al personaje con el que juegas ---
+// La historia está escrita para Lía. Si juegas con otro héroe, ese héroe ocupa su lugar en los diálogos y Lía pasa a
+// ocupar el suyo (si su personaje aparece en la escena); también se ajustan las palabras de género.
+const HERO_SWAP = {
+  kael: { name: 'Kael', labels: ['Kael'], male: true },
+  marta: { name: 'Marta', labels: ['Capitana Marta'], cap: true },
+  tomas: { name: 'Tomás', labels: ['Tomás'], male: true },
+  nerea: { name: 'Nerea', labels: ['Nerea, la buzo'] },
+  brasa: { name: 'Brasa', labels: ['Brasa, la herrera'] },
+  ilan: { name: 'Ilan', labels: ['Abuelo Ilan', 'Eco de Ilan'], male: true },
+};
+function adaptLine(l) {
+  const H = save && save.hero && HERO_SWAP[save.hero]; if (!H || !l || typeof l.text !== 'string') return l;
+  const NAME = '\u0001', LIA = '\u0002';
+  let who = l.who, text = l.text;
+  const swapIn = str => { // intercambia Lía <-> el héroe elegido, sin pisarse
+    if (!str) return str;
+    str = str.replace(/Lía/g, NAME);
+    for (const lab of H.labels) str = str.split(lab).join(LIA);
+    str = str.replace(new RegExp('\\b' + H.name + '\\b', 'g'), LIA);
+    return str.split(NAME).join(H.name).split(LIA).join('Lía');
+  };
+  who = swapIn(who); text = swapIn(text);
+  // títulos y parentescos que eran de Lía
+  const heir = H.male ? 'heredero' : 'heredera', art = H.male ? 'el' : 'la';
+  text = text.replace(/La nieta/g, (H.male ? 'El ' : 'La ') + heir).replace(/la nieta/g, art + ' ' + heir)
+    .replace(new RegExp('capitana ' + H.name, 'g'), (H.male ? 'capitán ' : 'capitana ') + H.name);
+  if (H.male) text = text.replace(/ya estás lista/g, 'ya estás listo').replace(/Ve tranquila/g, 'Ve tranquilo');
+  return { ...l, who, text };
+}
 function startDialog(lines, defaultWho, it, then) {
-  const norm = lines.map(l => typeof l === 'string' ? { who: defaultWho, text: l } : l);
+  const norm = lines.map(l => adaptLine(typeof l === 'string' ? { who: defaultWho, text: l } : l));
   dialog = { lines: norm, i: 0, shown: 0, full: '', it, then };
   state = 'dialog';
   player.frozen = true;
@@ -1197,7 +1231,13 @@ function applySlotLook() {
 function applyHero() {
   if (!save) return;
   const h = heroUnlocked(heroById(save.hero), pieceCount(save)) ? heroById(save.hero) : HEROES[0];
-  save.hero = h.id; const gg = gearOf(save); player.gear = { w: gg.arma, a: gg.armadura }; player.mods = mergeMods(h.mods, save);
+  save.hero = h.id; world.heroId = h.id;
+  { // voz propia de cada personaje (y de cada estilo de tu heroína)
+    const STYLE_V = { lia: '', kael: 'gloom', marta: 'grace', tomas: 'grounded' };
+    const HERO_VOICE = { kael: ['mild', 1], marta: ['grace', 1], tomas: ['curiosity', 1], nerea: ['grounded', 1.05], brasa: ['flair', 1], ilan: ['mild', 0.82] };
+    const v = h.id === 'lia' ? [STYLE_V[(save.custom && save.custom.estilo) || 'lia'] ?? '', 1] : HERO_VOICE[h.id] || ['', 1];
+    audio.setVoice(v[0], v[1]);
+  } world.heroLook = customLook(save.custom || {}); const gg = gearOf(save); player.gear = { w: gg.arma, a: gg.armadura }; player.mods = mergeMods(h.mods, save);
   if (!charLib) player.equip(gg.arma, gg.armadura);
   if (charLib) { player.useModel(charLib, heroLook(h.id, save.custom)); player.setFight(player.canFight); }
   if (!isAutoMode() && !challenge) addTo('heroes', h.id);
@@ -2074,7 +2114,7 @@ function simulate(dt) {
   audio.listener = { x: camera.position.x, z: camera.position.z, yaw: cam.yaw, ref: 10 };
   musicMood(dt);
   soundHintTick(dt);
-  fx.update(dt); if (vfx) vfx.update(dt, player.pos);
+  fx.update(dt); if (vfx) vfx.update(dt, player.pos); if (reef) reef.update(dt);
   for (const p of pulseFx) { p.t += dt; const k = p.t / 0.45; p.m.scale.setScalar(0.5 + k * p.r); p.m.material.opacity = 0.5 * (1 - k); if (k >= 1) { scene.remove(p.m); p.done = true; } }
   for (let i = pulseFx.length - 1; i >= 0; i--) if (pulseFx[i].done) pulseFx.splice(i, 1);
   const wantFov = 60 + player.anim.runW * 5 * (state === 'play' ? 1 : 0);

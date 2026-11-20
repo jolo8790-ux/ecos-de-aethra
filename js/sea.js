@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { HD, waterMaterial } from './hd.js';
+import { prop, hasProp } from './props.js';
 
 // Mundo submarino: cúpulas de aire, burbujas de oxígeno, algas, peces, rayos de luz, cáusticas,
 // medusas que pican, corrientes que empujan, muros de coral que solo rompe el submarino, y el submarino.
@@ -95,6 +96,10 @@ export class Sea {
     const ph = Math.random() * 6; this.w.animated.push(t => { m.material.opacity = 0.05 + Math.sin(t * 0.7 + ph) * 0.03; });
   }
   _coralDecor({ x, y, z, n = 6, s = 1 }) {
+    if (HD.on && hasProp('coral')) { // HD: racimos de coral modelados en vez de conos y bolas
+      for (let i = 0; i < Math.max(2, Math.round(n / 2)); i++) { const c = prop('coral', { h: (1 + Math.random() * 1.6) * s }); if (!c) break; c.position.set(x + (Math.random() - 0.5) * 3 * s, y - 0.1, z + (Math.random() - 0.5) * 3 * s); c.rotation.y = Math.random() * 6.28; this.root.add(c); }
+      return;
+    }
     for (let i = 0; i < n; i++) {
       const c = new THREE.Color().setHSL([0.95, 0.05, 0.12, 0.55, 0.8, 0.88][Math.floor(Math.random() * 6)], 0.85, 0.55);
       const mat = new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.35, roughness: 0.6, flatShading: true });
@@ -164,6 +169,12 @@ export class Sea {
   _coralWall({ x, y, z, w, h, d = 1.6 }) {
     const box = this.physics.addBox(x, y + h / 2, z, w, h, d, { coral: true });
     const g = new THREE.Group(); this.root.add(g);
+    if (HD.on && hasProp('coral')) { // HD: muro de arrecife hecho de racimos de coral
+      const n = Math.max(4, Math.round(w * h / 14));
+      for (let i = 0; i < n; i++) { const c = prop('coral', { h: 2.6 + Math.random() * 2.4 }); if (!c) break; const k = i / n; c.position.set(x + (k - 0.5) * w + (Math.random() - 0.5) * 1.5, y + (i % 2) * h * 0.45 * Math.random(), z + (Math.random() - 0.5) * d); c.rotation.set((Math.random() - 0.5) * 0.6, Math.random() * 6.28, (Math.random() - 0.5) * 0.6); g.add(c); }
+      this.corals.push({ box, g, broken: false, x, y: y + h / 2, z, w, h, d });
+      return;
+    }
     for (let i = 0; i < 26; i++) {
       const c = new THREE.Color().setHSL([0.95, 0.03, 0.85, 0.1][i % 4], 0.8, 0.55);
       const m = new THREE.Mesh(new THREE.IcosahedronGeometry(0.8 + Math.random() * 1.2, 0), new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.3, flatShading: true, roughness: 0.7 }));

@@ -72,7 +72,7 @@ export class Player {
     for (const p of this.armorParts || []) if (p.parent) p.parent.remove(p);
     const heroHD = this.ch.model.name === 'Heroina'; // la protagonista HD ya trae mochila y su ropa propia
     this.armorParts = buildArmor(a, this.ch.model);
-    if (HD.on && !heroHD && !this.hdPack) this.hdPack = backpack(this.ch.model);
+    if (HD.on && !heroHD && !this.ch.model.userData.hipsY && !this.hdPack) this.hdPack = backpack(this.ch.model); // los modelos generados no llevan la mochila de piezas (quedaba detrás de la cabeza)
   }
   setFight(on) { this.canFight = on; if (this.staff) this.staff.visible = on; }
 

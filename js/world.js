@@ -999,7 +999,9 @@ export class World {
   _npc({ id, x, z, y = 0, rot = 0, name, lines, look = {}, style = 'calm', when, model }) {
     let rig, anim, s;
     if (model && this.chars) { // personaje animado con malla y esqueleto
-      rig = createCharacter(this.chars, model);
+      // si juegas con este personaje, en su lugar aparece Lía (con el aspecto que elegiste)
+      const swapped = this.heroId && this.heroId !== 'lia' && model === this.heroId;
+      rig = createCharacter(this.chars, swapped ? (this.heroLook || 'lia') : model);
       anim = new NpcModelAnimator(rig, rot, { style });
       s = (LOOKS[model] && LOOKS[model].scale) || 1;
     } else {                   // respaldo hecho con formas
