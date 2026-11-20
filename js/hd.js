@@ -554,67 +554,88 @@ export function waterMaterial({ shallow = 0x3fc2d8, deep = 0x0d4f7a, sky = 0xcfe
   });
 }
 
-// ---------- protagonista generada con Artlist: se le pone el esqueleto del juego (mismos nombres de huesos) ----------
+// ---------- personajes generados con Artlist: se les pone el esqueleto del juego (mismos nombres de huesos) ----------
 // Las animaciones del juego guardan giros por hueso: si el esqueleto nuevo conserva las orientaciones de reposo
 // y solo cambia el largo de los huesos, los mismos giros funcionan sobre el cuerpo nuevo.
-const HERO = { // puntos del cuerpo nuevo (metros, pies en y=0, mira a +z, brazos en cruz sobre x)
-  hips: [0, 0.77, 0], spine: [0, 0.92, 0], chest: [0, 1.06, 0], head: [0, 1.33, 0],
-  upperarm: [0.2, 1.18, 0], lowerarm: [0.43, 1.18, -0.01], wrist: [0.56, 1.18, 0], hand: [0.62, 1.18, 0], handslot: [0.68, 1.13, 0],
-  upperleg: [0.115, 0.675, 0], lowerleg: [0.115, 0.33, 0.01], foot: [0.115, 0.13, -0.01], toes: [0.115, 0.03, 0.09],
-};
-function heroTarget(name) {
+// Registro: cada modelo generado reemplaza a un modelo de KayKit (y a todas sus variantes de color) en la versión HD.
+export const HD_CHARS = [
+  { id: 'heroina', replaces: 'lia' },
+  // al renovarse los créditos de Artlist: { id: 'marta_hd', replaces: 'marta' }, { id: 'tomas_hd', replaces: 'tomas' }, { id: 'kael_hd', replaces: 'kael' } …
+];
+// Mide las articulaciones sobre la malla (personaje en cruz, pies en y=0, alto 1.9, mira a +z):
+// hombro = donde el torso se angosta y empieza el brazo; codo, muñeca y mano en proporción del brazo;
+// cadera, rodilla y tobillo en proporción del alto (medidas sobre la protagonista y comprobadas en la malla).
+export function measureJoints(geo) {
+  const P = geo.attributes.position, n = P.count;
+  let maxX = 0; for (let i = 0; i < n; i++) maxX = Math.max(maxX, Math.abs(P.getX(i)));
+  const ys = [], zs = [];
+  for (let i = 0; i < n; i++) if (Math.abs(P.getX(i)) > maxX * 0.8) { ys.push(P.getY(i)); zs.push(P.getZ(i)); }
+  ys.sort((a, b) => a - b); zs.sort((a, b) => a - b);
+  const armY = ys[ys.length >> 1] ?? 1.17, armZ = zs[zs.length >> 1] ?? 0.05;
+  // recorre hacia afuera hasta que la franja deja de ser torso (alto vertical chico = brazo)
+  let shoulder = maxX * 0.3;
+  for (let x = 0.08; x < maxX * 0.7; x += 0.01) {
+    let lo = 9, hi = -9, c = 0;
+    for (let i = 0; i < n; i++) { const vx = P.getX(i); if (vx >= x && vx < x + 0.02) { const y = P.getY(i); if (Math.abs(y - armY) < 0.5) { lo = Math.min(lo, y); hi = Math.max(hi, y); c++; } } }
+    if (c > 3 && hi - lo < 0.24) { shoulder = x - 0.03; break; }
+  }
+  const L = maxX - shoulder, H = 1.9;
+  let lx = 0, lc = 0, lz = 0; for (let i = 0; i < n; i++) { const x = P.getX(i), y = P.getY(i); if (x > 0.02 && y > 0.36 * H * 0.5 && y < 0.25 * H) { lx += x; lz += P.getZ(i); lc++; } }
+  const legX = lc ? lx / lc : 0.11, legZ = lc ? lz / lc : 0.06;
+  return {
+    hips: [0, 0.405 * H, 0], spine: [0, 0.484 * H, 0], chest: [0, 0.558 * H, 0], head: [0, 0.7 * H, 0],
+    upperarm: [shoulder, armY, armZ], lowerarm: [shoulder + 0.29 * L, armY, armZ], wrist: [shoulder + 0.5 * L, armY, armZ], hand: [shoulder + 0.63 * L, armY - 0.005, armZ], handslot: [shoulder + 0.72 * L, armY - 0.05, armZ],
+    upperleg: [legX, 0.326 * H, legZ], lowerleg: [legX, 0.216 * H, legZ + 0.005], foot: [legX + 0.005, 0.068 * H, legZ - 0.01], toes: [legX + 0.01, 0.016 * H, legZ + 0.11],
+  };
+}
+function jointTarget(J, name) {
   const m = name.match(/^(upperarm|lowerarm|wrist|hand|handslot|upperleg|lowerleg|foot|toes)([lr])$/);
-  if (m) { const p = HERO[m[1]]; return new THREE.Vector3(m[2] === 'l' ? p[0] : -p[0], p[1], p[2]); }
-  if (HERO[name]) return new THREE.Vector3(...HERO[name]);
+  if (m) { const p = J[m[1]]; return new THREE.Vector3(m[2] === 'l' ? p[0] : -p[0], p[1], p[2]); }
+  if (J[name]) return new THREE.Vector3(...J[name]);
   return null;
 }
-export function rigHeroine(staticScene, kayModel) {
-  // 1) malla: centrada, pies en y=0
+export function rigGenerated(staticScene, kayModel, name = 'Generado') {
+  // 1) malla: centrada, pies en y=0, alto 1.9
   let mesh = null; staticScene.traverse(o => { if (o.isMesh && !mesh) mesh = o; });
   staticScene.updateMatrixWorld(true);
   const geo = mesh.geometry.clone(); geo.applyMatrix4(mesh.matrixWorld);
   geo.computeBoundingBox(); const bb = geo.boundingBox;
   geo.translate(-(bb.min.x + bb.max.x) / 2, -bb.min.y, -(bb.min.z + bb.max.z) / 2);
-  const H = bb.max.y - bb.min.y; geo.scale(1.9 / H, 1.9 / H, 1.9 / H);
-  // 2) esqueleto: copia del de KayKit en reposo, con los huesos movidos a los puntos del cuerpo nuevo
+  const Hs = bb.max.y - bb.min.y; geo.scale(1.9 / Hs, 1.9 / Hs, 1.9 / Hs);
+  const J = measureJoints(geo);
+  // 2) esqueleto: copia del de KayKit en reposo, con los huesos movidos a las articulaciones medidas
   const src = SkeletonUtilsClone(kayModel);
   let srcSk = null; src.traverse(o => { if (o.isSkinnedMesh && !srcSk) srcSk = o; });
   srcSk.skeleton.pose(); src.updateMatrixWorld(true);
   const rootBone = srcSk.skeleton.bones.find(b => !b.parent || !b.parent.isBone);
   const bones = srcSk.skeleton.bones;
-  // de arriba hacia abajo: fija la posición de mundo de cada hueso conocido
   const order = []; rootBone.traverse(b => { if (b.isBone) order.push(b); });
-  const srcInv = src.matrixWorld.clone().invert();
   for (const b of order) {
-    const t = heroTarget(b.name); if (!t) continue;
+    const t = jointTarget(J, b.name); if (!t) continue;
     b.parent.updateMatrixWorld(true);
-    const w = t.clone().applyMatrix4(src.matrixWorld); // espacio del modelo -> mundo
-    b.position.copy(b.parent.worldToLocal(w));
+    b.position.copy(b.parent.worldToLocal(t.clone().applyMatrix4(src.matrixWorld)));
     b.updateMatrixWorld(true);
   }
-  // 3) pesos: cada vértice al hueso (o par de huesos) de su zona del cuerpo
+  // 3) pesos por zona del cuerpo, con pliegues cortos centrados en cada articulación (dobla justo ahí)
   const P = geo.attributes.position, n = P.count, si = new Uint16Array(n * 4), sw = new Float32Array(n * 4);
-  const idx = name => bones.findIndex(b => b.name === name);
-  const I = {}; for (const k of ['hips', 'spine', 'chest', 'head', 'upperarml', 'lowerarml', 'wristl', 'handl', 'upperarmr', 'lowerarmr', 'wristr', 'handr', 'upperlegl', 'lowerlegl', 'footl', 'toesl', 'upperlegr', 'lowerlegr', 'footr', 'toesr']) I[k] = idx(k);
+  const I = {}; for (const b of bones) I[b.name] = bones.indexOf(b);
   const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  const sh = J.upperarm[0], el = J.lowerarm[0], wr = J.wrist[0], ha = J.hand[0], armY = J.upperarm[1];
+  const hipJ = J.upperleg[1], knee = J.lowerleg[1], ank = J.foot[1], hipsY = J.hips[1], neck = J.head[1] - 0.09;
   for (let i = 0; i < n; i++) {
     const x = P.getX(i), y = P.getY(i), z = P.getZ(i), ax = Math.abs(x), s = x >= 0 ? 'l' : 'r';
-    let w = []; // [hueso, peso]
-    const armY = 1.18;
-    if (ax > 0.17 && Math.abs(y - armY) < 0.17 && z > -0.2) { // brazos
-      const k1 = sm(0.17, 0.27, ax), k2 = sm(0.38, 0.47, ax), k3 = sm(0.53, 0.58, ax), k4 = sm(0.6, 0.64, ax);
+    let w;
+    if (ax > sh - 0.02 && Math.abs(y - armY) < 0.16 && z > -0.2) { // brazos
+      const k1 = sm(sh - 0.015, sh + 0.045, ax), k2 = sm(el - 0.02, el + 0.02, ax), k3 = sm(wr - 0.015, wr + 0.015, ax), k4 = sm(ha - 0.02, ha + 0.02, ax);
       w = [[I.chest, 1 - k1], [I['upperarm' + s], k1 * (1 - k2)], [I['lowerarm' + s], k2 * (1 - k3)], [I['wrist' + s], k3 * (1 - k4)], [I['hand' + s], k4]];
-    } else if (y > 1.24) { // cabeza (con el cuello mezclado con el pecho)
-      const k = sm(1.24, 1.34, y); w = [[I.chest, 1 - k], [I.head, k]];
-    } else if (y < 0.66) { // piernas
-      const k1 = sm(0.6, 0.7, y), kk = sm(0.28, 0.38, y), kf = sm(0.1, 0.17, y);
-      const legs = [[I['upperleg' + s], kk * (1 - k1)], [I['lowerleg' + s], kf * (1 - kk)], [I['foot' + s], (1 - kf) * (z > 0.06 && y < 0.07 ? 0.4 : 1)], [I['toes' + s], (1 - kf) * (z > 0.06 && y < 0.07 ? 0.6 : 0)], [I.hips, k1]];
-      if (ax < 0.04 && y > 0.45) legs.push([I.hips, 0.6]); // centro de la falda
-      w = legs;
-    } else { // torso: cadera, columna, pecho (la mochila va con el pecho)
-      const k1 = sm(0.8, 0.9, y), k2 = sm(0.95, 1.05, y);
-      w = z < -0.12 && y > 0.85 ? [[I.chest, 1]] : [[I.hips, 1 - k1], [I.spine, k1 * (1 - k2)], [I.chest, k2]];
-      if (y < 0.8 && ax > 0.05) { const kl = 1 - sm(0.66, 0.8, y); w.push([I['upperleg' + s], kl * 0.6]); } // falda sigue un poco a las piernas
+    } else if (y > neck) { const k = sm(neck, neck + 0.1, y); w = [[I.chest, 1 - k], [I.head, k]]; } // cabeza
+    else if (y < hipJ - 0.02) { // piernas
+      const k1 = sm(hipJ - 0.07, hipJ, y), kk = sm(knee - 0.02, knee + 0.02, y), kf = sm(ank - 0.015, ank + 0.02, y), toe = z > J.foot[2] + 0.07 ? sm(J.foot[2] + 0.07, J.foot[2] + 0.15, z) : 0;
+      w = [[I['upperleg' + s], kk * (1 - k1)], [I['lowerleg' + s], kf * (1 - kk)], [I['foot' + s], (1 - kf) * (1 - toe)], [I['toes' + s], (1 - kf) * toe], [I.hips, k1]];
+    } else { // torso (lo que cuelga atrás, como mochilas, va con el pecho)
+      const k1 = sm(hipsY + 0.03, hipsY + 0.13, y), k2 = sm(J.chest[1] - 0.11, J.chest[1] - 0.01, y);
+      w = z < -0.12 && y > hipsY + 0.08 ? [[I.chest, 1]] : [[I.hips, 1 - k1], [I.spine, k1 * (1 - k2)], [I.chest, k2]];
+      if (y < hipsY + 0.01 && ax > 0.04) { const kl = 1 - sm(hipJ - 0.02, hipsY + 0.01, y); w.push([I['upperleg' + s], kl * 0.7]); } // faldas y túnicas siguen un poco a las piernas
     }
     w = w.filter(e => e[0] >= 0 && e[1] > 0.001).sort((a, b) => b[1] - a[1]).slice(0, 4);
     const tot = w.reduce((a, e) => a + e[1], 0) || 1;
@@ -622,34 +643,32 @@ export function rigHeroine(staticScene, kayModel) {
   }
   geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
   geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
-  // 4) modelo final: Rig con los huesos + malla con piel
+  // 4) modelo final
   const mat = mesh.material; mat.metalness = 0; mat.roughness = 0.75;
-  const out = new THREE.Group(); out.name = 'Heroina'; out.userData.armorScale = 0.5;
+  const out = new THREE.Group(); out.name = name; out.userData.armorScale = 0.5; out.userData.hipsY = J.hips[1];
   const rig = rootBone.parent && !rootBone.parent.isBone ? rootBone.parent : rootBone;
   out.add(rig);
-  { const drop = []; rig.traverse(o => { if (o.isMesh) drop.push(o); }); for (const o of drop) o.parent.remove(o); } // fuera la malla de KayKit
-  const sk = new THREE.SkinnedMesh(geo, mat); sk.name = 'Heroina_Body';
+  { const drop = []; rig.traverse(o => { if (o.isMesh) drop.push(o); }); for (const o of drop) o.parent.remove(o); }
+  const sk = new THREE.SkinnedMesh(geo, mat); sk.name = name + '_Body';
   out.add(sk); out.updateMatrixWorld(true);
-  const skel = new THREE.Skeleton(bones);
-  sk.bind(skel, sk.matrixWorld);
+  sk.bind(new THREE.Skeleton(bones), sk.matrixWorld);
   return out;
 }
 let SkeletonUtilsClone = null;
 export function setSkeletonClone(fn) { SkeletonUtilsClone = fn; }
-// clips para la protagonista: solo giros (y la posición de la cadera, escalada) — los largos de hueso son los suyos
-export function heroClips(clips) {
-  const out = {};
+// clips para un personaje generado: solo giros (y la posición de la cadera, escalada) — los largos de hueso son los suyos
+export function genClips(clips, hipsY = 0.77) {
+  const out = {}, k = hipsY / 0.406 * 0.62;
   for (const [name, c] of Object.entries(clips)) {
     const tracks = [];
     for (const t of c.tracks) {
       if (t.name.endsWith('.quaternion')) tracks.push(t);
-      else if (t.name === 'hips.position') { const tt = t.clone(); const v = tt.values; for (let i = 0; i < v.length; i += 3) { v[i] *= 1.4; v[i + 1] = 0.77 + (v[i + 1] - 0.406) * 1.4; v[i + 2] *= 1.4; } tracks.push(tt); }
+      else if (t.name === 'hips.position') { const tt = t.clone(); const v = tt.values; for (let i = 0; i < v.length; i += 3) { v[i] *= k; v[i + 1] = hipsY + (v[i + 1] - 0.406) * k; v[i + 2] *= k; } tracks.push(tt); }
     }
     out[name] = new THREE.AnimationClip(c.name, c.duration, tracks);
   }
   return out;
 }
-
 // ---------- iluminación de entorno: el cielo de cada zona se refleja en todos los materiales ----------
 let pmrem = null, envTex = null;
 export function skyEnvironment(renderer, scene, skyMat) {
@@ -663,3 +682,4 @@ export function skyEnvironment(renderer, scene, skyMat) {
   envTex = rt.texture; scene.environment = envTex;
   es.traverse(o => { if (o.geometry) o.geometry.dispose(); });
 }
+

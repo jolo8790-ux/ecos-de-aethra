@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { HD, outlineCharacter, rigHeroine, setSkeletonClone, heroClips } from './hd.js';
+import { HD, rigGenerated, setSkeletonClone, genClips, HD_CHARS } from './hd.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 // Personajes con malla y esqueleto reales (KayKit Adventurers, CC0, de Kay Lousberg)
@@ -26,14 +26,17 @@ export async function loadCharacterLibrary(onProgress) {
   for (const c of anims.animations) lib.clips[c.name] = c;
   MODELS.forEach((m, i) => { lib.models[m] = models[i].scene; });
   if (HD.on) { // protagonista HD generada con Artlist, con el esqueleto del juego
-    try {
-      setSkeletonClone(SkeletonUtils.clone);
-      const mod = await import('../assets/props/heroina.glb.js');
-      const bin = Uint8Array.from(atob(mod.default), ch => ch.charCodeAt(0));
-      const g = await loader.parseAsync(bin.buffer, '');
-      lib.models.heroina = rigHeroine(g.scene, lib.models.lia);
-      lib.heroClips = heroClips(lib.clips); HD.heroReady = true;
-    } catch (e) { console.warn('heroína HD', e); }
+    setSkeletonClone(SkeletonUtils.clone);
+    lib.genClips = {}; lib.swap = {};
+    for (const C of HD_CHARS) {
+      try {
+        const mod = await import(`../assets/props/${C.id}.glb.js`);
+        const bin = Uint8Array.from(atob(mod.default), ch => ch.charCodeAt(0));
+        const g = await loader.parseAsync(bin.buffer, '');
+        const m = rigGenerated(g.scene, lib.models[C.replaces] || lib.models.lia, C.id === 'heroina' ? 'Heroina' : C.id);
+        lib.models[C.id] = m; lib.genClips[C.id] = genClips(lib.clips, m.userData.hipsY); lib.swap[C.replaces] = C.id;
+      } catch (e) { console.warn('personaje HD', C.id, e); }
+    }
   }
   return lib;
 }
@@ -123,10 +126,6 @@ export function customLook(cfg = {}) {
   const rp = pick(CUSTOM.ropa, c.ropa)[2];
   if (rp === 'negro') rules.push({ from: [40, 300], minSat: 0.2, setSat: 0.12, light: 0.55 });
   else if (rp != null) rules.push({ from: [40, 300], minSat: 0.2, shift: rp });
-  if (HD.on && base.model === 'lia' && HD.heroReady) { // en la versión HD la exploradora es la protagonista nueva
-    const clothes = rules.filter(r => !r.parts);
-    return { model: 'heroina', scale: 1.0, recolor: clothes.length ? clothes : undefined, glider: pick(CUSTOM.planeador, c.planeador)[2] };
-  }
   return { model: base.model, scale: 1.0, recolor: rules.length ? [...rules, ...(base.recolor || [])] : base.recolor, glider: pick(CUSTOM.planeador, c.planeador)[2] };
 }
 
@@ -141,7 +140,9 @@ let texCache = new WeakMap();
 export function createCharacter(lib, lookName) {
   texCache = new WeakMap(); // texturas teñidas compartidas entre las partes de este personaje
   const look = typeof lookName === 'object' ? lookName : (LOOKS[lookName] || LOOKS.lia);
-  const model = SkeletonUtils.clone(lib.models[look.model]);
+  // en la versión HD, los modelos que ya tienen versión generada con Artlist se reemplazan (con todas sus variantes de color)
+  const modelId = (lib.swap && lib.swap[look.model] && !look.noSwap) ? lib.swap[look.model] : look.model;
+  const model = SkeletonUtils.clone(lib.models[modelId]);
   model.traverse(o => {
     if (o.isMesh) {
       o.castShadow = true; o.receiveShadow = false;
@@ -179,7 +180,7 @@ export function createCharacter(lib, lookName) {
 
   const mixer = new THREE.AnimationMixer(model);
   const actions = {};
-  for (const [name, clip] of Object.entries(look.model === 'heroina' && lib.heroClips ? lib.heroClips : lib.clips)) {
+  for (const [name, clip] of Object.entries(lib.genClips && lib.genClips[modelId] ? lib.genClips[modelId] : lib.clips)) {
     const a = mixer.clipAction(clip);
     a.enabled = true; a.setEffectiveWeight(0);
     actions[name] = a;
