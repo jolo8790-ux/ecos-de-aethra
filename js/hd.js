@@ -559,8 +559,10 @@ export function waterMaterial({ shallow = 0x3fc2d8, deep = 0x0d4f7a, sky = 0xcfe
 // y solo cambia el largo de los huesos, los mismos giros funcionan sobre el cuerpo nuevo.
 // Registro: cada modelo generado reemplaza a un modelo de KayKit (y a todas sus variantes de color) en la versión HD.
 export const HD_CHARS = [
-  { id: 'heroina', replaces: 'lia' },
-  // al renovarse los créditos de Artlist: { id: 'marta_hd', replaces: 'marta' }, { id: 'tomas_hd', replaces: 'tomas' }, { id: 'kael_hd', replaces: 'kael' } …
+  { id: 'heroina', replaces: 'lia' },      // la exploradora (protagonista)
+  { id: 'kael_hd', replaces: 'kael' },     // Kael y el estilo «Encapuchada»
+  { id: 'marta_hd', replaces: 'marta' },   // Marta, Nerea, Brasa y el estilo «Maga»
+  { id: 'tomas_hd', replaces: 'tomas' },   // Tomás, Ilan, Vaelor y el estilo «Caballera»
 ];
 // Mide las articulaciones sobre la malla (personaje en cruz, pies en y=0, alto 1.9, mira a +z):
 // hombro = donde el torso se angosta y empieza el brazo; codo, muñeca y mano en proporción del brazo;
@@ -644,7 +646,7 @@ export function rigGenerated(staticScene, kayModel, name = 'Generado') {
   geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
   geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
   // 4) modelo final
-  const mat = mesh.material; mat.metalness = 0; mat.roughness = 0.75;
+  const mat = mesh.material; mat.metalness = Math.min(mat.metalness ?? 0, 0.55); mat.roughness = Math.max(mat.roughness ?? 0.75, 0.42); // el metal (armaduras) refleja el cielo, la tela no
   const out = new THREE.Group(); out.name = name; out.userData.armorScale = 0.5; out.userData.hipsY = J.hips[1];
   const rig = rootBone.parent && !rootBone.parent.isBone ? rootBone.parent : rootBone;
   out.add(rig);

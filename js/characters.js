@@ -71,13 +71,14 @@ function recolor(texture, rules) {
 // Apariencia de cada personaje del juego.
 export const LOOKS = {
   lia: { model: 'lia', scale: 1.0 },
-  kael: { model: 'kael', scale: 1.04, recolor: [{ from: [70, 185], to: 275, sat: 0.9, light: 0.85 }] },
-  marta: { model: 'marta', scale: 1.06, recolor: [{ from: [230, 320], to: 215, sat: 0.9, light: 0.9 }], hat: 'captain' },
+  kael: { model: 'kael', scale: 1.04, recolor: [{ from: [70, 185], to: 275, sat: 0.9, light: 0.85 }],
+    recolorHD: [{ from: [120, 205], minSat: 0.08, to: 275, sat: 0.9, light: 0.9 }] }, // el modelo HD viste turquesa
+  marta: { model: 'marta', scale: 1.06, recolor: [{ from: [230, 320], to: 215, sat: 0.9, light: 0.9 }], hat: 'captain', recolorHD: [] }, // el modelo HD ya viste de azul
   tomas: { model: 'tomas', scale: 0.78 },
   // Brasa, la herrera de Ignis: la túnica de Marta en rojo fuego, sin sombrero
   // Nerea, la buzo de Mareth: túnica turquesa
-  nerea: { model: 'marta', scale: 1.0, recolor: [{ from: [230, 320], to: 178, sat: 0.95, light: 1.05 }] },
-  brasa: { model: 'marta', scale: 1.02, recolor: [{ from: [230, 320], to: 14, sat: 1, light: 0.95 }] },
+  nerea: { model: 'marta', scale: 1.0, recolor: [{ from: [230, 320], to: 178, sat: 0.95, light: 1.05 }], recolorHD: [{ from: [195, 240], minSat: 0.35, to: 178, sat: 0.95, light: 1.1 }] },
+  brasa: { model: 'marta', scale: 1.02, recolor: [{ from: [230, 320], to: 14, sat: 1, light: 0.95 }], recolorHD: [{ from: [195, 240], minSat: 0.35, to: 8, sat: 1, light: 1.0 }] },
   // el eco del abuelo Ilan: figura azul pálida
   ilan: { model: 'tomas', scale: 0.98, recolor: [{ from: [0, 360], minSat: 0, to: 200, setSat: 0.35, light: 1.25 }] },
   // Vaelor: armadura gris oscura con reflejos morados, capa granate y pelo oscuro; la piel no se toca
@@ -87,6 +88,12 @@ export const LOOKS = {
     { from: [0, 12], minSat: 0.45, to: 330, sat: 0.9, light: 0.55 },
     { from: [36, 60], minSat: 0.3, to: 25, sat: 0.5, light: 0.45 },                      // pelo rubio
     { from: [180, 260], minSat: 0.15, to: 270, sat: 0.9, light: 0.7 },                   // detalles azules
+  ], recolorHD: [ // el caballero HD: acero azulado, detalles azules, capa roja y pelo rubio
+    { from: [170, 260], minSat: 0, maxSat: 0.45, to: 265, setSat: 0.14, light: 0.62 },
+    { from: [170, 260], minSat: 0.45, to: 275, sat: 0.9, light: 0.7 },
+    { from: [330, 360], minSat: 0.35, maxLight: 0.46, to: 330, sat: 0.9, light: 0.55 }, // capa (la piel sonrojada es más clara)
+    { from: [0, 12], minSat: 0.45, maxLight: 0.46, to: 330, sat: 0.9, light: 0.55 },
+    { from: [28, 44], minSat: 0.4, minLight: 0.45, to: 22, sat: 0.4, light: 0.38 },
   ] },
 };
 
@@ -126,7 +133,9 @@ export function customLook(cfg = {}) {
   const rp = pick(CUSTOM.ropa, c.ropa)[2];
   if (rp === 'negro') rules.push({ from: [40, 300], minSat: 0.2, setSat: 0.12, light: 0.55 });
   else if (rp != null) rules.push({ from: [40, 300], minSat: 0.2, shift: rp });
-  return { model: base.model, scale: 1.0, recolor: rules.length ? [...rules, ...(base.recolor || [])] : base.recolor, glider: pick(CUSTOM.planeador, c.planeador)[2] };
+  const out = { model: base.model, scale: 1.0, recolor: rules.length ? [...rules, ...(base.recolor || [])] : base.recolor, glider: pick(CUSTOM.planeador, c.planeador)[2] };
+  if (base.recolorHD !== undefined) out.recolorHD = [...rules, ...base.recolorHD]; // en HD, la paleta propia del modelo generado
+  return out;
 }
 
 // luz de contorno: un brillo cálido en los bordes de los personajes para que destaquen del fondo
@@ -143,13 +152,14 @@ export function createCharacter(lib, lookName) {
   // en la versión HD, los modelos que ya tienen versión generada con Artlist se reemplazan (con todas sus variantes de color)
   const modelId = (lib.swap && lib.swap[look.model] && !look.noSwap) ? lib.swap[look.model] : look.model;
   const model = SkeletonUtils.clone(lib.models[modelId]);
+  const recol = (modelId !== look.model && look.recolorHD !== undefined) ? look.recolorHD : look.recolor; // la textura HD tiene otra paleta
   model.traverse(o => {
     if (o.isMesh) {
       o.castShadow = true; o.receiveShadow = false;
       o.frustumCulled = false; // los huesos mueven la malla fuera de su caja original
-      if (look.recolor) {
+      if (recol && recol.length) {
         // reglas por parte: el pelo solo en la cabeza, la piel en cabeza y brazos (evita teñir el cuero del mismo tono)
-        const rules = look.recolor.filter(r => !r.parts || r.parts.some(p => (o.name || '').includes(p)));
+        const rules = recol.filter(r => !r.parts || r.parts.some(p => (o.name || '').includes(p)));
         if (rules.length && o.material.map) {
           const key = JSON.stringify(rules);
           texCache.set(o.material.map, texCache.get(o.material.map) || new Map());
@@ -158,7 +168,7 @@ export function createCharacter(lib, lookName) {
           o.material = o.material.clone(); o.material.map = m.get(key);
         }
       }
-      if (!o.material.userData.rim) { if (!look.recolor) o.material = o.material.clone(); o.material.userData.rim = true; o.material.onBeforeCompile = rimLight; o.material.customProgramCacheKey = rimKey; }
+      if (!o.material.userData.rim) { if (!(recol && recol.length)) o.material = o.material.clone(); o.material.userData.rim = true; o.material.onBeforeCompile = rimLight; o.material.customProgramCacheKey = rimKey; }
     }
   });
   const root = new THREE.Group();          // posición y orientación en el mundo
@@ -176,6 +186,7 @@ export function createCharacter(lib, lookName) {
     model.updateMatrixWorld(true);
     bones.head.attach(hat);
     hat.position.set(0, 0.78, -0.02); hat.rotation.set(-0.12, 0, 0); hat.scale.setScalar(1.75); // ajustado mirándolo en una GPU real: encima del pelo, sin tapar los ojos
+    if (lib.genClips && lib.genClips[modelId]) { hat.position.set(0, 0.46, -0.02); hat.scale.setScalar(1.1); } // cabeza del modelo HD (más chica)
   }
 
   const mixer = new THREE.AnimationMixer(model);
