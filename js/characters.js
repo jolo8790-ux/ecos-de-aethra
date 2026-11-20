@@ -135,8 +135,38 @@ export function customLook(cfg = {}) {
   if (rp === 'negro') rules.push({ from: [40, 300], minSat: 0.2, setSat: 0.12, light: 0.55 });
   else if (rp != null) rules.push({ from: [40, 300], minSat: 0.2, shift: rp });
   const out = { model: base.model, scale: 1.0, recolor: rules.length ? [...rules, ...(base.recolor || [])] : base.recolor, glider: pick(CUSTOM.planeador, c.planeador)[2] };
-  if (base.recolorHD !== undefined) out.recolorHD = [...rules, ...base.recolorHD]; // en HD, la paleta propia del modelo generado
+  out.recolorHD = customHD(base, c, hp, pk, pick(CUSTOM.ropa, c.ropa));
   return out;
+}
+
+// Zonas de color de cada modelo HD (medidas en su textura): pelo, piel y ropa. La primera regla que coincide gana.
+const HD_ZONES = {
+  lia: { hair: [{ from: [6, 21], minSat: 0.56, maxSat: 0.9, minLight: 0.2, maxLight: 0.49 }], hairRef: 0.38,
+    skin: [{ from: [6, 34], minSat: 0.28, maxSat: 0.85, minLight: 0.49, maxLight: 0.92 }],
+    clothes: [{ from: [40, 175], minSat: 0.16 }] },
+  kael: { hair: [{ from: [196, 230], minSat: 0.06, maxSat: 0.4, maxLight: 0.55 }], hairRef: 0.18,
+    skin: [{ from: [12, 26], minSat: 0.38, maxSat: 0.7, minLight: 0.56 }],
+    clothes: [{ from: [140, 196], minSat: 0.12 }] },
+  marta: { hair: [{ from: [196, 330], minSat: 0.02, maxSat: 0.3, maxLight: 0.62 }], hairRef: 0.22,
+    skin: [{ from: [14, 38], minSat: 0.42, maxSat: 0.72, minLight: 0.5 }],
+    clothes: [{ from: [204, 234], minSat: 0.32 }] },
+  tomas: { hair: [{ from: [27, 41], minSat: 0.5, minLight: 0.5, maxLight: 0.76 }], hairRef: 0.62,
+    skin: [{ from: [6, 22], minSat: 0.55, minLight: 0.6 }],
+    clothes: [{ from: [204, 236], minSat: 0.24, maxLight: 0.46 }, { from: [344, 360], minSat: 0.5 }, { from: [0, 12], minSat: 0.5, maxLight: 0.45 }],
+    armor: [{ from: [198, 242], minSat: 0, maxSat: 0.4 }] },
+};
+function customHD(base, c, hp, pk, ropa) {
+  const Z = HD_ZONES[base.model]; if (!Z) return base.recolorHD;
+  const rules = [];
+  // la piel va primero (sus sombras se parecen al pelo pelirrojo) y se protege aunque no cambie
+  for (const r of Z.skin) rules.push(pk !== 1 ? { ...r, light: pk, sat: pk < 0.8 ? 0.85 : 1 } : { ...r, light: 1 });
+  if (hp) { const [h, sat, l] = hp; for (const r of Z.hair) rules.push({ ...r, to: h, setSat: sat, lightTo: l, lightRef: Z.hairRef }); }
+  if (ropa[2] == null) return [...rules, ...(base.recolorHD || [])]; // ropa «Verde»: el color propio del estilo
+  const col = new THREE.Color(ropa[3]), hsl = {}; col.getHSL(hsl); const T = hsl.h * 360;
+  const black = ropa[2] === 'negro';
+  for (const r of Z.clothes) rules.push(black ? { ...r, setSat: 0.08, light: 0.45 } : { ...r, to: T, sat: 1.8 });
+  if (Z.armor && black) for (const r of Z.armor) rules.push({ ...r, setSat: 0.05, light: 0.42 }); // armadura pavonada; con otros colores queda de acero
+  return rules;
 }
 
 // luz de contorno: un brillo cálido en los bordes de los personajes para que destaquen del fondo
