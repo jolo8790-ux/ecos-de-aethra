@@ -41,7 +41,7 @@ const ORB_SPOTS = [];
 for (let x = -10; x <= 10; x += 5) for (let z = -10; z <= 10; z += 5) if (Math.abs(x) !== 10 || Math.abs(z) !== 10) ORB_SPOTS.push([x, 0, z]);
 ORB_SPOTS.push([-9, 1.4, -9], [9, 1.4, -9], [-9, 1.4, 9], [9, 1.4, 9], [0, 0.6, -19.5], [0, 0.6, 19.5], [-19.5, 0.6, 0], [19.5, 0.6, 0], [19.5, 6.5, -9], [-19.5, 6.5, 9]);
 const COLORS = ['#4cbcff', '#ff7a5a', '#8be36a', '#ffd24a', '#c98bff', '#ff8ad0', '#5ae0d0', '#f0f0f0'];
-const ARENA_DIFF = { dmg: 1, invuln: 0.75, glide: 6, gust: 0.5, air: 22 };
+const ARENA_DIFF = { dmg: 1, fallHurts: true, invuln: 0.75, glide: 6, gust: 0.5, air: 22 };
 const BOT_LEVEL = { facil: { think: 0.42, atk: 0.35, dodge: 0.1 }, normal: { think: 0.26, atk: 0.6, dodge: 0.25 }, dificil: { think: 0.15, atk: 0.85, dodge: 0.45 }, auto: { think: 0.26, atk: 0.6, dodge: 0.25 } };
 
 function seeded(seed) { let s = (seed * 9301 + 49297) % 233280 || 1; return () => (s = (s * 9301 + 49297) % 233280) / 233280; }

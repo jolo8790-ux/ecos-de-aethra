@@ -16,7 +16,7 @@ function mesh(geo, m, parent, x = 0, y = 0, z = 0) { const o = new THREE.Mesh(ge
 
 // Niveles de dificultad
 export const DIFF = {
-  facil: { name: 'Cuento', dmg: 0.5, invuln: 1.8, bossHp: 0.7, fallHurts: false, glide: 7, gust: 0.6, crumble: 1.4, air: 32 },
+  facil: { name: 'Cuento', dmg: 1, invuln: 1.8, bossHp: 0.7, fallHurts: true, glide: 7, gust: 0.6, crumble: 1.4, air: 32 },
   normal: { name: 'Aventura', dmg: 1, invuln: 1.1, bossHp: 1, fallHurts: true, glide: 5, gust: 1, air: 22 },
   dificil: { name: 'Leyenda', dmg: 2, invuln: 0.8, bossHp: 1.35, fallHurts: true, glide: 4, gust: 1.3, crumble: 0.8, air: 16 },
   auto: { name: 'Automático', dmg: 0, invuln: 1.8, bossHp: 0.7, fallHurts: false, auto: true, glide: 5, gust: 1, air: 22 },
@@ -98,7 +98,8 @@ class Enemy {
     const p = this.pos.clone().setY(this.pos.y + 0.6);
     this.c.fx.sparkle(p, 22, this.color || 0x9ff0ff);
     this.c.fx.dust(this.pos, 8, 1.2, 0xd8f6ff);
-    this.c.root.remove(this.group);
+    // muerte: se infla, gira y se encoge en un instante (antes desaparecía de golpe)
+    if (this.c.corpses) { setFlash(this.group, true); this.c.corpses.push({ g: this.group, t: 0, s0: this.group.scale.x }); } else this.c.root.remove(this.group);
     if (Math.random() < 0.4) this.c.spawnHeal(this.pos.x, this.pos.y, this.pos.z);
     this.c.onKill && this.c.onKill(this);
   }
@@ -195,8 +196,9 @@ class Brote extends Enemy {
     this.hp = L.hp; this.color = L.crystal; this.cd = 1; this.baseEmissive = L.emissive;
     const g = this.body = new THREE.Group(); this.group.add(g);
     const BM = BROTE_MODELS[type], model = BM && glowModel(BM[0], { h: BM[1] }, BM[2], L.emissive);
+    this.kind = BM ? BM[0] : type;
     if (model) {
-      g.add(model); this.crystalMat = model.userData.mat; this.glowK = 0.12;
+      this.model = model; g.add(model); this.crystalMat = model.userData.mat; this.glowK = 0.12;
       this.mark = mesh(new THREE.ConeGeometry(0.12, 0.35, 4), new THREE.MeshBasicMaterial({ color: 0xff5a4a }), this.group, 0, 1.7, 0);
       this.mark.rotation.x = Math.PI; this.mark.visible = false; this.mark.userData.noFlash = true;
       if (L.aura) {
@@ -230,6 +232,34 @@ class Brote extends Enemy {
       return true;
     }
     return super.hurt(dmg, from, push);
+  }
+  // movimiento con vida para los modelos generados: respira, se balancea al andar, se inclina al correr y al girar,
+  // se agacha antes de embestir, se estira al saltar y se aplasta al caer
+  _life(dt, hop) {
+    const A = this.anim || (this.anim = { sq: 1, lean: 0, roll: 0, y: 0, yaw: this.facing, ph: Math.random() * 6, land: 0, wasAir: false });
+    const speed = Math.hypot(this.vel.x, this.vel.z), kind = this.kind;
+    const float = kind === 'sombra', robot = kind === 'automata';
+    A.ph += dt * (2 + speed * (robot ? 4.2 : 2.6));
+    const turn = angDiff(this.facing, A.yaw); A.yaw = this.facing;
+    let sq = 1 + Math.sin(this.t * 2.4) * 0.025, lean = -Math.min(0.28, speed * 0.035), roll = 0, y = 0;
+    if (float) { y = 0.18 + Math.sin(this.t * 2.2) * 0.12; roll = Math.sin(this.t * 1.7) * 0.08; }
+    else if (speed > 0.4 && this.state === 'chase') {
+      const step = Math.sin(A.ph);
+      if (robot) { y = Math.abs(step) * 0.06; roll = step * 0.06; } // pasitos rápidos de araña mecánica
+      else { y = hop; roll = step * 0.14; sq = 1 + Math.abs(Math.cos(A.ph)) * 0.08 - 0.04; } // contoneo pesado
+    } else y = hop * 0.6;
+    roll -= turn / Math.max(dt, 1e-3) * 0.02; // se inclina hacia el giro
+    if (this.state === 'notice') { sq = 1.12; lean = 0.15; }
+    if (this.state === 'windup') { sq = 0.8; lean = 0.32; roll += (Math.random() - 0.5) * 0.1; }
+    if (this.state === 'lunge') { sq = 1.12; lean = -0.45; }
+    if (this.state === 'recover') { roll = Math.sin(this.t * 14) * 0.18; sq = 0.95; }
+    if (this.state === 'stagger') { lean = 0.4; sq = 0.9; }
+    if (!this.onGround) { A.wasAir = true; sq = Math.max(sq, 1.1); } else if (A.wasAir) { A.wasAir = false; A.land = 0.18; }
+    if (A.land > 0) { A.land -= dt; sq = 0.78; }
+    const k = damp(14, dt);
+    A.sq += (sq - A.sq) * k; A.lean += (lean - A.lean) * k; A.roll += (roll - A.roll) * k; A.y += (y - A.y) * damp(18, dt);
+    this.body.position.y = A.y; this.body.rotation.x = A.lean; this.body.rotation.z = A.roll;
+    this.body.scale.set(1 / Math.sqrt(A.sq), A.sq, 1 / Math.sqrt(A.sq));
   }
   dispel() { if (!this.aura) return; this.group.remove(this.aura); this.aura = null; this.c.fx.sparkle(this.pos.clone().setY(this.pos.y + 0.6), 20, 0xfff2a8); }
   update(dt, pl) {
@@ -290,9 +320,12 @@ class Brote extends Enemy {
     if (this.gear) this.gear.rotation.y += dt * (this.state === 'chase' ? 8 : 2);
     this.group.position.set(this.pos.x + (Math.random() - 0.5) * shake, this.pos.y, this.pos.z + (Math.random() - 0.5) * shake);
     this.group.rotation.y = this.facing;
-    this.body.position.y = hop;
-    const sq = this.state === 'windup' ? 0.85 : 1;
-    this.body.scale.set(1 / Math.sqrt(sq), sq, 1 / Math.sqrt(sq));
+    if (this.model) this._life(dt, hop);
+    else {
+      this.body.position.y = hop;
+      const sq = this.state === 'windup' ? 0.85 : 1;
+      this.body.scale.set(1 / Math.sqrt(sq), sq, 1 / Math.sqrt(sq));
+    }
     this.mark.position.y = 1.7 + Math.sin(this.t * 10) * 0.05;
   }
 }
@@ -338,14 +371,20 @@ class Espora extends Enemy {
       if (this.cd <= 0) {
         const from = this.pos.clone().setY(this.pos.y + 1.05);
         this.c.shoot(from, head, 7.5, this.look.core, this);
-        this.cd = 2.6; this.warned = false;
+        this.cd = 2.6; this.warned = false; this.recoil = 1;
       }
     }
     this.petals.forEach(p => { p.rotation.x = -0.4 - open * 0.9; });
     this.coreMat.emissiveIntensity = (0.8 + open * 2.5) * (this.glowK || 1);
     this.coreMat.emissive.setHex(open > 0 ? 0xff3aa8 : this.look.coreE);
     this.group.position.copy(this.pos);
-    if (this.model) { const k = 1 + open * 0.12 + Math.sin(this.t * 2) * 0.02; this.model.scale.set(1 / Math.sqrt(k), k, 1 / Math.sqrt(k)); }
+    if (this.model) { // la flor respira, se mece con el viento, se encoge al cargar y da un latigazo al disparar
+      this.recoil = Math.max(0, (this.recoil || 0) - dt * 3.5);
+      const k = 1 + Math.sin(this.t * 2) * 0.03 - open * 0.1 + this.recoil * 0.22;
+      this.model.scale.set(1 / Math.sqrt(k), k, 1 / Math.sqrt(k));
+      this.model.rotation.z = Math.sin(this.t * 1.3 + this.home.x) * 0.06;
+      this.model.rotation.x = Math.sin(this.t * 1.1 + this.home.z) * 0.04 + open * 0.18 - this.recoil * 0.35;
+    }
     else this.head.position.y = 1.0 + Math.sin(this.t * 2) * 0.04;
     if (this.state === 'stagger') { this.stagger -= dt; if (this.stagger <= 0) this.state = 'idle'; }
   }
@@ -564,7 +603,14 @@ class Escorpion {
   wake() { if (this.state === 'sleep') { this.state = 'intro'; this.st = 2; this.c.audio.play('roar', this.pos); this.c.shake(0.5, 1.5); } }
   _place() {
     this.group.position.copy(this.pos); this.group.rotation.y = this.facing;
-    if (this.skin) { this.skin.userData.glow(this.eyeMat.emissive, this.eyeMat.emissive.getHex() === 0xff3a2a ? 0.35 : 0.04); this.skin.position.y = Math.abs(Math.sin(this.t * 8)) * 0.04; }
+    if (this.skin) {
+      this.skin.userData.glow(this.eyeMat.emissive, this.eyeMat.emissive.getHex() === 0xff3a2a ? 0.35 : 0.04);
+      const g = this.gait || 0, ph = this.t * (3 + g * 3); // el caparazón se balancea con las patas y se agacha antes de embestir
+      this.skin.position.y = Math.abs(Math.sin(ph)) * 0.05 * Math.min(1, g) + Math.sin(this.t * 2) * 0.03;
+      this.skin.rotation.z = Math.sin(ph) * 0.05 * Math.min(1, g);
+      const tilt = this.state === 'windup' ? 0.12 : this.state === 'charge' ? -0.1 : this.state === 'stunned' ? 0.18 : 0;
+      this.skin.rotation.x += (tilt - this.skin.rotation.x) * 0.15;
+    }
     // cola: de levantada (curl 0) a apoyada en el suelo (curl 1)
     const raised = i => { const a = -1.2 + i * 0.55; return new THREE.Vector3(0, 2.0 + Math.sin(a) * 1.3, 1.9 - Math.cos(a) * 1.3 + 1.3); };
     const lowered = i => new THREE.Vector3(0, 0.55, 2.0 + i * 0.62);
@@ -584,7 +630,7 @@ class Escorpion {
         const far = P.filter(p => !p.alive && p.restore).sort((a, b) => Math.hypot(b.pos.x - this.pos.x, b.pos.z - this.pos.z) - Math.hypot(a.pos.x - this.pos.x, a.pos.z - this.pos.z))[0];
         if (far) { far.restore(); this.c.fx.sparkle(far.pos.clone().setY(far.pos.y + 2), 30, 0xbff0ff); this.c.audio.play('crystal', far.pos); } } }
     }
-    const walk = (sp) => { for (const L of this.legs) L.leg.rotation.x = Math.sin(this.t * sp * 3 + L.k * 2 + (L.side > 0 ? Math.PI : 0)) * 0.35; };
+    const walk = (sp) => { this.gait = sp; for (const L of this.legs) L.leg.rotation.x = Math.sin(this.t * sp * 3 + L.k * 2 + (L.side > 0 ? Math.PI : 0)) * 0.35; };
     const dx = pl.pos.x - this.pos.x, dz = pl.pos.z - this.pos.z, dist = Math.hypot(dx, dz);
     const toP = Math.atan2(-dx, -dz);
     let want = 0; // curl objetivo
@@ -1238,13 +1284,13 @@ export class Combat {
   constructor(scene, physics, fx, audio) {
     this.scene = scene; this.physics = physics; this.fx = fx; this.audio = audio;
     this.root = new THREE.Group(); scene.add(this.root);
-    this.enemies = []; this.projectiles = []; this.heals = []; this.slashes = [];
+    this.enemies = []; this.projectiles = []; this.heals = []; this.slashes = []; this.corpses = [];
     this.boss = null; this.voidY = -30;
     this.shakeAmt = 0; this.shakeT = 0; this.hitstop = 0;
   }
   clear() {
     if (this.boss) this.boss.dispose();
-    freeGPU(this.root); this.root.clear(); this.enemies = []; this.projectiles = []; this.heals = []; this.slashes = []; this.boss = null;
+    freeGPU(this.root); this.root.clear(); this.enemies = []; this.projectiles = []; this.heals = []; this.slashes = []; this.corpses = []; this.boss = null;
   }
   spawnZone(zone, save) {
     this.clear();
@@ -1443,6 +1489,13 @@ export class Combat {
       if (h.t > 20) { h.done = true; this.root.remove(h.g); }
     }
     this.heals = this.heals.filter(h => !h.done);
+    for (const C of this.corpses) { // enemigos que acaban de caer
+      C.t += dt; const k = Math.min(1, C.t / 0.38);
+      C.g.scale.setScalar(C.s0 * (k < 0.3 ? 1 + k / 0.3 * 0.25 : 1.25 * (1 - (k - 0.3) / 0.7)) + 0.001);
+      C.g.rotation.y += dt * 14; C.g.position.y += dt * 1.2;
+      if (k >= 1) { this.root.remove(C.g); C.done = true; }
+    }
+    this.corpses = this.corpses.filter(C => !C.done);
     // arcos de golpe
     for (const s of this.slashes) { s.t += dt; s.m.material.opacity = 0.75 * (1 - s.t / 0.16); s.m.scale.setScalar(1 + s.t * 1.5); if (s.t > 0.16) { this.root.remove(s.m); s.done = true; } }
     this.slashes = this.slashes.filter(s => !s.done);

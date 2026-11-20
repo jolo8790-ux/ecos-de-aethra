@@ -175,7 +175,7 @@ export function createCharacter(lib, lookName) {
   const root = new THREE.Group();          // posición y orientación en el mundo
   root.userData.charRoot = true;
   const pivot = new THREE.Group();         // inclinaciones y voltereta, pivote en la cadera
-  const HIP = 0.42 * look.scale;
+  const HIP = (lib.models[modelId].userData.hipsY ? lib.models[modelId].userData.hipsY * 1.1 : 0.42) * look.scale; // pivote a la altura de la cadera de cada modelo (la voltereta gira sobre el centro del cuerpo)
   pivot.position.y = HIP; root.add(pivot);
   model.position.y = -HIP; model.scale.setScalar(look.scale); model.rotation.y = Math.PI; pivot.add(model); // los modelos miran a +z; el juego usa -z
 
@@ -303,6 +303,11 @@ export class HeroModelAnimator {
     this.prevSin = s;
 
     const g = 1 - this.air;
+    // encogerse durante la voltereta del doble salto (y estirarse al final)
+    const tk = this.flip >= 0 ? Math.pow(Math.sin(Math.PI * Math.min(1, this.flip * 1.15)), 0.6) * 0.9 : 0;
+    this.tuck = (this.tuck || 0) + (tk - (this.tuck || 0)) * damp(20, dt);
+    if (A.Sit_Floor_Idle) A.Sit_Floor_Idle.time = 0.2;
+    if (this.tuck > 0.01 && A.Jump_Land && !(this.b.oneShot && this.b.oneShot.name === 'Jump_Land')) A.Jump_Land.time = 0.12;
     // escudo: mantiene la pose de bloqueo mientras se protege
     this.shieldW = (this.shieldW || 0) + ((c.shielding ? 1 : 0) - (this.shieldW || 0)) * damp(14, dt);
     const sw = this.shieldW, block = A.Block;
@@ -320,7 +325,9 @@ export class HeroModelAnimator {
       Unarmed_Idle: idleW * unarmed,
       Walking_A: g * this.moveW * (1 - this.runW) * (1 - sw * 0.6),
       Running_B: g * this.moveW * this.runW * (1 - sw),
-      Jump_Idle: this.air * (1 - au * 0.7),
+      Jump_Idle: this.air * (1 - au * 0.7) * (1 - this.tuck),
+      Sit_Floor_Idle: this.tuck * 0.55, // voltereta: rodillas al pecho (piernas al frente + agachada)
+      ...(this.tuck > 0.01 && !(this.b.oneShot && this.b.oneShot.name === 'Jump_Land') ? { Jump_Land: this.tuck * 0.6 } : {}),
       Spellcast_Raise: au * Math.max(this.air, 0.3) * 0.85,
       Block: g * sw,
     }, 14);
@@ -360,7 +367,7 @@ export class HeroModelAnimator {
     if (c.doubleJumped) this.flip = 0;
     let flipA = 0;
     if (this.flip >= 0) {
-      this.flip += dt / 0.48;
+      this.flip += dt / 0.52;
       if (this.flip >= 1 || c.grounded) this.flip = -1; else flipA = -TAU * smooth01(this.flip);
     }
     const P = this.ch.pivot;

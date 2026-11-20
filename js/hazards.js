@@ -208,6 +208,8 @@ export class Hazards {
     for (const Pd of this.pends) {
       const a = Pd.amp * Math.sin(t * Pd.speed + Pd.phase), av = Pd.amp * Pd.speed * Math.cos(t * Pd.speed + Pd.phase);
       if (Pd.axis === 'x') Pd.arm.rotation.z = a; else Pd.arm.rotation.x = -a;
+      if (Pd.lastA != null && Math.sign(a) !== Math.sign(Pd.lastA)) this.events.push({ type: 'pendulum', pos: new THREE.Vector3(Pd.x, Pd.y - Pd.len, Pd.z) }); // pasa por abajo: zumbido
+      Pd.lastA = a;
       const off = Math.sin(a) * Pd.len, down = -Math.cos(a) * Pd.len;
       Pd.ball.set(Pd.x + (Pd.axis === 'x' ? off : 0), Pd.y + down, Pd.z + (Pd.axis === 'z' ? off : 0));
       Pd.trail.material.opacity = Math.min(0.22, Math.abs(av) * 0.08);

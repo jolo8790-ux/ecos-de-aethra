@@ -3,6 +3,21 @@
 // con pequeñas variaciones al azar para que no suene siempre igual. Si se pasa una posición, el sonido se
 // coloca a la izquierda o a la derecha y baja con la distancia.
 const MAX_VOICES = 72;
+// voces grabadas (generadas con Artlist): se suman al efecto sintetizado. p = probabilidad, para que no se repitan siempre
+const VOICES = {
+  hurt: { f: ['hurt1', 'hurt2', 'hurt3'], p: 1, vol: 0.9 },
+  jump: { f: ['jump1', 'jump2'], p: 0.3, vol: 0.55, gap: 0.6 },
+  djump: { f: ['jump2', 'uf'], p: 0.6, vol: 0.6, gap: 0.4 },
+  swing: { f: ['atk1', 'atk2', 'atk3'], p: 0.4, vol: 0.6, gap: 0.45 },
+  hitHeavy: { f: ['atk3'], p: 0.5, vol: 0.6, gap: 0.5 },
+  ko: { f: ['ko'], p: 1, vol: 1 },
+  fragment: { f: ['bien'], p: 0.6, vol: 0.7, gap: 2 },
+  enemyHurt: { f: ['ehurt1', 'ehurt2'], p: 0.8, vol: 0.55, gap: 0.12, rate: 0.15 },
+  enemyDie: { f: ['edie'], p: 1, vol: 0.65, rate: 0.2 },
+  roar: { f: ['roar1', 'roar2'], p: 1, vol: 1.1 },
+  windup: { f: ['growl'], p: 0.5, vol: 0.6, gap: 1, rate: 0.2 },
+  stomp: { f: ['growl'], p: 0.25, vol: 0.5, gap: 2 },
+};
 
 export class Audio {
   constructor() { this.ctx = null; this.volume = 0.7; this.voices = 0; this.listener = null; this.surface = 'grass'; this._last = {}; this._streak = { t: 0, n: 0 }; }
@@ -12,8 +27,23 @@ export class Audio {
       if (this.ctx.state === 'suspended') this.ctx.resume();
     } catch (e) { this.ctx = null; }
   }
+  // muestras de voz: se cargan una vez (si fallan, solo queda el sonido sintetizado)
+  _loadSamples() {
+    const c = this.ctx, names = new Set(); this.smp = {};
+    for (const v of Object.values(VOICES)) v.f.forEach(n => names.add(n));
+    for (const n of names) fetch(`assets/sfx/${n}.mp3`).then(r => r.ok ? r.arrayBuffer() : Promise.reject()).then(b => c.decodeAudioData(b)).then(buf => { this.smp[n] = buf; }).catch(() => {});
+  }
+  _voice(name) {
+    const V = VOICES[name]; if (!V || !this.smp || Math.random() > V.p) return;
+    if (V.gap && !this._throttle('v_' + name, V.gap)) return;
+    const n = V.f[Math.floor(Math.random() * V.f.length)], buf = this.smp[n]; if (!buf || this.voices > MAX_VOICES) return;
+    const c = this.ctx, s = c.createBufferSource(); s.buffer = buf;
+    s.playbackRate.value = 1 + (Math.random() - 0.5) * (V.rate || 0.06);
+    const g = this._out(0, 0); g.gain.value = V.vol * this._k * this._g; s.connect(g); s.start(); this.voices++; s.onended = () => { this.voices--; };
+  }
   // ruidos blanco, rosa y marrón calculados una sola vez
   _buffers() {
+    this._loadSamples();
     const c = this.ctx, n = Math.floor(c.sampleRate * 2);
     const mk = fill => { const b = c.createBuffer(1, n, c.sampleRate); fill(b.getChannelData(0)); return b; };
     this.nb = {
@@ -92,6 +122,7 @@ export class Audio {
   play(name, pos) {
     if (!this.ctx || this.volume <= 0 || this.ctx.state !== 'running') return;
     if (!this._prep(pos && pos.pos ? pos.pos : pos)) return;
+    if (VOICES[name]) this._voice(name);
     const o = (...a) => this.o(...a), n = (...a) => this.n(...a), bell = (...a) => this.bell(...a);
     const sparkle = (notes, gap = 0.05, vol = 0.04, base = 0) => notes.forEach((f, i) => bell(f, { dur: 0.5, vol, ratio: 2.01, index: 1.2, delay: base + i * gap, pan: (i % 2 ? 0.15 : -0.15) }));
     switch (name) {
@@ -192,6 +223,7 @@ export class Audio {
         n('pink', 0.9, { vol: 0.13, f: 5000, to: 900, type: 'bandpass', q: 0.8, att: 0.2 });
         for (let i = 0; i < 46; i++) { const d = 0.75 + Math.random() * 1.7; n('white', 0.02, { vol: 0.05, f: 1800 + Math.random() * 2500, type: 'bandpass', q: 2, delay: d, pan: Math.random() * 1.2 - 0.6 }); if (i % 6 === 0) o('sine', 260, { to: 140, dur: 0.05, vol: 0.05, delay: d }); }
         break;
+      case 'pendulum': n('pink', 0.55, { vol: 0.22, f: 260, to: 900, type: 'bandpass', q: 1.2, att: 0.18 }); n('brown', 0.5, { vol: 0.12, f: 200, att: 0.15 }); o('triangle', 70, { to: 55, dur: 0.4, vol: 0.05, att: 0.15 }); if (Math.random() < 0.5) o('square', 900, { to: 700, dur: 0.06, vol: 0.012, lp: 1800, delay: 0.4 }); break; // maza que pasa: zumbido grave y cadena
       case 'slam': n('brown', 0.5, { vol: 0.28, f: 260 }); o('sine', 60, { to: 30, dur: 0.45, vol: 0.32 }); n('white', 0.2, { vol: 0.08, f: 1500, type: 'bandpass', delay: 0.02 }); break;
       case 'powerFail': o('sine', 220, { to: 140, dur: 0.15, vol: 0.06 }); o('square', 110, { dur: 0.08, vol: 0.02, lp: 600 }); break;
       case 'energy': sparkle([1046, 1318], 0.05, 0.03); break;

@@ -120,7 +120,7 @@ export class Player {
       this.shieldFlash = 1; this.audio.play('block'); this.events.push({ type: 'block' });
       return false;
     }
-    // dificultad: en Cuento solo un golpe de cada dos quita corazón; en Leyenda los golpes quitan el doble
+    // dificultad: cada golpe quita corazón (en Cuento hay más tiempo de invulnerabilidad después); en Leyenda quitan el doble
     const D = this.diff || { dmg: 1, invuln: 1.1 };
     if (D.dmg === 0) return false; // modo automático: Lía no recibe daño
     if (D.dmg < 1) { this._half = !this._half; amount = this._half ? 0 : Math.max(1, Math.round(amount)); }

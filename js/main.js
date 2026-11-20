@@ -860,6 +860,7 @@ function handleHazards(dt) {
     else if (ev.type === 'crumble') { if (near) audio.play('crumble'); fx.debris(ev.pos); }
     else if (ev.type === 'crumbleBack') fx.sparkle(new THREE.Vector3(ev.pos.x, ev.pos.y + 0.3, ev.pos.z), 8, 0xffb070);
     else if (ev.type === 'fire' && near) { audio.play('fire'); fx.flare(ev.pos); }
+    else if (ev.type === 'pendulum' && ev.pos.distanceTo(player.pos) < 20) audio.play('pendulum', ev.pos);
   }
   if (state !== 'play') return;
   for (const h of hits) {
@@ -952,10 +953,11 @@ function seaFx(dt) {
   if (!aboveFog) aboveFog = scene.fog;
   if (under) { if (!underFog) underFog = new THREE.Fog(0x0e5a7a, 3, 48); scene.fog = underFog; } else scene.fog = aboveFog;
   $('underTint').classList.toggle('hidden', !under);
+  music.ambient(under ? 'underwater' : ZONE_AMB[zone.id]); // bajo el agua: burbujas y corrientes
 }
 function clearSeaFx() {
   renderer.domElement.style.filter = ''; for (const id of ['drownFx', 'blackout']) $(id).style.opacity = 0;
-  $('airBar').classList.add('hidden'); $('underTint').classList.add('hidden');
+  $('airBar').classList.add('hidden'); $('underTint').classList.add('hidden'); if (zone) music.ambient(ZONE_AMB[zone.id]);
   drown.on = false; player.drowning = false; player.air = 1; underFog = null; aboveFog = null;
 }
 function drownDeath() {
@@ -993,7 +995,7 @@ function startDeath() {
   if (state === 'dead') return;
   state = 'dead'; deadT = 0;
   player.gesture('Death_A', { speed: 1.2, fadeIn: 0.05, fadeOut: 0.01 });
-  audio.play('hurt'); music.stinger('derrota');
+  audio.play('ko'); music.stinger('derrota');
 }
 function updateDeath(dt) {
   deadT += dt;
@@ -1155,7 +1157,7 @@ function showPausePanel(p) {
 
 // ---------- pantalla de título: Continuar / Nueva partida ----------
 const DIFF_INFO = [
-  ['facil', 'Cuento', 'Más corazones de ventaja, los golpes duelen la mitad y caer no hace daño.', '☁'],
+  ['facil', 'Cuento', 'Jefes más débiles, más tiempo para reponerte entre golpes y un planeador que dura más.', '☁'],
   ['normal', 'Aventura', 'La experiencia pensada para el juego.', '⚔'],
   ['dificil', 'Leyenda', 'Los enemigos pegan el doble y los jefes aguantan más.', '♜'],
   ['auto', 'Automático', 'Lía juega sola y tú miras. No cuenta para logros ni récords.', '★'],

@@ -3,6 +3,13 @@
 // escritos como texto. Las canciones cambian con un fundido (zona → jefe → victoria…).
 import { SONGS, STINGERS } from './songs.js';
 const FILE_SONGS = { title: { url: 'assets/intro/tema.mp3', vol: 0.6 } };
+// banda sonora orquestal grabada (generada con Artlist): sustituye a las canciones sintetizadas que tienen versión
+{
+  const M = n => ({ url: `assets/music/${n}.mp3`, vol: 0.55 });
+  for (const n of ['puerto', 'bosque', 'ruinas', 'ciudad', 'glaciar', 'ciudadela', 'mareth', 'forja', 'eco', 'boss', 'vaelor', 'finale', 'arena', 'infinito', 'desafio', 'creditos']) FILE_SONGS[n] = M(n);
+  for (const n of ['boss_raiz', 'boss_escorpion', 'boss_coloso', 'boss_sierpe', 'boss_eco']) FILE_SONGS[n] = M('boss');
+  FILE_SONGS.desafio_noche = M('desafio');
+}
 
 const NOTE = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 export function midi(name) {
@@ -316,6 +323,7 @@ export class Music {
       case 'desert': bed('bandpass', 700, 1.2, 0.03, 0.06, 0.9); break;
       case 'city': bed('lowpass', 180, 0.8, 0.03, 0.03); break;
       case 'ice': bed('bandpass', 1800, 4, 0.02, 0.08, 0.9); bed('lowpass', 300, 0.7, 0.025, 0.04); break;
+      case 'underwater': bed('lowpass', 260, 0.9, 0.09, 0.12, 0.7); bed('bandpass', 700, 2, 0.012, 0.2, 0.9); A.nextEv = t + 0.3; break; // presión del agua y corrientes
       case 'dark': {
         bed('lowpass', 220, 0.7, 0.03, 0.04);
         const g = c.createGain(); g.gain.value = 0.02; g.connect(out);
@@ -344,6 +352,7 @@ export class Music {
       case 'city': { const f = 900 + r() * 600; chirp(f, f * 0.98, 0.05, 0.02, 3, 0.18); A.nextEv = t + 3 + r() * 5; break; }
       case 'ice': chirp(3000 + r() * 2500, 2800 + r() * 2000, 0.6, 0.008, 1 + Math.floor(r() * 3), 0.15); A.nextEv = t + 2 + r() * 5; break;
       case 'dark': chirp(180, 120, 1.2, 0.015); A.nextEv = t + 7 + r() * 6; break;
+      case 'underwater': { const f = 350 + r() * 900; chirp(f, f * (1.8 + r()), 0.06 + r() * 0.05, 0.03, 2 + Math.floor(r() * 5), 0.05 + r() * 0.08); A.nextEv = t + 0.3 + r() * 1.4; break; } // burbujas que suben
       default: A.nextEv = t + 10;
     }
   }
