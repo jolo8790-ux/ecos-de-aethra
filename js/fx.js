@@ -1,12 +1,14 @@
 import * as THREE from 'three';
+import { glowTex, smokeTex } from './vfx.js';
 
 // Partículas ligeras (polvo al correr, aterrizar y derrapar; destellos). Usa un grupo fijo de mallas reutilizadas.
 export class FX {
-  constructor(scene, max = 240) {
-    this.items = [];
+  constructor(scene, max = 240, soft = false) {
+    this.items = []; this.soft = soft; // soft (HD): partículas suaves que brillan en vez de piedritas facetadas
     const geo = new THREE.IcosahedronGeometry(1, 0);
     for (let i = 0; i < max; i++) {
-      const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false }));
+      const m = soft ? new THREE.Sprite(new THREE.SpriteMaterial({ map: smokeTex(), color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, toneMapped: false }))
+        : new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false }));
       m.visible = false; scene.add(m);
       this.items.push({ m, vel: new THREE.Vector3(), life: 0, max: 1, size: 0.1, grow: 1, grav: 0 });
     }
@@ -18,7 +20,7 @@ export class FX {
     p.m.position.copy(pos); p.vel.copy(vel); p.life = p.max = life; p.size = size; p.grow = grow; p.grav = grav; p.opacity = opacity;
     if (typeof color === 'number') p.m.material.color.setHex(color); else p.m.material.color.copy(color);
     const bl = glow ? THREE.AdditiveBlending : THREE.NormalBlending;
-    if (p.m.material.blending !== bl) { p.m.material.blending = bl; p.m.material.needsUpdate = true; }
+    if (p.m.material.blending !== bl) { p.m.material.blending = bl; if (this.soft) p.m.material.map = glow ? glowTex() : smokeTex(); p.m.material.needsUpdate = true; }
     p.m.visible = true;
   }
   // estallido de colores del arco iris (fragmentos, logros, portales)
@@ -97,7 +99,7 @@ export class FX {
       p.vel.multiplyScalar(Math.pow(0.15, dt));
       p.m.position.addScaledVector(p.vel, dt);
       const k = 1 - p.life / p.max;
-      p.m.scale.setScalar(Math.max(0.005, p.size * (1 + p.grow * k)));
+      p.m.scale.setScalar(Math.max(0.005, p.size * (1 + p.grow * k)) * (this.soft ? 3.2 : 1));
       p.m.material.opacity = p.opacity * (1 - k) * (1 - k * 0.3);
     }
   }

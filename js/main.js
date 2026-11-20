@@ -36,6 +36,7 @@ import { Net } from './net.js';
 import { Endless, ENDLESS_ZONE } from './endless.js';
 import { runIntro } from './intro.js';
 import { HD, patchRim, upgradeSky, GradeShader, warmZone, skyEnvironment } from './hd.js';
+import { VFX } from './vfx.js';
 patchRim();
 import { WEAPONS, ARMORS, weaponById, armorById, gearOf, mergeMods, ECO_REWARD, buildWeapon, buildArmor } from './gear.js';
 
@@ -126,7 +127,7 @@ function updateMusic() {
   music.play(fighting ? (BOSS_MUSIC[zone.id] || 'boss') : endless.active && endless.inZone ? ZONE_MUSIC.infinito : (ZONE_MUSIC[zone.id] || CH_MUSIC[zone.id]), { fade: fighting ? 0.8 : 2.5 });
 }
 const world = new World(scene, physics);
-const fx = new FX(scene);
+const fx = new FX(scene, 240, HD.on);
 const player = new Player(scene, physics, audio, fx);
 const cam = new FollowCamera(camera, physics);
 // pantalla dividida (dos jugadores en un mismo dispositivo): segunda cámara para el Jugador 2
@@ -139,7 +140,11 @@ function setSplit(on) {
 }
 const combat = new Combat(scene, physics, fx, audio);
 combat.world = world;
-const powers = new Powers({ scene, physics, fx, audio, combat });
+// color de las motas de luz que flotan en cada isla
+const ZONE_MOTES = { puerto_bruma: 0xffe2a8, bosque_colgante: 0xb8ff9a, ruinas_vidrio: 0xffd27a, ciudad_engranajes: 0xffb36a, glaciar_eco: 0xbfeaff, ciudadela_orden: 0xc89aff, abismo_mareth: 0x8fe8ff, forja_ignis: 0xff8a3a, eco_olvidado: 0xd8c8ff };
+const vfx = HD.on ? new VFX(scene) : null; // efectos de cine (círculos mágicos, destellos, chispas, motas de luz)
+combat.vfx = vfx; fx.vfx = vfx;
+const powers = new Powers({ scene, physics, fx, audio, combat, vfx });
 // un enemigo como objetivo de los poderes: fuego y golpes lo dañan, el hielo lo congela y la telequinesis lo levanta
 function enemyTarget(e) {
   return { pos: e.pos, radius: e.radius || 0.6, enemy: e, hit(dmg, kind, from, x = {}) {
@@ -310,6 +315,7 @@ function loadZone(id, checkpointId) {
   scene.fog = new THREE.Fog(zone.sky.fog, zone.sky.fogNear, zone.sky.fogFar);
   const li = zone.light || {};
   hemi.color.setHex(li.hemiSky || 0xdff1ff); hemi.groundColor.setHex(li.hemiGround || 0x5c6a50); sun.color.setHex(li.sun || 0xfff1d6);
+  if (vfx) { vfx.clear(); vfx.setMotes(ZONE_MOTES[zone.id] ?? 0xbfe4ff); }
   if (HD.on) { warmZone(zone, skyMat, scene, hemi, sun); hemi.intensity = 0.45; try { skyEnvironment(renderer, scene, skyMat); } catch (e) { console.warn(e); } }
   world.build(zone, save); music.ambient(ZONE_AMB[zone.id]);
   player.updrafts = world.updrafts;
@@ -888,6 +894,7 @@ function doPulse(pos, r) {
   const sph = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshBasicMaterial({ color: 0xfff2a8, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending }));
   sph.position.copy(pos).setY(pos.y + 0.9); scene.add(sph); pulseFx.push({ m: sph, t: 0, r });
   combat.pulse(pos, r);
+  if (vfx) { vfx.shock(pos, 0xfff2a8, r, 0.55, 0.15); vfx.circle(pos, 0xfff2a8, 1.6, 0.7); }
   for (const C of world.lightCrystals) if (!C.on && C.pos.distanceTo(pos) < r + 0.5) { C.set(true); if (C.flag) S.set(C.flag); audio.play('unlock'); toast('¡El cristal de luz se enciende!'); }
   for (const B of world.darkBarriers) if (!B.gone && B.pos.distanceTo(pos) < r + B.half) { world.dispelBarrier(B); fx.sparkle(B.pos, 30, 0xfff2a8); if (B.flag) S.set(B.flag); audio.play('unlock'); }
 }
@@ -1928,7 +1935,7 @@ async function ensureBloom() {
       import('three/addons/postprocessing/ShaderPass.js')]);
     const c = new EffectComposer(renderer);
     c.addPass(new RenderPass(scene, camera));
-    bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.5, 0.55, 0.82);
+    bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), HD.on ? 0.8 : 0.5, HD.on ? 0.6 : 0.55, HD.on ? 0.88 : 0.82); // HD: más resplandor en hechizos y brillos
     bloomPass.enabled = !!(QUALITY[qualityNow] && QUALITY[qualityNow].bloom);
     c.addPass(bloomPass);
     c.addPass(new OutputPass());
@@ -2067,7 +2074,7 @@ function simulate(dt) {
   audio.listener = { x: camera.position.x, z: camera.position.z, yaw: cam.yaw, ref: 10 };
   musicMood(dt);
   soundHintTick(dt);
-  fx.update(dt);
+  fx.update(dt); if (vfx) vfx.update(dt, player.pos);
   for (const p of pulseFx) { p.t += dt; const k = p.t / 0.45; p.m.scale.setScalar(0.5 + k * p.r); p.m.material.opacity = 0.5 * (1 - k); if (k >= 1) { scene.remove(p.m); p.done = true; } }
   for (let i = pulseFx.length - 1; i >= 0; i--) if (pulseFx[i].done) pulseFx.splice(i, 1);
   const wantFov = 60 + player.anim.runW * 5 * (state === 'play' ? 1 : 0);

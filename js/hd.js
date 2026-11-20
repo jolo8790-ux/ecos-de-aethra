@@ -157,7 +157,7 @@ export function makeCumulus(rnd, { tint = 0xffffff, sunCol = new THREE.Color(0xf
 
 // ---------- corrección de color (paso de post-proceso) ----------
 export const GradeShader = {
-  uniforms: { tDiffuse: { value: null }, warmth: { value: 0.06 }, sat: { value: 1.12 }, contrast: { value: 1.06 }, vig: { value: 0.32 }, lift: { value: new THREE.Color(0x1a1230) } },
+  uniforms: { tDiffuse: { value: null }, warmth: { value: 0.07 }, sat: { value: 1.14 }, contrast: { value: 1.1 }, vig: { value: 0.38 }, lift: { value: new THREE.Color(0x1a1230) } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
   fragmentShader: /* glsl */`
   uniform sampler2D tDiffuse; uniform float warmth, sat, contrast, vig; uniform vec3 lift; varying vec2 vUv;
@@ -169,6 +169,7 @@ export const GradeShader = {
     col = (col - 0.5) * contrast + 0.5;                 // contraste
     col += vec3(warmth, warmth*0.35, -warmth*0.6) * smoothstep(0.35, 1.0, l); // luces cálidas
     col += lift * 0.12 * (1.0 - smoothstep(0.0, 0.45, l));                    // sombras violetas
+    col += vec3(-0.025, 0.012, 0.04) * (1.0 - smoothstep(0.05, 0.55, l));   // sombras frías (look de cine: luces cálidas, sombras azuladas)
     vec2 d = vUv - 0.5; col *= 1.0 - vig * smoothstep(0.35, 0.85, length(d * vec2(1.15, 1.0)));
     gl_FragColor = vec4(clamp(col, 0.0, 1.0), c.a);
   }`,

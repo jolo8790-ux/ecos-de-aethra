@@ -71,6 +71,10 @@ export class Powers {
       pl.energy -= P.cost; (pl.pcd || (pl.pcd = {}))[id] = P.cd;
     }
     const C = this.C, list = visual ? [] : foes();
+    if (C.vfx && id !== 'levitar') { // círculo de runas bajo los pies al lanzar
+      const col = { fuego: 0xff7a2a, hielo: 0x8fe4ff, furia: 0xff4a5a, telequinesis: 0xc89aff, rayo: 0x7ad8ff, flechas: 0x9cff8a }[id] || 0xffffff;
+      C.vfx.circle(pl.pos, col, 2.2, 1.0);
+    }
     // apuntado: el objetivo más cercano dentro de un cono delante
     const pick = (range, cone) => {
       let best = null, bd = Infinity; const f = fwd(pl.facing);

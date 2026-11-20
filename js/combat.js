@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { slashTex, glowTex } from './vfx.js';
 import { createCharacter, restorePose, savePose } from './characters.js';
 import { prop, clipModel, freeGPU } from './props.js';
 
@@ -99,6 +100,7 @@ class Enemy {
     this.c.fx.sparkle(p, 22, this.color || 0x9ff0ff);
     this.c.fx.dust(this.pos, 8, 1.2, 0xd8f6ff);
     // muerte: se infla, gira y se encoge en un instante (antes desaparecía de golpe)
+    if (this.c.vfx) { const col = (this.look && (this.look.core || this.look.emissive)) || 0xffe8b0; this.c.vfx.burst(this.pos.clone().setY(this.pos.y + 0.6), col, 24, 1.2); this.c.vfx.shock(this.pos, col, 1.8, 0.4); }
     if (this.c.corpses) { setFlash(this.group, true); this.c.corpses.push({ g: this.group, t: 0, s0: this.group.scale.x }); } else this.c.root.remove(this.group);
     if (Math.random() < 0.4) this.c.spawnHeal(this.pos.x, this.pos.y, this.pos.z);
     this.c.onKill && this.c.onKill(this);
@@ -519,7 +521,7 @@ class Root {
       this.ring.material.opacity = 0.4 + Math.sin(this.t * 25) * 0.3;
       this.fill.material.opacity = k * 0.35; this.fill.scale.setScalar(Math.max(0.01, k));
       if (k >= 1) {
-        this.state = 'up'; this.t = 0; this.c.audio.play('slam', this.pos); this.c.shake(0.25, 0.3);
+        this.state = 'up'; this.t = 0; this.c.vfx && this.c.vfx.shock(this.pos, 0xb8ff9a, 6, 0.6); this.c.audio.play('slam', this.pos); this.c.shake(0.25, 0.3);
         this.c.fx.dust(this.pos, 12, 1.5, 0x8a6a4a);
         const d = Math.hypot(pl.pos.x - this.pos.x, pl.pos.z - this.pos.z);
         if (d < 1.4 && Math.abs(pl.pos.y - this.pos.y) < 1.5) pl.damage(1, this.pos);
@@ -825,7 +827,7 @@ class Coloso {
         this.st -= dt; R.sh.rotation.x += (0.72 - R.sh.rotation.x) * damp(30, dt);
         if (this.st <= 0) {
           R.sh.rotation.x = 0.72; this.tele.material.opacity = 0;
-          const p = this.tele.position; this.c.audio.play('stomp', this.pos); this.c.shake(0.7, 0.5); this.c.fx.dust(p, 20, 2, 0xb8a080);
+          const p = this.tele.position; this.c.vfx && this.c.vfx.shock(this.pos, 0xffe0a0, 7, 0.6); this.c.audio.play('stomp', this.pos); this.c.shake(0.7, 0.5); this.c.fx.dust(p, 20, 2, 0xb8a080);
           if (Math.hypot(pl.pos.x - p.x, pl.pos.z - p.z) < 2.5 && Math.abs(pl.pos.y - this.pos.y) < 1.5) pl.damage(1, p);
           this.state = 'stuck'; this.st = 4.2; this.stuckHits = 0; this.eyeMat.emissive.setHex(0x3a5a6a);
           const lp = this.local(0, 5.6, -2.45);
@@ -847,7 +849,7 @@ class Coloso {
       case 'stomp':
         this.st -= dt; this.group.position.y = this.pos.y + Math.max(0, Math.sin((0.8 - this.st) / 0.8 * Math.PI)) * 0.6;
         if (this.st <= 0) {
-          this.group.position.y = this.pos.y; this.c.audio.play('stomp', this.pos); this.c.shake(0.5, 0.4);
+          this.group.position.y = this.pos.y; this.c.vfx && this.c.vfx.shock(this.pos, 0xffe0a0, 7, 0.6); this.c.audio.play('stomp', this.pos); this.c.shake(0.5, 0.4);
           this.spawnWave(); this.waveCount--;
           if (this.waveCount > 0) { this.st = 0.7; } else { this.state = 'idle'; this.st = 1.6; }
         }
@@ -1312,6 +1314,10 @@ export class Combat {
   shoot(from, to, speed, color = 0xf29bff, owner = null, size = 0.2) {
     const m = new THREE.Mesh(new THREE.IcosahedronGeometry(size, 1), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 1.5 }));
     m.position.copy(from); this.root.add(m);
+    if (this.vfx) { // halo brillante alrededor de la semilla
+      const h = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex(), color, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+      h.scale.setScalar(size * 7); m.add(h);
+    }
     const v = to.clone().sub(from).normalize().multiplyScalar(speed);
     const p = { m, v, life: 4.5, pos: m.position, radius: 0.3 + (size - 0.2), owner, color };
     this.projectiles.push(p);
@@ -1371,6 +1377,13 @@ export class Combat {
     m.position.set(pl.pos.x, pl.pos.y + 0.85, pl.pos.z);
     m.rotation.order = 'YXZ'; m.rotation.y = pl.facing; m.rotation.x = -Math.PI / 2; m.rotation.z = def.arc + Math.PI;
     if (def.arc === 0) { m.rotation.x = 0; m.rotation.z = Math.PI / 2; } // golpe vertical
+    if (this.vfx) { // HD: corte con degradado (filo brillante) + halo azul más ancho + chispas a lo largo del arco
+      m.material.map = slashTex(); m.material.color.setHex(0xe8fbff); m.material.opacity = 1; m.material.toneMapped = false; m.material.needsUpdate = true;
+      const glow = new THREE.Mesh(new THREE.RingGeometry(0.7, 2.05, 24, 1, Math.PI * 0.12, Math.PI * 0.76), new THREE.MeshBasicMaterial({ map: slashTex(), color: 0x3aa8ff, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+      m.add(glow);
+      const f = new THREE.Vector3(-Math.sin(pl.facing), 0, -Math.cos(pl.facing));
+      for (let i = 0; i < 6; i++) { const p = m.position.clone().addScaledVector(f, 1.2 + Math.random() * 0.4).add(new THREE.Vector3((Math.random() - 0.5) * 1.6, (Math.random() - 0.3) * 0.8, (Math.random() - 0.5) * 1.6)); this.vfx.spark(p, f.clone().multiplyScalar(2 + Math.random() * 2), 0x9fdcff, 0.18, 0.35, 0, 0.3); }
+    }
     this.root.add(m);
     this.slashes.push({ m, t: 0 });
   }
@@ -1412,6 +1425,7 @@ export class Combat {
         if (!e.alive || ev.hitList.has(e) || !inArc(e.pos, e.radius)) continue;
         ev.hitList.add(e); e.hurt(ev.dmg || ev.def.dmg, pl.pos, ev.def.push); this.onWeaponHit && this.onWeaponHit(e, pl); if ((ev.dmg || ev.def.dmg) >= 2) this.audio.play('hitHeavy', e.pos); hit = true;
         this.fx.sparkle(e.pos.clone().setY(e.pos.y + 0.6), 8, 0xffffff);
+        if (this.vfx) this.vfx.impact(e.pos.clone().setY(e.pos.y + 0.7), (ev.dmg || ev.def.dmg) >= 2 ? 0xffd27a : 0xcff4ff, (ev.dmg || ev.def.dmg) >= 2);
       }
       for (const b of this.breakables || []) { // vasijas y geodas
         if (b.broken || ev.hitList.has(b) || !inArc(b.pos, b.r)) continue;
@@ -1455,6 +1469,7 @@ export class Combat {
         if (tgt) { const want = tgt.clone().sub(p.pos).normalize().multiplyScalar(p.v.length()); p.v.lerp(want, damp(7, dt)); }
       }
       p.pos.addScaledVector(p.v, dt); p.m.rotation.x += dt * 5;
+      if (this.vfx) this.vfx.trailAt(p.pos, p.reflected ? 0xfff2a8 : (p.color || 0xf29bff), 0.6);
       if (!p.reflected) {
         for (const L of locals) {
           if (L.koed) continue;
