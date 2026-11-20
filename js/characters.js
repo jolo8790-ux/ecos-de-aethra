@@ -184,7 +184,6 @@ export function createCharacter(lib, lookName) {
     a.enabled = true; a.setEffectiveWeight(0);
     actions[name] = a;
   }
-  if (HD.on) outlineCharacter(model);
   return { root, pivot, model, mixer, actions, bones, scale: look.scale, HIP };
 }
 

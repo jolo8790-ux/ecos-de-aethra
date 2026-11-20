@@ -86,7 +86,8 @@ export function buildArmor(id, model) {
   const inv = model.matrixWorld.clone().invert();
   const at = b => b.getWorldPosition(new THREE.Vector3()).applyMatrix4(inv);
   const parts = [];
-  const put = (obj, b, p) => { if (!b) return; obj.position.copy(p); model.add(obj); model.updateMatrixWorld(true); b.attach(obj); parts.push(obj); obj.traverse(o => { if (o.isMesh) o.castShadow = true; }); };
+  const K = model.userData.armorScale || 1; // cuerpos más finos (protagonista HD) llevan la armadura a su medida
+  const put = (obj, b, p) => { if (!b) return; obj.scale.multiplyScalar(K); obj.position.copy(p); model.add(obj); model.updateMatrixWorld(true); b.attach(obj); parts.push(obj); obj.traverse(o => { if (o.isMesh) o.castShadow = true; }); };
   const chest = bone('chest'), hips = bone('hips'), la = bone('upperarml'), ra = bone('upperarmr');
   if (chest) {
     const c = at(chest), g = new THREE.Group();
@@ -98,8 +99,9 @@ export function buildArmor(id, model) {
     const rim2 = rim.clone(); rim2.position.y = -0.17; rim2.scale.set(0.9, 0.81, 1); g.add(rim2);
     const emb = new THREE.Mesh(id === 'aethra' ? new THREE.OctahedronGeometry(0.06, 0) : new THREE.SphereGeometry(0.045, 10, 8), C.stud); emb.position.set(0, 0.03, 0.34); g.add(emb);
     if (id === 'obsidiana' || id === 'aethra') for (const s of [-1, 1]) { const sp = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.09, 5), C.stud); sp.position.set(s * 0.16, -0.06, 0.31); sp.rotation.x = Math.PI / 2; g.add(sp); }
-    put(g, chest, new THREE.Vector3(c.x, c.y + 0.02, c.z + 0.01));
-    if (id === 'viento' || id === 'aethra') { // capa
+    if (K !== 1) g.scale.set(1.3, 1.15, 1.45); // el pecho de la protagonista es más profundo que ancho
+    put(g, chest, new THREE.Vector3(c.x, c.y + 0.02 * K, c.z + (K === 1 ? 0.01 : 0.02)));
+    if ((id === 'viento' || id === 'aethra') && K === 1) { // capa (la protagonista HD ya lleva mochila en la espalda)
       const cape = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.62, 1, 4), new THREE.MeshStandardMaterial({ color: id === 'aethra' ? 0x2a5aa8 : 0x3fa898, side: THREE.DoubleSide, roughness: 0.8 }));
       const pa = cape.geometry.attributes.position; for (let i = 0; i < pa.count; i++) { const y = pa.getY(i); pa.setZ(i, -(0.3 - y) * (0.3 - y) * 0.5); pa.setX(i, pa.getX(i) * (1 + (0.3 - y) * 0.6)); }
       cape.geometry.computeVertexNormals();
@@ -113,12 +115,13 @@ export function buildArmor(id, model) {
     const band = new THREE.Mesh(new THREE.TorusGeometry(0.165, 0.022, 6, 18), C.trim); band.rotation.x = Math.PI / 2; sh.add(band);
     if (id === 'obsidiana' || id === 'aethra') { const sp = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.14, 6), C.stud); sp.position.y = 0.12; sh.add(sp); }
     sh.rotation.z = -s * 0.35;
-    put(sh, b, new THREE.Vector3(p.x + s * 0.07, p.y + 0.06, p.z));
+    if (K !== 1) sh.scale.setScalar(1.3);
+    put(sh, b, new THREE.Vector3(p.x + s * 0.07 * K, p.y + 0.06 * K, p.z));
   }
   if (hips) {
     const h = at(hips), belt = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.04, 6, 24), C.trim); belt.rotation.x = Math.PI / 2; belt.scale.y = 0.85;
     const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.07, 0.03), C.stud); buckle.position.set(0, 0.31, 0); buckle.rotation.x = -Math.PI / 2; belt.add(buckle);
-    put(belt, hips, new THREE.Vector3(h.x, h.y + 0.14, h.z + 0.01));
+    put(belt, hips, new THREE.Vector3(h.x, h.y + (K === 1 ? 0.14 : 0.03), h.z + 0.01 * K));
   }
   return parts;
 }

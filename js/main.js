@@ -35,7 +35,7 @@ import { Powers, POWERS, loadout, powerUnlocked, powerPoints, powerById, ENERGY_
 import { Net } from './net.js';
 import { Endless, ENDLESS_ZONE } from './endless.js';
 import { runIntro } from './intro.js';
-import { HD, patchRim, upgradeSky, GradeShader, warmZone } from './hd.js';
+import { HD, patchRim, upgradeSky, GradeShader, warmZone, skyEnvironment } from './hd.js';
 patchRim();
 import { WEAPONS, ARMORS, weaponById, armorById, gearOf, mergeMods, ECO_REWARD, buildWeapon, buildArmor } from './gear.js';
 
@@ -310,7 +310,7 @@ function loadZone(id, checkpointId) {
   scene.fog = new THREE.Fog(zone.sky.fog, zone.sky.fogNear, zone.sky.fogFar);
   const li = zone.light || {};
   hemi.color.setHex(li.hemiSky || 0xdff1ff); hemi.groundColor.setHex(li.hemiGround || 0x5c6a50); sun.color.setHex(li.sun || 0xfff1d6);
-  if (HD.on) warmZone(zone, skyMat, scene, hemi, sun);
+  if (HD.on) { warmZone(zone, skyMat, scene, hemi, sun); hemi.intensity = 0.45; try { skyEnvironment(renderer, scene, skyMat); } catch (e) { console.warn(e); } }
   world.build(zone, save); music.ambient(ZONE_AMB[zone.id]);
   player.updrafts = world.updrafts;
   combat.spawnZone(zone, save); combat.breakables = world.breakables;

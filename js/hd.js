@@ -30,7 +30,7 @@ export function patchRim() {
     float hdRim = pow( 1.0 - clamp( dot( normal, hdV ), 0.0, 1.0 ), 3.0 );
     vec3 hdUp = normalize( ( viewMatrix * vec4( 0.0, 1.0, 0.0, 0.0 ) ).xyz );
     hdRim *= 1.0 - smoothstep( 0.35, 0.8, dot( normal, hdUp ) ); // el suelo no se ilumina de borde
-    totalEmissiveRadiance += vec3( 1.0, 0.82, 0.6 ) * hdRim * 0.16;
+    totalEmissiveRadiance += vec3( 1.0, 0.82, 0.6 ) * hdRim * 0.09;
   }
   #endif
   `;
@@ -329,7 +329,11 @@ export function patchGround(mat) {
     sh.fragmentShader = 'varying vec3 vHdW;\n' + NOISE + sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
       { float hn = smoothstep(0.28, 0.72, hdFbm(vHdW.xz * 0.06)); float hm = hdNoise(vHdW.xz * 0.6);
         diffuseColor.rgb *= mix(0.72, 1.15, hn) * mix(0.92, 1.05, hm);
-        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.18, 1.1, 0.7), smoothstep(0.6, 1.0, hn) * 0.7); }`);
+        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.18, 1.1, 0.7), smoothstep(0.6, 1.0, hn) * 0.7);
+        // detalle fino (moteado) y un poco menos de saturación: pasto más natural
+        float hf = hdNoise(vHdW.xz * 2.7) * 0.6 + hdNoise(vHdW.xz * 7.3) * 0.4;
+        diffuseColor.rgb *= mix(0.84, 1.1, hf);
+        float lum = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114)); diffuseColor.rgb = mix(vec3(lum), diffuseColor.rgb, 0.82) * 0.94; }`);
   };
   mat.customProgramCacheKey = () => 'hdGround';
   mat.needsUpdate = true;
@@ -620,7 +624,7 @@ export function rigHeroine(staticScene, kayModel) {
   geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
   // 4) modelo final: Rig con los huesos + malla con piel
   const mat = mesh.material; mat.metalness = 0; mat.roughness = 0.75;
-  const out = new THREE.Group(); out.name = 'Heroina';
+  const out = new THREE.Group(); out.name = 'Heroina'; out.userData.armorScale = 0.5;
   const rig = rootBone.parent && !rootBone.parent.isBone ? rootBone.parent : rootBone;
   out.add(rig);
   { const drop = []; rig.traverse(o => { if (o.isMesh) drop.push(o); }); for (const o of drop) o.parent.remove(o); } // fuera la malla de KayKit
@@ -644,4 +648,18 @@ export function heroClips(clips) {
     out[name] = new THREE.AnimationClip(c.name, c.duration, tracks);
   }
   return out;
+}
+
+// ---------- iluminación de entorno: el cielo de cada zona se refleja en todos los materiales ----------
+let pmrem = null, envTex = null;
+export function skyEnvironment(renderer, scene, skyMat) {
+  if (!pmrem) { pmrem = new THREE.PMREMGenerator(renderer); }
+  const es = new THREE.Scene();
+  es.add(new THREE.Mesh(new THREE.SphereGeometry(50, 32, 16), skyMat));
+  // un suelo cálido difuso abajo, para que la luz que rebota no sea azul
+  const fl = new THREE.Mesh(new THREE.CircleGeometry(40, 24), new THREE.MeshBasicMaterial({ color: 0x8a8070 })); fl.rotation.x = -Math.PI / 2; fl.position.y = -8; es.add(fl);
+  const rt = pmrem.fromScene(es, 0.02, 0.1, 200);
+  if (envTex) envTex.dispose();
+  envTex = rt.texture; scene.environment = envTex;
+  es.traverse(o => { if (o.geometry) o.geometry.dispose(); });
 }
