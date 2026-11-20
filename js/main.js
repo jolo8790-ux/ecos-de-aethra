@@ -1075,6 +1075,7 @@ combat.onWeaponHit = (e, pl) => {
 combat.onBossPhase = b => toast((b && b.phaseMsg) || '¡El guardián está furioso!');
 combat.onLockHit = L => { world.openLock(L); if (L.flag) S.set(L.flag); audio.play('unlock'); fx.sparkle(L.pos, 30, 0xbff4ff); toast('¡La cerradura de hielo se rompe!'); };
 combat.onAuraClang = () => { if (!hintAura) { hintAura = true; toast(player.canPulse ? 'Un aura de sombra lo protege. ¡Usa el pulso de luz (Z)!' : 'Un aura de sombra lo protege.'); } };
+combat.onBonus = pos => { if (!isAutoMode() && !challenge && save) addEcos(1, pos); };
 combat.onBossStun = () => { if (!hintStun) { hintStun = true; toast({ ruinas_vidrio: '¡Está aturdido! Golpea el cristal de su cola', ciudad_engranajes: '¡Se quedó atascado! Lanza el garfio al anillo de su pecho', glaciar_eco: '¡Cayó al suelo! Golpea el cuerno de cristal', ciudadela_orden: '¡Su barrera se rompió! Golpéalo ahora' }[zone.id] || '¡Ahora!'); } };
 function updateCombatHUD() {
   if (player.hp !== lastHp || player._lastMax !== player.maxHp) {

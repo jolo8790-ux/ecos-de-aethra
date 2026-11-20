@@ -487,11 +487,13 @@ export class World {
     const prop = props[0];
     // pasarela desde el muelle
     const plank = this._mesh(new THREE.BoxGeometry(1.0, 0.08, 3.4), wood, 0, -0.62, -3.3, g); plank.rotation.x = -0.36;
+    let hdShip = false;
     if (HD.on) { // barco volador generado con Artlist (misma cubierta y física que el de siempre)
       const bm = this._model('barco', { z: 6.1 }, 0, -0.85, 0.15, { parent: g, rotY: Math.PI });
-      if (bm) { for (const ch of [...g.children]) if (ch !== plank && ch !== bm) ch.visible = false; }
+      if (bm) { hdShip = true; for (const ch of [...g.children]) if (ch !== plank && ch !== bm) ch.visible = false; }
     }
     const a = { group: g, plank, base: new THREE.Vector3(x, y, z), prop, spin: 3, seat: new THREE.Vector3(0.3, 0.84, 0.6), offset: new THREE.Vector3(), yaw: 0 };
+    if (hdShip) a.seat.set(0.35, 0.56, -0.9); // cubierta del barco HD: más baja y libre delante de la cabina
     this.airships[id] = a;
     this.physics.addBox(x, y + 0.42, z, 2.2, 0.84, 4.2, { noCamera: true });
     this.animated.push((t, dt) => {
@@ -558,6 +560,10 @@ export class World {
     const box = this.physics.addBox(x, y + h / 2, z, r * 1.6, h, r * 1.6);
     const p = { pos: new THREE.Vector3(x, y, z), r: r * 0.9 + 0.2, box, mesh: g, alive: true };
     p.break = () => { if (!p.alive) return; p.alive = false; box.off = true; this.root.remove(g); };
+    // vuelve a crecer (el escorpión lo pide cuando quedan pocos pilares: así el combate nunca queda sin salida)
+    p.restore = () => { if (p.alive) return; p.alive = true; box.off = false; g.scale.set(1, 0.01, 1); this.root.add(g);
+      const grow = t => { g.scale.y = Math.min(1, g.scale.y + 0.03); return g.scale.y >= 1; }; p.growing = grow; };
+    this.animated.push(() => { if (p.growing && p.growing()) p.growing = null; });
     this.pillars.push(p);
   }
 

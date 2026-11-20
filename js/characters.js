@@ -35,6 +35,7 @@ export async function loadCharacterLibrary(onProgress) {
         const g = await loader.parseAsync(bin.buffer, '');
         const m = rigGenerated(g.scene, lib.models[C.replaces] || lib.models.lia, C.id === 'heroina' ? 'Heroina' : C.id);
         lib.models[C.id] = m; lib.genClips[C.id] = genClips(lib.clips, m.userData.hipsY); lib.swap[C.replaces] = C.id;
+        if (C.id === 'tomas_hd') LOOKS.tomas.scale = 0.96; // el caballero HD a la altura de los demás
       } catch (e) { console.warn('personaje HD', C.id, e); }
     }
   }

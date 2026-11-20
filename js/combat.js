@@ -381,7 +381,7 @@ class RaizMadre {
     this.box = c.physics.addBox(x, y + 2.75, z, 4.6, 5.5, 4.6);
     this.radius = 2.8;
     g.scale.setScalar(1);
-    const skin = bossSkin('raiz_madre', { x: 7.2, y: 6.8, z: 7.2 }, 0);
+    const skin = bossSkin('raiz_madre', { x: 7.2, y: 6.8 }, 0); // modelo HD: profundidad proporcional al ancho
     if (skin) { hideMeshes(g); this.skinG = new THREE.Group(); this.skinG.add(skin); g.add(this.skinG); this.skin = skin; }
   }
   get alive() { return this.state !== 'dead'; }
@@ -547,10 +547,10 @@ class Escorpion {
     this.beam = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 16), new THREE.MeshBasicMaterial({ color: 0xff6a3a, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
     this.beam.geometry.translate(0, 0, -8); this.beam.visible = false; c.root.add(this.beam);
     const self = this;
-    this.weak = { radius: 0.9, pos: new THREE.Vector3(), get hittable() { return self.state === 'stunned' && self.stunHits < 2; }, hit: () => self.wound() };
+    this.weak = { radius: 1.4, pos: new THREE.Vector3(), get hittable() { return self.state === 'stunned' && self.stunHits < 2; }, hit: () => self.wound() };
     this.weakPoints = [this.weak];
     // modelo generado sin su cola (la cola y el aguijón se animan aparte: son el punto débil)
-    const skin = bossSkin('escorpion_cuerpo', { x: 3.6, y: 1.9, z: 5.0 }, Math.PI, [{ or: [{ axis: 'z', keep: [0.42, 1] }, { axis: 'y', keep: [0, 0.45] }] }]);
+    const skin = bossSkin('escorpion_cuerpo', { x: 5.2 }, Math.PI); // modelo HD: ya viene sin cola, escala uniforme
     if (skin) {
       hideMeshes(this.body, [...this.tail, this.sting]);
       this.legs.forEach(L => L.leg.visible = false); this.claws.forEach(cg => cg.visible = false);
@@ -577,6 +577,13 @@ class Escorpion {
   update(dt, pl) {
     this.t += dt;
     if (this.flash > 0 && (this.flash -= dt) <= 0) setFlash(this.group, false);
+    // si quedan menos de 3 pilares en pie, uno roto vuelve a crecer cada pocos segundos (antes el combate podía quedar sin salida)
+    if (this.fighting) {
+      const P = this.c.world.pillars, up = P.filter(p => p.alive).length;
+      if (up < 3 && P.length) { this.regrowT = (this.regrowT || 0) + dt; if (this.regrowT > 5) { this.regrowT = 0;
+        const far = P.filter(p => !p.alive && p.restore).sort((a, b) => Math.hypot(b.pos.x - this.pos.x, b.pos.z - this.pos.z) - Math.hypot(a.pos.x - this.pos.x, a.pos.z - this.pos.z))[0];
+        if (far) { far.restore(); this.c.fx.sparkle(far.pos.clone().setY(far.pos.y + 2), 30, 0xbff0ff); this.c.audio.play('crystal', far.pos); } } }
+    }
     const walk = (sp) => { for (const L of this.legs) L.leg.rotation.x = Math.sin(this.t * sp * 3 + L.k * 2 + (L.side > 0 ? Math.PI : 0)) * 0.35; };
     const dx = pl.pos.x - this.pos.x, dz = pl.pos.z - this.pos.z, dist = Math.hypot(dx, dz);
     const toP = Math.atan2(-dx, -dz);
@@ -605,7 +612,7 @@ class Escorpion {
         const front = this.pos.clone().add(new THREE.Vector3(-Math.sin(this.facing) * 2.2, 0, -Math.cos(this.facing) * 2.2));
         for (const p of this.c.world.pillars) if (p.alive && Math.hypot(front.x - p.pos.x, front.z - p.pos.z) < p.r + 0.6) {
           p.break(); this.c.fx.sparkle(p.pos.clone().setY(p.pos.y + 2), 30, 0xbff0ff); this.c.audio.play('shatter', this.pos); this.c.shake(0.6, 0.5);
-          this.state = 'stunned'; this.st = 3.4; this.stunHits = 0; this.c.onBossStun && this.c.onBossStun();
+          this.state = 'stunned'; this.st = this.phase === 1 ? 5.5 : 4.5; this.stunHits = 0; this.regrowT = 0; this.c.onBossStun && this.c.onBossStun();
           break;
         }
         const [ax, az, ar] = this.arena;
@@ -712,7 +719,17 @@ class Coloso {
       hideMeshes(g); hideMeshes(this.torso, [this.core]);
       skin.position.y = -4.1; this.torso.add(skin); this.skin = skin; this.core.position.z = -2.0;
       const bronze = mat(0x8a6a3a, { metalness: 0.3, roughness: 0.6, flatShading: true }), dark = mat(0x3a332c, { roughness: 0.7, flatShading: true });
-      this.arms.forEach(A => A.sh.children.forEach((o, i) => { if (o.isMesh) o.material = i % 2 ? dark : bronze; }));
+      // brazos: copias del propio modelo recortadas a cada lado y colgadas del hombro (giran con el golpe)
+      let armsOk = true;
+      this.arms.forEach(A => {
+        const arm = bossSkin('coloso_cuerpo', { h: 8.6 }, Math.PI, [{ axis: 'x', keep: A.sx < 0 ? [0.75, 1] : [0, 0.25] }]);
+        if (!arm) { armsOk = false; return; }
+        const k = 1.55; // el brazo del modelo es más corto que el del juego: se estira desde el hombro hasta el suelo
+        arm.position.set(-A.sx * 2.25, (-4.1 - 2.4) * k, 0); arm.scale.set(1, k, 1);
+        A.sh.children.forEach(o => { if (o.isMesh && o !== A.fist) o.visible = false; }); A.fist.visible = false;
+        A.sh.add(arm); A.skin = arm;
+      });
+      if (!armsOk) this.arms.forEach(A => A.sh.children.forEach((o, i) => { if (o.isMesh) { o.visible = true; o.material = i % 2 ? dark : bronze; } }));
     }
     this._place();
   }
@@ -868,12 +885,15 @@ class Sierpe {
     this.weakPoints = [this.weak];
     for (let i = 0; i < 60; i++) this.trail.push(this.head.clone().add(new THREE.Vector3(0, 0, i * 0.25)));
     // cabeza con modelo generado; el cuerno (punto débil) y el cuerpo siguen siendo piezas animadas
-    const skin = bossSkin('sierpe_cabeza', { h: 1.9 }, -Math.PI / 2);
+    const skin = bossSkin('sierpe_cabeza', { h: 1.7 }, Math.PI); // el modelo HD mira de frente
     if (skin) {
       hideMeshes(this.headG, [this.horn]);
-      skin.position.set(0, -0.75, -0.1); this.headG.add(skin); this.skin = skin;
+      skin.position.set(0, -0.6, 0.1); this.headG.add(skin); this.skin = skin;
       this.horn.position.set(0, 1.05, 0.25);
       scale.color.setHex(0x6f97b8); belly.color.setHex(0xcfe8f5);
+      // el cuerpo toma la textura de escamas de la cabeza HD para que no parezcan bolas lisas
+      let tex = null; skin.traverse(o => { if (!tex && o.isMesh && o.material.map) tex = o.material.map; });
+      if (tex) { scale.map = tex; scale.color.setHex(0xffffff); scale.flatShading = false; scale.roughness = 0.45; scale.needsUpdate = true; }
     }
     this._place(0);
   }
@@ -1406,15 +1426,20 @@ export class Combat {
       if (p.life > 0 && p.age > 0.2 && this.physics.groundAt(p.pos.x, p.pos.z, 0.1, p.pos.y).y > p.pos.y - 0.05) p.life = 0;
       if (p.life <= 0) { this.root.remove(p.m); this.fx.sparkle(p.pos, 6, p.reflected ? 0xbff4ff : (p.color || 0xf29bff)); }
     }
+    for (const p of this.projectiles) if (p.life <= 0 && p.m.parent) this.root.remove(p.m); // los anulados por un golpe o un pulso no deben quedar flotando
     this.projectiles = this.projectiles.filter(p => p.life > 0);
     // curaciones
     for (const h of this.heals) {
       h.t += dt; h.m.rotation.y += dt * 3; h.m.position.y = Math.sin(h.t * 3) * 0.1;
       let hp = pl, hd = Infinity; // la jugadora local más cercana que necesite vida
       for (const L of locals) { if (L.koed || L.hp >= L.maxHp) continue; const dd = Math.hypot(L.pos.x - h.pos.x, L.pos.z - h.pos.z); if (dd < hd) { hd = dd; hp = L; } }
+      if (hd === Infinity) for (const L of locals) { if (L.koed) continue; const dd = Math.hypot(L.pos.x - h.pos.x, L.pos.z - h.pos.z); if (dd < hd) { hd = dd; hp = L; } } // con la vida llena también se recoge
       const d = Math.hypot(hp.pos.x - h.pos.x, hp.pos.z - h.pos.z);
-      if (d < 3 && hp.hp < hp.maxHp) h.pos.lerp(new THREE.Vector3(hp.pos.x, hp.pos.y + 0.7, hp.pos.z), damp(4, dt)); // se acercan solas
-      if (d < 0.8 && Math.abs(hp.pos.y + 0.6 - h.pos.y) < 1.2 && hp.hp < hp.maxHp) { hp.heal(1); h.done = true; this.root.remove(h.g); this.audio.play('heal'); this.fx.sparkle(h.pos, 10, 0x9cff8a); this.onHeal && this.onHeal(); }
+      if (d < 3) h.pos.lerp(new THREE.Vector3(hp.pos.x, hp.pos.y + 0.7, hp.pos.z), damp(4, dt)); // se acercan solas
+      if (d < 0.9 && Math.abs(hp.pos.y + 0.6 - h.pos.y) < 1.4) {
+        h.done = true; this.root.remove(h.g); this.audio.play('heal'); this.fx.sparkle(h.pos, 10, 0x9cff8a);
+        if (hp.hp < hp.maxHp) { hp.heal(1); this.onHeal && this.onHeal(); } else this.onBonus && this.onBonus(h.pos); // vida llena: se convierte en ecos
+      }
       if (h.t > 20) { h.done = true; this.root.remove(h.g); }
     }
     this.heals = this.heals.filter(h => !h.done);
