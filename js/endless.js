@@ -52,7 +52,7 @@ export class Endless {
     const C = this.C, W = C.world, P = C.physics, id = this.nextId++, B = this.biomeOf(id), R = rng(id * 977 + 31);
     const g = new THREE.Group(); W.root.add(g);
     const keepRoot = W.root, keepHz = W.hz.root;
-    const mark = { boxes: P.boxes.length, anim: W.animated.length, up: W.updrafts.length, mov: W.movers.length, br: W.breakables.length, cr: W.hz.crumbles.length, jets: W.hz.jets.length, pends: W.hz.pends.length };
+    const mark = { boxes: P.boxes.length, anim: W.animated.length, up: W.updrafts.length, mov: W.movers.length, br: W.breakables.length, cr: W.hz.crumbles.length, jets: W.hz.jets.length, pends: W.hz.pends.length, spin: W.hz.traps.spinners.length, blink: W.hz.traps.blinkers.length, spk: W.hz.traps.spikes.length };
     const enemies = [], orbs = [], flags = [], islandsForGrass = [];
     W.root = g; W.hz.root = g; W.pal = { top: B.top, side: B.side };
     const d = Math.min(1, (this.cur.len) / 1600); // dificultad: crece con la distancia
@@ -95,7 +95,7 @@ export class Endless {
     advance(3.5);
     for (let k = 0; k < 2 + Math.floor(R() * 2); k++) farIsle();
 
-    const kinds = ['stones', 'stairs', 'mover', 'crumble', 'updraft', 'arena', 'pendulum', 'zigzag'];
+    const kinds = ['stones', 'stairs', 'mover', 'crumble', 'updraft', 'arena', 'pendulum', 'zigzag', 'spinner', 'blink', 'spikes'];
     if (B.jets) kinds.push('jets', 'jets');
     for (let sgi = 0; sgi < SECTOR_SEGS; sgi++) {
       // curva suave del camino (sin alejarse demasiado de la dirección inicial)
@@ -157,6 +157,23 @@ export class Endless {
         W.hz._pendulum({ x: p.x, y: p.y, z: p.z, len: 4.5, axis, amp: 1.0, speed: 1.6 + d, phase: R() * 6 });
         orb(p.x, p.y, p.z); advance(3.5);
       }
+      if (kind === 'spinner') { // isla con barra giratoria
+        advance(gap() + 3.5); const p = at(0); island(p.x, p.y, p.z, 7, 7);
+        W.hz.traps._spinner({ x: p.x, y: p.y, z: p.z, len: 3.2, speed: (R() < 0.5 ? 1 : -1) * (1.3 + d * 0.6), arms: d > 0.5 && R() < 0.5 ? 2 : 1 }); P.boxes[P.boxes.length - 1].pl = this.cur.len;
+        orb(p.x, p.y, p.z); advance(3.5);
+      }
+      if (kind === 'blink') { // cristales que se encienden en ola
+        const n = 3 + Math.floor(R() * 2);
+        for (let i = 0; i < n; i++) { advance(2.3 + 1.3, (R() - 0.5) * 0.5); const p = at(0); W.hz.traps._blinker({ x: p.x, y: p.y, z: p.z, w: 2.6, d: 2.6, period: 3.6 - d * 0.4, on: 2.2 - d * 0.3, phase: -i * 0.85, color: 0xbfefff }); P.boxes[P.boxes.length - 1].pl = this.cur.len; if (i % 2) orb(p.x, p.y, p.z); advance(1.3); }
+        advance(2.3 + 2.5); const p = at(0); island(p.x, p.y, p.z, 5, 5); advance(2.5);
+      }
+      if (kind === 'spikes') { // pasillo de pinchos con ritmo
+        this.cur.h = Math.round(this.h0 / (Math.PI / 2)) * (Math.PI / 2);
+        advance(gap() + 5.5); const p = at(0); const f = fwd(), ax = Math.abs(f.x) > Math.abs(f.z);
+        island(p.x, p.y, p.z, ax ? 11 : 4, ax ? 4 : 11);
+        for (let i = 0; i < 3; i++) { const q = at(-3.5 + i * 3.5); W.hz.traps._spikes({ x: q.x, y: p.y, z: q.z, w: ax ? 2.4 : 4, d: ax ? 4 : 2.4, period: 2.6 - d * 0.3, up: 1.1, phase: -i * 0.65 }); }
+        orb(p.x, p.y, p.z); advance(5.5);
+      }
       if (kind === 'zigzag') { // islas a un lado y a otro
         const n = 4 + Math.floor(R() * 2);
         for (let i = 0; i < n; i++) { advance(2.4 + R() * 0.8, (R() - 0.4) * 0.8); const p = at(0, (i % 2 ? 1 : -1) * 2.6); island(p.x, p.y, p.z, 2.8, 2.8); if (i % 2) orb(p.x, p.y, p.z); advance(1.4); }
@@ -173,6 +190,7 @@ export class Endless {
       id, g, biome: B, startLen: sb.pl, minY, endLen: this.cur.len, enemies, orbs, flags,
       boxes: P.boxes.slice(mark.boxes), anim: W.animated.slice(mark.anim), up: W.updrafts.slice(mark.up), mov: W.movers.slice(mark.mov),
       br: W.breakables.slice(mark.br), cr: W.hz.crumbles.slice(mark.cr), jets: W.hz.jets.slice(mark.jets), pends: W.hz.pends.slice(mark.pends),
+      spin: W.hz.traps.spinners.slice(mark.spin), blink: W.hz.traps.blinkers.slice(mark.blink), spk: W.hz.traps.spikes.slice(mark.spk),
     };
     for (const e of enemies) e.sector = id;
     this.sectors.push(sec);
@@ -182,7 +200,7 @@ export class Endless {
     const C = this.C, W = C.world, P = C.physics;
     const prune = (arr, items) => { if (!items.length) return; const S = new Set(items); for (let i = arr.length - 1; i >= 0; i--) if (S.has(arr[i])) arr.splice(i, 1); };
     prune(P.boxes, sec.boxes); prune(W.animated, sec.anim); prune(W.updrafts, sec.up); prune(W.movers, sec.mov); prune(W.breakables, sec.br);
-    prune(W.hz.crumbles, sec.cr); prune(W.hz.jets, sec.jets); prune(W.hz.pends, sec.pends);
+    prune(W.hz.crumbles, sec.cr); prune(W.hz.jets, sec.jets); prune(W.hz.pends, sec.pends); prune(W.hz.traps.spinners, sec.spin); prune(W.hz.traps.blinkers, sec.blink); prune(W.hz.traps.spikes, sec.spk);
     for (const e of sec.enemies) if (e.alive) { e.alive = false; C.combat.root.remove(e.group); }
     C.combat.enemies = C.combat.enemies.filter(e => e.sector !== sec.id);
     sec.g.parent && sec.g.parent.remove(sec.g);

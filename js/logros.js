@@ -22,6 +22,8 @@ export const LOGROS = [
   { id: 'mareth', tier: 'trofeo', icon: '◎', title: 'Corazón del mar', desc: 'Consigue la Perla de Mareth en las profundidades.' },
   { id: 'pulmones', tier: 'medalla', icon: '○', title: 'Pulmones de acero', desc: 'Recoge 15 burbujas de aire.', key: 'burbujas', goal: 15 },
   { id: 'pies_ligeros', tier: 'medalla', icon: '⚡', title: 'Pies ligeros', desc: 'Pisa 25 rocas que se desploman.', key: 'rocas', goal: 25 },
+  { id: 'cazaecos', tier: 'medalla', icon: '✧', title: 'Cazaecos', desc: 'Recoge 60 ecos flotantes en los Senderos.', key: 'orbes', goal: 60 },
+  { id: 'sin_rasguno', tier: 'medalla', icon: '❖', title: 'Sin un rasguño', desc: 'Termina un Sendero sin perder ningún corazón.' },
   { id: 'estilo', tier: 'insignia', icon: '✎', title: 'Estilo propio', desc: 'Cambia el aspecto de tu personaje.' },
 ];
 

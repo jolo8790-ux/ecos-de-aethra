@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { HD, lavaMaterial, flameMaterial } from './hd.js';
+import { Traps } from './traps.js';
 
 // Peligros y plataformas especiales:
 //  · crumbles  — rocas flotantes que tiemblan al pisarlas y se desploman un momento después (vuelven a aparecer)
@@ -13,6 +14,7 @@ export class Hazards {
   constructor(world) {
     this.w = world; this.root = world.root; this.physics = world.physics;
     this.crumbles = []; this.jets = []; this.pends = []; this.gates = []; this.t = 0; this.events = [];
+    this.traps = new Traps(this);
   }
 
   build(z) {
@@ -22,6 +24,7 @@ export class Hazards {
     (z.sealGates || []).forEach(g => this._sealGate(g));
     if (z.lava) this._lava(z.lava);
     if (z.embers) this._embers(z.embers);
+    this.traps.build(z, this.w.save);
   }
 
   // ---------- plataformas que se desploman ----------
@@ -219,6 +222,7 @@ export class Hazards {
         hits.push({ kind: 'pendulum', dmg: 1, from: Pd.ball.clone(), push: new THREE.Vector3(sx * 9, 6, sz * 9) });
       }
     }
+    this.traps.update(dt, t, player, hits, this.events);
     return hits;
   }
   // ¿pasa la maza de un péndulo por (x,z) pronto? (para el modo Automático)

@@ -3,17 +3,17 @@
 // y un viento que devuelve a la protagonista junto a la barrera.
 import { buildRoute } from './routegen.js';
 
-const ALL = ['hop', 'crumbles', 'mover', 'pend', 'wasp', 'glide', 'updraft', 'dash', 'grapple', 'fire'];
+const ALL = ['hop', 'crumbles', 'mover', 'pend', 'wasp', 'glide', 'updraft', 'dash', 'grapple', 'fire', 'spin', 'blink', 'spikes', 'gust', 'lift', 'swing'];
 export const SENDEROS = {
-  puerto_bruma: { name: 'Sendero de la Bruma', seed: 11, start: [22, 0, -10], dir: 1, caps: {}, segs: ['hop', 'crumbles', 'mover', 'hop', 'pend', 'wasp'], length: 120, crystal: 0x9fe3ff,
+  puerto_bruma: { name: 'Sendero de la Bruma', seed: 11, start: [22, 0, -10], dir: 1, caps: {}, segs: ['hop', 'crumbles', 'mover', 'spin', 'pend', 'blink', 'wasp', 'lift'], length: 175, crystal: 0x9fe3ff,
     gated: g => /^Vuelve con la capitana Marta/.test(g.text), why: 'Antes de zarpar, Marta quiere el Sello de la Bruma: está al final del Sendero, al este del faro.' },
-  bosque_colgante: { name: 'Sendero de las Lianas', seed: 23, start: [-7, 0, -24], dir: -1, gateZ: -33.6, gateW: 22, caps: {}, segs: ['hop', 'crumbles', 'mover', 'pend', 'wasp', 'hop'], crystal: 0xb6ff9a },
-  ruinas_vidrio: { name: 'Sendero de Arena', seed: 37, start: [-8, 0, -20], dir: -1, gateZ: -26.6, gateW: 24, caps: { glide: true, dash: true }, segs: ['hop', 'crumbles', 'glide', 'updraft', 'dash', 'wasp', 'pend', 'fire'], crystal: 0xffd27a, fire: true },
-  ciudad_engranajes: { name: 'Sendero de Engranajes', seed: 41, start: [-8, 0, -20], dir: -1, gateZ: -26.6, gateW: 24, caps: { glide: true, dash: true }, segs: ['hop', 'mover', 'mover', 'pend', 'glide', 'updraft', 'crumbles', 'fire'], crystal: 0xffb46a, fire: true },
-  glaciar_eco: { name: 'Sendero de Escarcha', seed: 53, start: [-8, 0, -20], dir: -1, gateZ: -26.6, gateW: 24, caps: { glide: true, dash: true, grapple: true }, segs: ['hop', 'crumbles', 'glide', 'grapple', 'pend', 'updraft', 'wasp'], crystal: 0xbfefff },
-  ciudadela_orden: { name: 'Sendero del Orden', seed: 67, start: [-8, 0, -20], dir: -1, gateZ: -26.6, gateW: 24, caps: { glide: true, dash: true, grapple: true }, segs: ALL, crystal: 0xd8b8ff, fire: true },
-  eco_olvidado: { name: 'Sendero del Eco', seed: 79, start: [-7, 0, -20], dir: -1, gateZ: -25.6, gateW: 22, caps: { glide: true, dash: true, grapple: true }, segs: ALL, crystal: 0x9fb8ff, fire: true },
-  forja_ignis: { name: 'Sendero de Brasas', seed: 97, start: [-7, 0, -27.8], dir: -1, gateZ: -33.4, gateW: 22, caps: { glide: true, dash: true, grapple: true }, segs: ['fire', 'crumbles', 'pend', 'fire', 'glide', 'updraft', 'crumbles', 'hop'], crystal: 0xffa040, fire: true },
+  bosque_colgante: { name: 'Sendero de las Lianas', seed: 23, start: [-7, 0, -24], dir: -1, gateZ: -33.6, gateW: 22, caps: {}, segs: ['hop', 'crumbles', 'mover', 'pend', 'wasp', 'swing', 'spin', 'blink', 'gust', 'lift'], length: 200, crystal: 0xb6ff9a },
+  ruinas_vidrio: { name: 'Sendero de Arena', seed: 37, start: [-8, 0, -20], dir: -1, gateZ: -26.6, gateW: 24, caps: { glide: true, dash: true }, segs: ['hop', 'crumbles', 'glide', 'updraft', 'dash', 'wasp', 'pend', 'fire', 'spikes', 'spin', 'gust', 'blink'], length: 210, crystal: 0xffd27a, fire: true },
+  ciudad_engranajes: { name: 'Sendero de Engranajes', seed: 41, start: [-8, 0, -20], dir: -1, gateZ: -26.6, gateW: 24, caps: { glide: true, dash: true }, segs: ['hop', 'mover', 'lift', 'pend', 'glide', 'updraft', 'crumbles', 'fire', 'spin', 'spikes', 'swing', 'lift'], length: 215, crystal: 0xffb46a, fire: true },
+  glaciar_eco: { name: 'Sendero de Escarcha', seed: 53, start: [-8, 0, -20], dir: -1, gateZ: -26.6, gateW: 24, caps: { glide: true, dash: true, grapple: true }, segs: ['hop', 'crumbles', 'glide', 'grapple', 'pend', 'updraft', 'wasp', 'blink', 'gust', 'spin', 'blink'], length: 215, crystal: 0xbfefff },
+  ciudadela_orden: { name: 'Sendero del Orden', seed: 67, start: [-8, 0, -20], dir: -1, gateZ: -26.6, gateW: 24, caps: { glide: true, dash: true, grapple: true }, segs: ALL, length: 225, crystal: 0xd8b8ff, fire: true },
+  eco_olvidado: { name: 'Sendero del Eco', seed: 79, start: [-7, 0, -20], dir: -1, gateZ: -25.6, gateW: 22, caps: { glide: true, dash: true, grapple: true }, segs: ALL, length: 230, crystal: 0x9fb8ff, fire: true },
+  forja_ignis: { name: 'Sendero de Brasas', seed: 97, start: [-7, 0, -27.8], dir: -1, gateZ: -33.4, gateW: 22, caps: { glide: true, dash: true, grapple: true }, segs: ['fire', 'crumbles', 'pend', 'fire', 'glide', 'updraft', 'crumbles', 'hop', 'spikes', 'spin', 'swing', 'lift'], length: 175, crystal: 0xffa040, fire: true },
 };
 
 const NARR = '', LIA = 'Lía';
@@ -23,7 +23,7 @@ export function applySenderos(ZONES) {
     Z._baseIslands = (Z.islands || []).length; // las islas propias de la zona (sin el Sendero)
     const r = buildRoute({ ...C, idp: 'sd_' + id });
     const flag = 'sello_' + id, back = 'sendero_vuelta';
-    for (const k of ['islands', 'crumbles', 'movers', 'bridges', 'updrafts', 'grapples', 'fireJets', 'pendulums', 'enemies', 'lanterns', 'fragments', 'breakables', 'crystals']) {
+    for (const k of ['islands', 'crumbles', 'movers', 'bridges', 'updrafts', 'grapples', 'fireJets', 'pendulums', 'spinners', 'blinkers', 'spikes', 'gusts', 'orbs', 'enemies', 'lanterns', 'fragments', 'breakables', 'crystals']) {
       if (r[k] && r[k].length) Z[k] = [...(Z[k] || []), ...r[k]];
     }
     const [sx, sy, sz] = C.start, inward = -C.dir;
@@ -51,6 +51,6 @@ export function applySenderos(ZONES) {
       const m0 = story.talk.marta;
       story.talk.marta = S => { const g = goal0(S); if (!S.has(flag) && C.gated(g, S)) return { lines: [{ who: 'Capitana Marta', text: C.why }] }; return m0(S); };
     }
-    Z._sendero = { name: C.name, length: r.length, flag, altar: at };
+    Z._sendero = { name: C.name, length: r.length, flag, altar: at, first: r.first };
   }
 }

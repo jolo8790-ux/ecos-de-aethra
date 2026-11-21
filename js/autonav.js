@@ -22,7 +22,7 @@ export class AutoNav {
   nodes(physics) {
     const out = [];
     for (const b of physics.boxes) {
-      if (b.off && !b.crumble) continue; // las rocas que se desploman vuelven: siguen contando
+      if (b.off && !b.crumble && !b.blink) continue; // las rocas que se desploman vuelven: siguen contando
       const sw = Math.min(b.maxX - b.minX, b.maxZ - b.minZ), sl = Math.max(b.maxX - b.minX, b.maxZ - b.minZ);
       if (sw < 0.5 || sl < 1.2) continue;
       const narrow = sw < 1.2; // peldaños de escalera: solo se andan

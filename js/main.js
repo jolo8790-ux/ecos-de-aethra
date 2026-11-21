@@ -891,8 +891,16 @@ $('bEndTitle').onclick = () => leaveEnding(true);
 
 // ---------- combate: vida, muerte, jefe ----------
 // rocas que se desploman, chorros de fuego, péndulos
+const sdr = { on: false, hurt: false, hp: 0 }; // «Sin un rasguño»: recorrer un Sendero sin perder corazones
+function senderoTick() {
+  const Sd = zone && zone._sendero; if (!Sd || !save || isAutoMode()) { sdr.on = false; return; }
+  if (save.flags[Sd.flag]) { if (sdr.on && !sdr.hurt) logro('sin_rasguno'); sdr.on = false; return; }
+  const f = Sd.first; if (f && Math.hypot(player.pos.x - f[0], player.pos.z - f[2]) < 2.2 && Math.abs(player.pos.y - f[1]) < 1.5) { sdr.on = true; sdr.hurt = false; sdr.hp = player.hp; }
+  if (sdr.on) { if (player.hp < sdr.hp) sdr.hurt = true; sdr.hp = player.hp; }
+}
 function handleHazards(dt) {
   if (!world.hz) return;
+  senderoTick();
   const hits = world.hz.update(dt, player);
   for (const ev of world.hz.events.splice(0)) {
     const near = ev.pos.distanceTo(player.pos) < 28;
@@ -901,6 +909,12 @@ function handleHazards(dt) {
     else if (ev.type === 'crumbleBack') fx.sparkle(new THREE.Vector3(ev.pos.x, ev.pos.y + 0.3, ev.pos.z), 8, 0xffb070);
     else if (ev.type === 'fire' && near) { audio.play('fire'); fx.flare(ev.pos); }
     else if (ev.type === 'pendulum' && ev.pos.distanceTo(player.pos) < 20) audio.play('pendulum', ev.pos);
+    else if (ev.type === 'spin') audio.play('pendulum', ev.pos);
+    else if (ev.type === 'blinkOff' && near) { audio.play('crystal', ev.pos); fx.sparkle(new THREE.Vector3(ev.pos.x, ev.pos.y + 0.2, ev.pos.z), 10, 0xbfefff); }
+    else if (ev.type === 'blinkOn' && ev.pos.distanceTo(player.pos) < 14) audio.play('tele', ev.pos);
+    else if (ev.type === 'spikes') { audio.play('block', ev.pos); fx.dust(new THREE.Vector3(ev.pos.x, ev.pos.y, ev.pos.z), 6, 1, 0xbbbbbb); }
+    else if (ev.type === 'gust') { fx.wind(ev.pos, ev.dir.x, ev.dir.z); audio.play('glide'); }
+    else if (ev.type === 'orb') { audio.play('crystal', ev.pos); fx.sparkle(ev.pos, 12, 0x9fe8ff); if (save && !isAutoMode() && !challenge) { (save.orbs = save.orbs || []).push(ev.id); addEcos(1, ev.pos); if (bump('orbes') >= 60) logro('cazaecos'); } }
   }
   if (state !== 'play') return;
   for (const h of hits) {
@@ -908,6 +922,7 @@ function handleHazards(dt) {
     if (player.damage(h.dmg, h.from)) {
       player.vel.copy(h.push); player.grounded = false; player.gliding = false;
       if (h.kind === 'fire') { fx.flare(player.pos); toast('¡Fuego! Espera a que se apague el chorro'); } else combat.shake(0.12, 0.2);
+      if (h.kind === 'spinner') toast('¡La barra giratoria! Sáltala justo cuando llegue'); else if (h.kind === 'spikes') toast('¡Pinchos! Pasa cuando se escondan');
     }
   }
 }
