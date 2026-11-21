@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { prop, hasProp } from './props.js';
 
 // Criaturas y trampas de las Profundidades de Mareth:
 //  · tiburones  — patrullan; si te ven, se detienen, agitan la cola (aviso) y embisten en línea recta.
@@ -93,6 +94,35 @@ function zapJellyModel(r = 1) {
   return { g, bell, bellM, tents, ring, light };
 }
 
+// ---------- modelos de Artlist animados con el vértice (cola del tiburón, tentáculos, campana de la medusa) ----------
+const WIG = {
+  // la cola (z < 0) se mueve de lado; la ola recorre el cuerpo hacia atrás
+  tiburon: `float tl = smoothstep(0.25, -0.95, position.z); transformed.x += sin(uTime * uFreq - position.z * 3.2) * uAmp * pow(tl, 1.4) + sin(uTime * uFreq) * uAmp * 0.12;`,
+  // los tentáculos (abajo y hacia fuera) ondulan; uno se levanta (uLift) en la dirección uDir antes de golpear
+  pulpo: `float r = length(position.xz), an = atan(position.x, position.z), k = smoothstep(0.0, -0.5, position.y) * smoothstep(0.25, 0.9, r);
+    float w = sin(uTime * 1.8 + an * 3.0 + r * 5.0); transformed.y += w * 0.07 * k; transformed.xz += normalize(position.xz + 1e-4) * sin(uTime * 1.3 + an * 2.0) * 0.05 * k;
+    float sel = pow(max(0.0, cos(an - uDir)), 6.0) * smoothstep(0.35, 0.95, r); transformed.y += uLift * sel * 0.9; transformed.xz += normalize(position.xz + 1e-4) * max(0.0, -uLift) * sel * 0.6;`,
+  // la campana late y los tentáculos se mecen
+  medusa: `float b = smoothstep(-0.1, 0.4, position.y), tt = smoothstep(0.0, -0.9, position.y); float pu = sin(uTime * 3.0) * 0.07;
+    transformed.xz *= 1.0 + pu * b; transformed.y -= pu * 0.5 * b; transformed.x += sin(uTime * 2.2 + position.y * 4.0) * 0.08 * tt; transformed.z += cos(uTime * 1.9 + position.y * 3.5) * 0.06 * tt;`,
+  erizo: `transformed *= 1.0 + sin(uTime * 2.0 + position.y * 3.0) * 0.015;`,
+};
+function artlist(id, fit, opts = {}) {
+  if (!hasProp(id)) return null;
+  const g = prop(id, fit); if (!g) return null;
+  const U = { uTime: { value: 0 }, uAmp: { value: opts.amp || 0.16 }, uFreq: { value: 6 }, uLift: { value: 0 }, uDir: { value: 0 } }, mats = [];
+  g.traverse(o => {
+    if (!o.isMesh) return; o.castShadow = true;
+    const m = o.material.clone(); mats.push(m);
+    if (m.emissive === undefined) return;
+    m.onBeforeCompile = sh => { Object.assign(sh.uniforms, U); sh.vertexShader = 'uniform float uTime; uniform float uAmp; uniform float uFreq; uniform float uLift; uniform float uDir;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n' + WIG[id]); };
+    m.customProgramCacheKey = () => 'sf_' + id; o.material = m;
+  });
+  const box = new THREE.Box3().setFromObject(g), size = box.getSize(new THREE.Vector3());
+  return { g, U, mats, size };
+}
+const flashMats = (mats, r, gg = r * 0.9, b = r * 0.9) => { for (const m of mats) if (m.emissive) m.emissive.setRGB(r, gg, b); };
+
 export class SeaFoes {
   constructor(world, cfg, save) {
     this.root = world.root; this.t = 0; this.events = [];
@@ -105,19 +135,38 @@ export class SeaFoes {
   }
   _shark({ x, y, z, r = 8, speed = 3, s = 1, hp = 3 }) {
     const M = sharkModel(s); this.root.add(M.g);
+    const A = artlist('tiburon', { z: 3.9 * s }, { amp: 0.17 });
+    if (A) { // modelo de Artlist en lugar del de piezas
+      M.body.visible = false; A.g.position.y = -A.size.y / 2; const wrap = new THREE.Group(); wrap.add(A.g); M.g.add(wrap); M.g.scale.setScalar(1); M.warn.scale.setScalar(1);
+      M.art = A; M.body = wrap; M.tail = new THREE.Group(); M.skin = { emissive: { setRGB: (r, g, b) => flashMats(A.mats, r, g, b) } };
+    }
     return { ...M, c: new THREE.Vector3(x, y, z), r, speed, s, hp, maxHp: hp, a: Math.random() * 6.28, pos: new THREE.Vector3(x + r, y, z), yaw: 0, state: 'patrol', st: 0, dir: new THREE.Vector3(), flash: 0, alive: true, hitDash: -1 };
   }
   _octo({ x, y, z, s = 1, hp = 3, king = false, flag, color }) {
     const M = octoModel(s, color || (king ? 0x9b2f6e : 0xc4485e)); M.g.position.set(x, y, z); this.root.add(M.g);
-    if (king) { const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.5, 0.35, 7, 1, true), std(0xffcf4a, { metalness: 0.8, roughness: 0.25, side: THREE.DoubleSide })); crown.position.y = 2.15; M.g.add(crown); for (let i = 0; i < 7; i++) { const sp = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.22, 5), crown.material); const a = i / 7 * 6.28; sp.position.set(Math.cos(a) * 0.46, 2.42, Math.sin(a) * 0.46); M.g.add(sp); } }
+    const A = artlist('pulpo', { w: 4.6 * s });
+    if (A) {
+      M.g.children.slice().forEach(c => M.g.remove(c)); M.g.scale.setScalar(1); M.g.add(A.g); M.art = A;
+      if (king) A.mats.forEach(m => m.color && m.color.multiply(new THREE.Color(0xd8a0ff)));
+      M.head = new THREE.Object3D(); M.headY = A.size.y * 0.62; M.tents = []; M.skin = { emissive: { setRGB: (r, g, b) => flashMats(A.mats, r, g, b) } };
+    }
+    if (king) { const cs = M.art ? M.art.size.y / 2.4 : 1, cy = M.art ? M.art.size.y * 0.97 : 2.15; const cr = new THREE.Group(); cr.position.y = cy; cr.scale.setScalar(cs); M.g.add(cr); const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.5, 0.35, 7, 1, true), std(0xffcf4a, { metalness: 0.8, roughness: 0.25, side: THREE.DoubleSide, emissive: 0x5a3a00 })); cr.add(crown); for (let i = 0; i < 7; i++) { const sp = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.22, 5), crown.material); const a = i / 7 * 6.28; sp.position.set(Math.cos(a) * 0.46, 0.27, Math.sin(a) * 0.46); cr.add(sp); const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.06), std(0x6ae8ff, { emissive: 0x2aa8d0, emissiveIntensity: 1 })); gem.position.set(Math.cos(a) * 0.47, 0.0, Math.sin(a) * 0.47); cr.add(gem); } }
     return { ...M, pos: new THREE.Vector3(x, y, z), s, hp, maxHp: hp, king, flag, state: 'idle', st: 1 + Math.random(), inkT: 3 + Math.random() * 3, target: 0, flash: 0, alive: true, yaw: 0, hitDash: -1, name: king ? 'Pulpo Rey' : 'Pulpo' };
   }
   _urchin({ x, y, z, r = 0.5, amp = 0.6, ax = 'y', speed = 1 }) {
     const M = urchinModel(r); M.g.position.set(x, y, z); this.root.add(M.g);
+    const A = artlist('erizo', { w: r * 3.6 });
+    if (A) { M.g.children.slice().forEach(c => { if (c !== M.halo) M.g.remove(c); }); A.g.position.y = -A.size.y / 2; M.g.add(A.g); M.art = A; }
     return { ...M, base: new THREE.Vector3(x, y, z), r, amp, ax, speed, ph: Math.random() * 6, pos: new THREE.Vector3(x, y, z) };
   }
   _zap({ x, y, z, r = 1, period = 4.5, range = 3.6, amp = 1.2 }) {
     const M = zapJellyModel(r); M.g.position.set(x, y, z); this.root.add(M.g);
+    const A = artlist('medusa', { h: r * 3 });
+    if (A) {
+      M.bell.visible = false; M.tents.forEach(t => t.visible = false); A.g.position.y = -A.size.y * 0.62; M.g.add(A.g); M.art = A;
+      A.mats.forEach(m => { m.transparent = true; m.opacity = 0.85; if (m.emissive) { m.emissive.setHex(0xffb81a); m.emissiveIntensity = 0.35; } });
+      M.bellM = { set emissiveIntensity(v) { A.mats.forEach(m => m.emissiveIntensity = v * 0.6); } };
+    }
     return { ...M, base: new THREE.Vector3(x, y, z), r, period, range, amp, ph: Math.random() * period, pos: new THREE.Vector3(x, y, z), was: 'calm' };
   }
 
@@ -161,25 +210,26 @@ export class SeaFoes {
         else { S.state = 'stun'; S.st = 1.4; }
       }
       S.g.position.copy(S.pos); S.g.rotation.y = S.yaw;
-      S.tail.rotation.y = Math.sin(t * wig) * (wig > 10 ? 0.5 : 0.3); S.body.rotation.y = -Math.sin(t * wig) * 0.06;
+      if (S.art) { S.art.U.uTime.value = t; S.art.U.uFreq.value = wig * 0.9; S.art.U.uAmp.value = wig > 10 ? 0.26 : 0.16; } else { S.tail.rotation.y = Math.sin(t * wig) * (wig > 10 ? 0.5 : 0.3); S.body.rotation.y = -Math.sin(t * wig) * 0.06; }
       S.skin.emissive.setRGB(S.flash, S.flash * 0.9, S.flash * 0.9);
     }
     // ---- pulpos ----
     for (const O of this.octos) {
       if (!O.alive) { O.st += dt; O.g.position.y -= dt * 0.8; O.g.scale.multiplyScalar(1 - dt * 0.7); if (O.st > 2.5) O.g.visible = false; continue; }
-      const d = Math.hypot(P.x - O.pos.x, P.z - O.pos.z), dy = P.y + 0.9 - (O.pos.y + 1.2 * O.s), reach = 3.6 * O.s;
+      const hy = O.headY || 1.2 * O.s, d = Math.hypot(P.x - O.pos.x, P.z - O.pos.z), dy = P.y + 0.9 - (O.pos.y + hy), reach = 3.6 * O.s;
       O.st -= dt; O.flash = Math.max(0, O.flash - dt * 3);
       O.yaw += ang(O.yaw, Math.atan2(P.x - O.pos.x, P.z - O.pos.z)) * Math.min(1, dt * 2); O.g.rotation.y = O.yaw;
       const bre = 1 + Math.sin(t * 2.2) * 0.05; O.head.scale.set(bre, 1.25 / bre, bre);
+      if (O.art) { O.art.U.uTime.value = t; const sel = O.state === 'windup' || O.state === 'slam'; const tgt = O.state === 'windup' ? 0.9 : O.state === 'slam' ? -0.6 : 0; O.art.U.uLift.value += (tgt - O.art.U.uLift.value) * Math.min(1, dt * (O.state === 'slam' ? 18 : 6)); if (sel) O.art.U.uDir.value = O.liftDir || 0; O.g.scale.y = bre; }
       const near = !safe && d < reach + 1 && Math.abs(dy) < 3 * O.s;
       if (O.state === 'idle' && near && O.st <= 0 && !auto) {
         // elige el tentáculo más cercano a la protagonista
         const la = ang(O.yaw, Math.atan2(P.x - O.pos.x, P.z - O.pos.z)); let best = 0, bd = 9;
         O.tents.forEach((T, i) => { const q = Math.abs(ang(T.a, la)); if (q < bd) { bd = q; best = i; } });
-        O.target = best; O.state = 'windup'; O.st = O.king ? 0.75 : 0.9; ev.push({ type: 'octoWind', pos: O.pos.clone() });
+        O.liftDir = la; O.target = best; O.state = 'windup'; O.st = O.king ? 0.75 : 0.9; ev.push({ type: 'octoWind', pos: O.pos.clone() });
       } else if (O.state === 'windup' && O.st <= 0) {
         O.state = 'slam'; O.st = 0.35; ev.push({ type: 'octoSlam', pos: O.pos.clone() });
-        const T = O.tents[O.target], wa = O.yaw + T.a; const tx = O.pos.x + Math.sin(wa) * reach * 0.7, tz = O.pos.z + Math.cos(wa) * reach * 0.7;
+        const T = O.tents[O.target], wa = O.yaw + (T ? T.a : (O.liftDir || 0)); const tx = O.pos.x + Math.sin(wa) * reach * 0.7, tz = O.pos.z + Math.cos(wa) * reach * 0.7;
         if (!safe && Math.hypot(P.x - tx, P.z - tz) < 2.2 * O.s && Math.abs(dy) < 2.5 * O.s) hits.push({ from: O.pos.clone(), push: new THREE.Vector3(P.x - O.pos.x, 0.4, P.z - O.pos.z).normalize().multiplyScalar(8), kind: 'octo' });
       } else if (O.state === 'slam' && O.st <= 0) { O.state = 'idle'; O.st = O.king ? 1.1 : 1.6; }
       else if (O.state === 'hurt' && O.st <= 0) { O.state = 'idle'; O.st = 0.6; }
@@ -199,10 +249,10 @@ export class SeaFoes {
       const glow = O.state === 'windup' ? 0.35 + Math.sin(t * 25) * 0.25 : 0;
       O.skin.emissive.setRGB(Math.max(O.flash, glow), Math.max(O.flash * 0.9, glow * 0.15), O.flash * 0.9);
       // estocada
-      const dh = Math.hypot(P.x - O.pos.x, P.y + 0.9 - (O.pos.y + 1.15 * O.s), P.z - O.pos.z);
+      const dh = Math.hypot(P.x - O.pos.x, P.y + 0.9 - (O.pos.y + hy), P.z - O.pos.z);
       const autoHit = auto && dh < 5 * O.s && (O.autoT = (O.autoT || 0) + dt) > 1.3;
       if ((dashing >= 0 && O.hitDash !== dashing && dh < 1.5 * O.s + 0.6) || autoHit) {
-        O.autoT = 0; O.hitDash = dashing; O.hp--; O.flash = 1; O.state = 'hurt'; O.st = 0.5; ev.push({ type: 'foeHurt', pos: O.pos.clone().setY(O.pos.y + 1.2 * O.s), kind: O.king ? 'king' : 'octo', hp: O.hp, maxHp: O.maxHp });
+        O.autoT = 0; O.hitDash = dashing; O.hp--; O.flash = 1; O.state = 'hurt'; O.st = 0.5; ev.push({ type: 'foeHurt', pos: O.pos.clone().setY(O.pos.y + hy), kind: O.king ? 'king' : 'octo', hp: O.hp, maxHp: O.maxHp });
         if (O.hp <= 0) { O.alive = false; O.st = 0; ev.push({ type: 'foeDie', pos: O.pos.clone().setY(O.pos.y + 1), kind: O.king ? 'king' : 'octo', flag: O.flag }); }
       }
     }
@@ -216,14 +266,14 @@ export class SeaFoes {
     // ---- erizos ----
     for (const U of this.urchins) {
       const k = Math.sin(t * U.speed + U.ph) * U.amp; U.pos.copy(U.base); if (U.ax === 'y') U.pos.y += k; else U.pos[U.ax] += k;
-      U.g.position.copy(U.pos); U.g.rotation.y += dt * 0.4; U.g.rotation.x += dt * 0.25; U.halo.material.opacity = 0.06 + Math.sin(t * 3 + U.ph) * 0.03;
+      if (U.art) U.art.U.uTime.value = t; U.g.position.copy(U.pos); U.g.rotation.y += dt * 0.4; U.g.rotation.x += dt * 0.25; U.halo.material.opacity = 0.06 + Math.sin(t * 3 + U.ph) * 0.03;
       if (!player.inSub && U.pos.distanceTo(chest) < U.r * 1.9 + 0.5) hits.push({ from: U.pos.clone(), push: chest.clone().sub(U.pos).normalize().multiplyScalar(7), kind: 'urchin' });
     }
     // ---- medusas eléctricas ----
     for (const Z of this.zaps) {
       const k = ((t + Z.ph) % Z.period), st = k > Z.period - 1.0 ? (k > Z.period - 0.25 ? 'zap' : 'charge') : 'calm';
       Z.pos.copy(Z.base); Z.pos.y += Math.sin(t * 0.7 + Z.ph) * Z.amp; Z.g.position.copy(Z.pos);
-      const pulse = 1 + Math.sin(t * 3 + Z.ph) * 0.1; Z.bell.scale.set(pulse, 1 / pulse, pulse);
+      if (Z.art) Z.art.U.uTime.value = t + Z.ph; const pulse = 1 + Math.sin(t * 3 + Z.ph) * 0.1; Z.bell.scale.set(pulse, 1 / pulse, pulse);
       Z.tents.forEach((tt, i) => { tt.rotation.x = Math.sin(t * 2 + i) * 0.2; tt.rotation.z = Math.cos(t * 1.6 + i) * 0.2; });
       Z.bellM.emissiveIntensity = st === 'charge' ? 0.8 + Math.sin(t * 40) * 0.6 : st === 'zap' ? 2.2 : 0.5;
       Z.light.intensity = st === 'zap' ? 6 : st === 'charge' ? 1.5 + Math.sin(t * 40) : 0.4;
