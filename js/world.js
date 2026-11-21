@@ -679,6 +679,7 @@ export class World {
 
   _gear({ x, y, z, r = 2, axis = 'z', speed = 0.5, color = 0xb08a4a }) {
     const g = new THREE.Group(); g.position.set(x, y, z); this.root.add(g);
+    { const D = r * 1.9, T = 0.6; this.physics.addBox(x, y, z, axis === 'x' ? T : D, axis === 'y' ? T : D, axis === 'z' ? T : D); } // el engranaje es sólido
     const brass = mat(color, { metalness: 0.6, roughness: 0.35, flatShading: true });
     const spinM = new THREE.Group(); g.add(spinM);
     const gm = prop('engranaje_plano', { w: r * 2.25 });

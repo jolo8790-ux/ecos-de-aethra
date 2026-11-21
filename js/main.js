@@ -322,7 +322,7 @@ function loadZone(id, checkpointId) {
   if (reef) { reef.dispose(); reef = null; }
   if (HD.on) { warmZone(zone, skyMat, scene, hemi, sun); hemi.intensity = 0.45; try { skyEnvironment(renderer, scene, skyMat); } catch (e) { console.warn(e); } }
   world.build(zone, save); music.ambient(ZONE_AMB[zone.id]);
-  if (HD.on && zone.id === 'abismo_mareth') reef = new Reef(world.root, scene); // corales, cardúmenes, tortugas, mantas
+  if (HD.on && zone.id === 'abismo_mareth') reef = new Reef(world.root, scene, world.physics); // corales, cardúmenes, tortugas, mantas
   player.updrafts = world.updrafts;
   combat.spawnZone(zone, save); combat.breakables = world.breakables;
   pieceBk = save && !zone.challenge ? pieceBreakable(zone) : null;

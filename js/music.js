@@ -1,3 +1,4 @@
+import { LOW_MEM } from './glbload.js';
 // Música y ambiente sintetizados en tiempo real (sin archivos de audio).
 // Un pequeño "secuenciador": cada canción tiene acordes, bajo, arpegios, melodía y percusión,
 // escritos como texto. Las canciones cambian con un fundido (zona → jefe → victoria…).
@@ -44,10 +45,10 @@ export class Music {
     this.ctx = c;
     this.master = c.createDynamicsCompressor();
     this.master.threshold.value = -14; this.master.ratio.value = 3; this.master.connect(c.destination);
-    this.rev = c.createConvolver(); this.rev.buffer = this._impulse(2.8);
+    this.rev = c.createConvolver(); this.rev.buffer = this._impulse(LOW_MEM ? 1.4 : 2.8); // reverberación más corta en el teléfono: mucho menos trabajo para el audio
     this.revOut = c.createGain(); this.revOut.gain.value = 0.9; this.rev.connect(this.revOut); this.revOut.connect(this.master);
     this.musicBus = c.createGain(); this.musicBus.connect(this.master);
-    this.musicSend = c.createGain(); this.musicSend.gain.value = 0.32; this.musicBus.connect(this.musicSend); this.musicSend.connect(this.rev);
+    this.musicSend = c.createGain(); this.musicSend.gain.value = LOW_MEM ? 0.1 : 0.32; this.musicBus.connect(this.musicSend); this.musicSend.connect(this.rev);
     this.sfxBus = c.createGain(); this.sfxBus.gain.value = 1; this.sfxBus.connect(this.master);
     const sfxSend = c.createGain(); sfxSend.gain.value = 0.12; this.sfxBus.connect(sfxSend); sfxSend.connect(this.rev);
     this.audio.dest = this.sfxBus;
@@ -122,7 +123,7 @@ export class Music {
     const s = this.song;
     if (s && !s.stopping && !s.file) {
       const S = s.S, grid = 60 / S.bpm / 4; // semicorcheas
-      while (s.next < c.currentTime + 0.15) {
+      while (s.next < c.currentTime + (LOW_MEM ? 0.4 : 0.2)) { // margen para que un cuadro lento no deje huecos
         this._step(s, s.step, s.next, grid);
         s.step++; s.next += grid;
       }

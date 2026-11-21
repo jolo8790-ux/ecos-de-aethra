@@ -1,8 +1,9 @@
+import { LOW_MEM } from './glbload.js';
 // Efectos de sonido sintetizados en tiempo real (sin archivos).
 // Cada efecto se arma con capas: un golpe inicial (transitorio), un cuerpo con tono y una cola de ruido filtrado,
 // con pequeñas variaciones al azar para que no suene siempre igual. Si se pasa una posición, el sonido se
 // coloca a la izquierda o a la derecha y baja con la distancia.
-const MAX_VOICES = 72;
+const MAX_VOICES = 72, MAX_LOW = 40;
 // voces grabadas (generadas con Artlist): se suman al efecto sintetizado. p = probabilidad, para que no se repitan siempre
 const HERO_V = new Set(['hurt1', 'hurt2', 'hurt3', 'jump1', 'jump2', 'atk1', 'atk2', 'atk3', 'ko', 'bien']); // la voz de cada personaje
 const VOICES = {
@@ -21,10 +22,15 @@ const VOICES = {
 };
 
 export class Audio {
-  constructor() { this.ctx = null; this.volume = 0.7; this.voices = 0; this.listener = null; this.surface = 'grass'; this._last = {}; this._streak = { t: 0, n: 0 }; }
+  constructor() { this.ctx = null; this.volume = 0.7; this.voices = 0; this.listener = null; this.surface = 'grass'; this._last = {}; this._streak = { t: 0, n: 0 }; this._burst = { t: 0, n: 0 }; }
   unlock() {
     try {
-      if (!this.ctx) { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this._buffers(); }
+      if (!this.ctx) {
+        // en el teléfono, un búfer de audio más grande: si el dibujo tarda un poco, el sonido no se corta
+        const AC = window.AudioContext || window.webkitAudioContext;
+        try { this.ctx = new AC({ latencyHint: LOW_MEM ? 'playback' : 'interactive' }); } catch (e) { this.ctx = new AC(); }
+        this._buffers();
+      }
       if (this.ctx.state === 'suspended') this.ctx.resume();
     } catch (e) { this.ctx = null; }
   }
@@ -48,7 +54,7 @@ export class Audio {
   _voice(name) {
     const V = VOICES[name]; if (!V || !this.smp || Math.random() > V.p) return;
     if (V.gap && !this._throttle('v_' + name, V.gap)) return;
-    const n = V.f[Math.floor(Math.random() * V.f.length)], hero = HERO_V.has(n), buf = this.smp[hero ? (this.voiceSet || '_') + '/' + n : n]; if (!buf || this.voices > MAX_VOICES) return;
+    const n = V.f[Math.floor(Math.random() * V.f.length)], hero = HERO_V.has(n), buf = this.smp[hero ? (this.voiceSet || '_') + '/' + n : n]; if (!buf || this.voices > (LOW_MEM ? MAX_LOW : MAX_VOICES)) return;
     const c = this.ctx, s = c.createBufferSource(); s.buffer = buf;
     s.playbackRate.value = (hero ? this.voiceRate || 1 : 1) * (1 + (Math.random() - 0.5) * (V.rate || 0.06));
     const g = this._out(0, 0); g.gain.value = V.vol * this._k * this._g; s.connect(g); s.start(); this.voices++; s.onended = () => { this.voices--; };
@@ -80,7 +86,7 @@ export class Audio {
   _track(src, end) { this.voices++; src.onended = () => { this.voices--; }; src.stop(end); }
   // oscilador: o(tipo, frecuencia, {to, dur, vol, att, delay, pan, lp, hp, bp, q, vib})
   o(type, f, { to = 0, dur = 0.2, vol = 0.1, att = 0.004, delay = 0, pan = 0, lp = 0, hp = 0, bp = 0, q = 1, vib = 0, det = 0 } = {}) {
-    const c = this.ctx; if (!c || this.voices > MAX_VOICES) return;
+    const c = this.ctx; if (!c || this.voices > (LOW_MEM ? MAX_LOW : MAX_VOICES)) return;
     const t0 = c.currentTime + delay, k = this._k * this._g;
     const o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f * this._p, t0); o.detune.value = det;
     if (to) o.frequency.exponentialRampToValueAtTime(Math.max(20, to * this._p), t0 + dur);
@@ -93,7 +99,7 @@ export class Audio {
   }
   // ruido: n(color, dur, {vol, f, to, type, q, att, delay, pan})
   n(color, dur, { vol = 0.1, f = 1000, to = 0, type = 'lowpass', q = 0.8, att = 0.003, delay = 0, pan = 0 } = {}) {
-    const c = this.ctx; if (!c || !this.nb || this.voices > MAX_VOICES) return;
+    const c = this.ctx; if (!c || !this.nb || this.voices > (LOW_MEM ? MAX_LOW : MAX_VOICES)) return;
     const t0 = c.currentTime + delay, k = this._k * this._g;
     const s = c.createBufferSource(); s.buffer = this.nb[color] || this.nb.white;
     const fl = c.createBiquadFilter(); fl.type = type; fl.Q.value = q; fl.frequency.setValueAtTime(f * this._p, t0);
@@ -104,7 +110,7 @@ export class Audio {
   }
   // campana FM (cristales, recompensas)
   bell(f, { dur = 0.8, vol = 0.06, ratio = 3.5, index = 2, delay = 0, pan = 0 } = {}) {
-    const c = this.ctx; if (!c || this.voices > MAX_VOICES) return;
+    const c = this.ctx; if (!c || this.voices > (LOW_MEM ? MAX_LOW : MAX_VOICES)) return;
     const t0 = c.currentTime + delay, k = this._k * this._g, F = f * this._p;
     const car = c.createOscillator(), mod = c.createOscillator(), mg = c.createGain();
     car.frequency.value = F; mod.frequency.value = F * ratio; mg.gain.setValueAtTime(F * index, t0); mg.gain.exponentialRampToValueAtTime(1, t0 + dur);
@@ -133,6 +139,11 @@ export class Audio {
 
   play(name, pos) {
     if (!this.ctx || this.volume <= 0 || this.ctx.state !== 'running') return;
+    // que muchos sonidos a la vez no saturen el audio (se notaba como cortes): como mucho unos pocos por instante
+    { const t = this.ctx.currentTime; if (t - this._burst.t > 0.08) { this._burst.t = t; this._burst.n = 0; }
+      const essential = name === 'hurt' || name === 'ko' || name === 'fragment' || name === 'unlock';
+      if (++this._burst.n > (LOW_MEM ? 5 : 9) && !essential) return;
+      if (!essential && !this._throttle('n_' + name, 0.035)) return; }
     if (!this._prep(pos && pos.pos ? pos.pos : pos)) return;
     if (VOICES[name]) this._voice(name);
     const o = (...a) => this.o(...a), n = (...a) => this.n(...a), bell = (...a) => this.bell(...a);

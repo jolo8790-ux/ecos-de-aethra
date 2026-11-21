@@ -97,9 +97,14 @@ export class Sea {
     const m = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.5, r * 1.4, len, 16, 1, true), additive(0xbff6ff, 0.07)); m.position.set(x, top - len / 2, z); m.rotation.z = 0.15; this.root.add(m);
     const ph = Math.random() * 6; this.w.animated.push(t => { m.material.opacity = 0.05 + Math.sin(t * 0.7 + ph) * 0.03; });
   }
+  // un coral (o roca) del fondo es sólido: caja en el núcleo del modelo (las puntas finas se pueden rozar)
+  _solid(o, k = 0.55) {
+    o.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(o), sz = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3());
+    if (sz.y < 0.5) return; this.physics.addBox(c.x, b.min.y + sz.y * 0.42, c.z, sz.x * k, sz.y * 0.84, sz.z * k);
+  }
   _coralDecor({ x, y, z, n = 6, s = 1 }) {
     if (HD.on && hasProp('coral')) { // HD: racimos de coral modelados en vez de conos y bolas
-      for (let i = 0; i < Math.max(2, Math.round(n / 2)); i++) { const c = prop('coral', { h: (1 + Math.random() * 1.6) * s }); if (!c) break; c.position.set(x + (Math.random() - 0.5) * 3 * s, y - 0.1, z + (Math.random() - 0.5) * 3 * s); c.rotation.y = Math.random() * 6.28; this.root.add(c); }
+      for (let i = 0; i < Math.max(2, Math.round(n / 2)); i++) { const c = prop('coral', { h: (1 + Math.random() * 1.6) * s }); if (!c) break; c.position.set(x + (Math.random() - 0.5) * 3 * s, y - 0.1, z + (Math.random() - 0.5) * 3 * s); c.rotation.y = Math.random() * 6.28; this.root.add(c);  this._solid(c); }
       return;
     }
     for (let i = 0; i < n; i++) {

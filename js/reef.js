@@ -35,7 +35,8 @@ function bakedMesh(id, fit) {
 }
 
 export class Reef {
-  constructor(root, scene) {
+  constructor(root, scene, physics) {
+    this.physics = physics;
     this.root = new THREE.Group(); root.add(this.root); this.scene = scene;
     this.t = 0; this.schools = []; this.swimmers = []; this.mats = [];
     this.build();
@@ -51,6 +52,7 @@ export class Reef {
       for (const [x, y, z] of spots) {
         const c = prop('coral', { h: rnd(1.6, 4.6) }); if (!c) break;
         c.position.set(x, y - 0.15, z); c.rotation.y = rnd(0, 6.28); this.root.add(c);
+        if (this.physics) { c.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(c), sz = b.getSize(new THREE.Vector3()), cc = b.getCenter(new THREE.Vector3()); this.physics.addBox(cc.x, b.min.y + sz.y * 0.42, cc.z, sz.x * 0.55, sz.y * 0.84, sz.z * 0.55); } // coral sólido
         c.traverse(o => { if (o.isMesh) { o.castShadow = false; } });
       }
     }

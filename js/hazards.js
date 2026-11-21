@@ -139,6 +139,7 @@ export class Hazards {
     if (post) for (const sgn of [-1, 1]) { // postes que sostienen el travesaño (salen de la lava)
       const pm = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.32, post, 8), dark);
       pm.position.set(axis === 'x' ? sgn * 4.5 : 0, -post / 2, axis === 'x' ? 0 : sgn * 4.5); pm.castShadow = true; g.add(pm);
+      this.physics.addBox(x + pm.position.x, y - post / 2, z + pm.position.z, 0.55, post, 0.55); // el poste es sólido
     }
     const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.6, 12), metal); hub.rotation[axis === 'x' ? 'x' : 'z'] = Math.PI / 2; g.add(hub);
     const arm = new THREE.Group(); g.add(arm);
