@@ -1037,7 +1037,8 @@ function doPulse(pos, r) {
   for (const B of world.darkBarriers) if (!B.gone && B.pos.distanceTo(pos) < r + B.half) { world.dispelBarrier(B); fx.sparkle(B.pos, 30, 0xfff2a8); if (B.flag) S.set(B.flag); audio.play('unlock'); }
 }
 // ---------- nivel submarino: nadar, aire, ahogo y submarino ----------
-const drown = { t: 0, on: false, beatT: 0 }; let underFog = null, aboveFog = null;
+const drown = { t: 0, on: false, beatT: 0 }; let underFog = null, aboveFog = null, inkT = 0;
+const toastSeen = new Set(); const onceToast = (k, m) => { if (!toastSeen.has(k)) { toastSeen.add(k); toast(m); } };
 function seaBefore(dt) {
   const sea = world.sea, p = player.pos;
   player.seaY = sea.surface;
@@ -1057,6 +1058,25 @@ function seaAfter(dt) {
     const got = player.inSub ? 0 : sea.takeBubble(p);
     if (got) { player.air = Math.min(1, player.air + got); audio.play('bubble'); if (!isAutoMode() && bump('burbujas') >= 15) logro('pulmones'); fx.sparkle(p.clone().setY(p.y + 1), 10, 0xcff6ff); }
     for (const h of sea.update(dt, player, camera, !!player.inSub)) if (player.damage(1, h.from)) { player.vel.copy(h.push); audio.play('fire'); toast('¡Una medusa! Su picadura quema'); }
+    // criaturas: tiburones, pulpos, erizos y medusas eléctricas
+    const HIT_MSG = { shark: '¡Un tiburón! Cuando agite la cola, apártate de su línea roja', octo: '¡Un tentáculo! Si brilla, aléjate de ese lado', urchin: '¡Erizo! Sus púas no se tocan', zap: '¡Descarga! Cuando la medusa amarilla parpadee, aléjate' };
+    for (const h of sea.foes.update(dt, player, { inDome: !!sea.inDome(p), auto: isAutoMode(), surface: sea.surface })) if (player.damage(1, h.from)) { player.vel.copy(h.push); audio.play(h.kind === 'zap' ? 'zap' : h.kind === 'urchin' ? 'fire' : 'hitHeavy'); combat.shake(0.2, 0.25); onceToast('mr_' + h.kind, HIT_MSG[h.kind]); }
+    for (const ev of sea.foes.events.splice(0)) {
+      if (ev.type === 'sharkAim') { audio.play('growl', ev.pos); onceToast('mr_shark_aim', `¡El tiburón te vio! Apártate de la línea roja y, cuando quede cansado, dale una estocada [${keyOf('attack')}]`); }
+      else if (ev.type === 'sharkCharge') { audio.play('roar', ev.pos); input.rumble(160, 0.5); }
+      else if (ev.type === 'octoWind') audio.play('windup', ev.pos);
+      else if (ev.type === 'octoSlam') { audio.play('stomp', ev.pos); combat.shake(0.15, 0.2); }
+      else if (ev.type === 'inkShot') audio.play('bubble', ev.pos);
+      else if (ev.type === 'ink') { inkT = 2.6; audio.play('gulp'); onceToast('mr_ink', '¡Tinta! No ves nada por un momento: aléjate nadando'); }
+      else if (ev.type === 'zap') { audio.play('zap', ev.pos); if (vfx) vfx.shock(ev.pos, 0xfff27a, 4, 0.4); }
+      else if (ev.type === 'foeHurt') { audio.play(ev.kind === 'shark' ? 'enemyHurt' : 'hitHeavy', ev.pos); fx.sparkle(ev.pos, 12, 0xffffff); if (vfx) vfx.impact(ev.pos, 0xcff4ff, true); combat.hitstop = 0.06; }
+      else if (ev.type === 'foeDie') {
+        audio.play('enemyDie', ev.pos); fx.sparkle(ev.pos, 24, 0xbff4ff); if (vfx) vfx.burst(ev.pos, 0x9fe8ff, 30, 1.4, 0.2);
+        if (!isAutoMode()) addEcos(ev.kind === 'king' ? 10 : ev.kind === 'shark' ? 4 : 3, ev.pos);
+        if (ev.kind === 'king') { S.set(ev.flag || 'mr_pulpo'); music.stinger('hallazgo'); toast('¡El Pulpo Rey huye a su grieta! La hélice queda libre'); world.refreshItems && world.refreshItems(); }
+      }
+    }
+    if (player.events.some(e => e.type === 'swimdash')) { fx._spawn(player.pos.clone().setY(player.pos.y + 1), new THREE.Vector3(0, 0.6, 0), { life: 0.6, size: 0.3, grow: 1.5, color: 0xe8fbff, opacity: 0.5, grav: 0 }); }
     for (const ev of sea.events.splice(0)) if (ev.type === 'coral') { audio.play('crumble'); combat.shake(0.25, 0.3); fx.debris(ev.pos); input.rumble(200, 0.6); toast('¡Coral roto!'); }
     if (player.inSub) {
       sea.ram(p, player.vel);
@@ -1085,10 +1105,12 @@ function seaFx(dt) {
   const showAir = (player.swimming && !player.inSub) || a < 0.999;
   $('airBar').classList.toggle('hidden', !showAir || state === 'title');
   $('airFill').style.width = (a * 100).toFixed(1) + '%'; $('airBar').classList.toggle('low', a < 0.3);
+  { const cap = ((player.diff && player.diff.air) || 22) * (player.mods.air || 1), secs = Math.ceil(a * cap), el = $('airSecs'); if (el) { el.textContent = player.inSub ? '' : `${secs} s`; el.classList.toggle('urgent', a < 0.35); } }
   $('drownFx').style.opacity = Math.min(1, danger * 0.85 + d * 0.4).toFixed(3);
   const blur = (danger > 0.5 ? (danger - 0.5) * 8 : 0) + d * 9, bright = 1 - danger * 0.3 - d * 0.7;
   renderer.domElement.style.filter = blur > 0.05 || bright < 0.99 ? `blur(${blur.toFixed(1)}px) brightness(${bright.toFixed(2)})` : '';
-  $('blackout').style.opacity = d > 0.6 ? ((d - 0.6) / 0.4).toFixed(2) : 0;
+  inkT = Math.max(0, inkT - dt);
+  $('blackout').style.opacity = Math.max(d > 0.6 ? (d - 0.6) / 0.4 : 0, Math.min(1, inkT / 1.2) * 0.82).toFixed(2);
   if (danger > 0 || d > 0) { // latidos cada vez más lentos
     drown.beatT -= dt;
     if (drown.beatT <= 0) { drown.beatT = 0.42 + danger * 0.7 + d * 1.6; audio.play('heart'); input.rumble(90, 0.35 + danger * 0.4); const v = $('drownFx'); v.classList.remove('beat'); void v.offsetWidth; v.classList.add('beat'); }
@@ -1229,6 +1251,11 @@ const keyOf = a => input.usingGamepad ? input.padIcon(a) : input.isTouch ? { att
 let guideArrow = null;
 function bossGuide(b) {
   const K = a => `[${keyOf(a)}]`, type = zone.boss && zone.boss.type, st = b.state;
+  if (b.seaKing) {
+    const O = b.seaKing, head = O.pos.clone().setY(O.pos.y + 1.2 * O.s);
+    if (st === 'windup') return { now: true, text: '¡Levanta un tentáculo brillante! Apártate de su lado antes de que golpee.' };
+    return { now: st === 'slam' || st === 'hurt', text: `Nada hasta su cabeza y dale una estocada ${K('attack')} justo después de que golpee. Esquiva la tinta.`, at: head };
+  }
   if (st === 'intro' || st === 'dying' || st === 'dead') return null;
   if (type === 'raiz') {
     const r = (b.roots || []).find(x => x.hittable);
@@ -1287,8 +1314,11 @@ function updateCombatHUD() {
     lastHp = player.hp; player._lastMax = player.maxHp;
     $('hudHearts').innerHTML = '♥'.repeat(Math.max(0, player.hp)) + `<span class="e">${'♥'.repeat(Math.max(0, player.maxHp - player.hp))}</span>`;
   }
-  const b = combat.boss;
-  const show = b && (b.state === 'intro' || b.fighting || b.state === 'dying');
+  let b = combat.boss;
+  let show = b && (b.state === 'intro' || b.fighting || b.state === 'dying');
+  if (!show && world.sea && world.sea.foes && state === 'play') { // el Pulpo Rey de Mareth también tiene barra y guía
+    const K = world.sea.foes.king(); if (K && K.pos.distanceTo(player.pos) < 16 * K.s / 1.8) { b = { name: K.name, hp: K.hp, maxHp: K.maxHp, state: K.state, seaKing: K, pos: K.pos }; show = true; }
+  }
   $('bossbar').classList.toggle('hidden', !show);
   if (show) { $('bossName').textContent = b.name; $('bossFill').style.width = `${Math.max(0, b.hp / b.maxHp) * 100}%`; }
   updateBossGuide(b, show);

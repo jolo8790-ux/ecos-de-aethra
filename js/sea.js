@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { HD, waterMaterial } from './hd.js';
 import { prop, hasProp } from './props.js';
+import { SeaFoes } from './seafoes.js';
 
 // Mundo submarino: cúpulas de aire, burbujas de oxígeno, algas, peces, rayos de luz, cáusticas,
 // medusas que pican, corrientes que empujan, muros de coral que solo rompe el submarino, y el submarino.
@@ -21,6 +22,7 @@ export class Sea {
     (z.sea.currents || []).forEach(c => this._current(c));
     (z.sea.coralWalls || []).forEach(c => this._coralWall(c));
     if (z.sea.caustics) this._caustics(z.sea.caustics);
+    this.foes = new SeaFoes(world, z.sea, world.save); // tiburones, pulpos, erizos y medusas eléctricas
     this._motes();
     this.sub = this._buildSub(); this.sub.visible = false; this.root.add(this.sub);
     if (z.sea.subAt) { const [x, y, zz, rot] = z.sea.subAt; this.parked = new THREE.Vector3(x, y, zz); this.sub.position.copy(this.parked); this.sub.rotation.y = rot || 0; this.sub.visible = true; }

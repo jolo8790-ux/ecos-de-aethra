@@ -411,6 +411,11 @@ export class World {
       this._mesh(new THREE.CircleGeometry(0.4, 6), mat(0xbff4ff, { emissive: 0x4ad8ff, emissiveIntensity: 0.9, transparent: true, opacity: 0.6, side: THREE.DoubleSide }), 0, 0.2, 0, k);
       this._mesh(new THREE.TorusGeometry(0.4, 0.04, 6, 6), mat(0xe8fbff, { emissive: 0x7ae8ff, emissiveIntensity: 1.2 }), 0, 0.2, 0, k);
     }
+    if (model === 'helice') { // hélice dorada del submarino de Nerea
+      const hub = this._mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.22, 12), gold, 0, 0, 0, k); hub.rotation.x = Math.PI / 2;
+      for (let i = 0; i < 3; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, 0.04), gold); b.geometry.translate(0, 0.3, 0); b.rotation.z = i * Math.PI * 2 / 3; b.rotation.y = 0.35; k.add(b); }
+      k.scale.setScalar(1.4);
+    }
     if (model === 'key') {
       this._mesh(new THREE.TorusGeometry(0.13, 0.035, 8, 16), gold, 0, 0.14, 0, k);
       this._mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.36, 8), gold, 0, -0.14, 0, k);

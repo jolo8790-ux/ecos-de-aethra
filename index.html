@@ -25,6 +25,8 @@
   #drownFx.beat { animation: beat .5s ease-out; }
   @keyframes beat { 0% { filter: brightness(1.8) saturate(1.4); transform: scale(1.03); } 100% { filter: none; transform: scale(1); } }
   #blackout { position: fixed; inset: 0; pointer-events: none; z-index: 4; background: #000; opacity: 0; transition: opacity .4s; }
+  #airSecs { margin-left: 8px; font-weight: 800; font-size: 18px; color: #e8fbff; min-width: 40px; text-shadow: 0 2px 4px rgba(0,0,0,.5); }
+  #airSecs.urgent { color: #ff6a5a; animation: bgPulse .35s ease-in-out infinite alternate; }
   #airBar { position: fixed; left: 16px; top: 58px; display: flex; align-items: center; gap: 8px; z-index: 5; background: rgba(8,30,50,.55); padding: 6px 12px; border-radius: 14px; }
   #airBar .ic { font-size: 18px; color: #bff4ff; }
   #airBar .track { width: 140px; height: 10px; border-radius: 6px; background: rgba(255,255,255,.18); overflow: hidden; }
@@ -423,7 +425,7 @@
 <div id="underTint" class="hidden"></div>
 <div id="drownFx"></div>
 <div id="blackout"></div>
-<div id="airBar" class="hidden"><span class="ic">○</span><div class="track"><div id="airFill"></div></div></div>
+<div id="airBar" class="hidden"><span class="ic">○</span><div class="track"><div id="airFill"></div></div><span id="airSecs"></span></div>
 <div id="achv"><span id="achvIcon"></span><span><small>Logro conseguido</small><b id="achvTitle"></b><em id="achvDesc"></em></span></div>
 <div id="arenaHud" class="hidden">
   <div id="splitLine"></div><div class="splitTag" id="tagP1">Jugador 1</div><div class="splitTag" id="tagP2">Jugador 2</div>

@@ -351,9 +351,17 @@ export class Player {
     if (this.drowning) ty = -1.4;
     const k = Math.min(1, dt * (this.inSub ? 2.2 : 3.2));
     if (this.hurtT > 0) { this.vel.multiplyScalar(Math.pow(0.2, dt)); }
+    else if (this.swimDash > 0) { this.vel.x *= Math.pow(0.35, dt); this.vel.z *= Math.pow(0.35, dt); }
     else { this.vel.x += (tx - this.vel.x) * k; this.vel.z += (tz - this.vel.z) * k; this.vel.y += (ty - this.vel.y) * k; }
     if (Math.hypot(tx, tz) > 0.3) this.facing += angleDiff(Math.atan2(-tx, -tz), this.facing) * Math.min(1, dt * (this.inSub ? 3 : 7));
     this._wx = tx; this._wz = tz;
+    // estocada bajo el agua: un impulso corto hacia delante que daña a las criaturas que toca
+    this.swimDashCd = Math.max(0, (this.swimDashCd || 0) - dt); if (this.swimDash > 0) this.swimDash -= dt;
+    if (!locked && !this.inSub && input.pressed('attack') && this.swimDashCd <= 0) {
+      this.swimDash = 0.38; this.swimDashCd = 0.75; this.swimDashId = (this.swimDashId || 0) + 1;
+      const dx = -Math.sin(this.facing), dz = -Math.cos(this.facing); this.vel.x = dx * 12.5; this.vel.z = dz * 12.5; this.vel.y = up * 4;
+      this.audio.play('swing'); this.events.push({ type: 'swimdash' }); this.gesture('1H_Melee_Attack_Chop', { speed: 1.8 });
+    }
     this.attack = null; this.dodge = null; this.gliding = false; this.jumps = 0; this.airDashUsed = false; this.shielding = false;
     const f = this.flow || { x: 0, y: 0, z: 0 };
     const wasGrounded = this.grounded;

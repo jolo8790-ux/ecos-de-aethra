@@ -217,6 +217,11 @@ export class Audio {
         n('white', 0.4, { vol: 0.1, f: 5000, to: 1500, type: 'bandpass', q: 1.5 }); o('sine', 220, { to: 110, dur: 0.3, vol: 0.08 });
         break;
       case 'thaw': n('white', 0.35, { vol: 0.12, f: 6000, to: 2000, type: 'highpass' }); for (let i = 0; i < 6; i++) o('triangle', 1500 + Math.random() * 2500, { to: 700, dur: 0.15, vol: 0.03, delay: i * 0.03 }); break;
+      case 'zap': // descarga eléctrica de medusa: chasquidos y zumbido
+        o('sawtooth', 120, { to: 60, dur: 0.35, vol: 0.08, lp: 2400, vib: 40 });
+        for (let i = 0; i < 10; i++) n('white', 0.02, { vol: 0.08, f: 2500 + Math.random() * 5000, type: 'bandpass', q: 4, delay: Math.random() * 0.3 });
+        n('white', 0.3, { vol: 0.05, f: 5000, type: 'highpass' });
+        break;
       case 'tele': // telequinesis: zumbido mental que sube
         o('sine', 196, { to: 392, dur: 2.2, vol: 0.07, att: 0.25, vib: 6 }); o('sine', 199, { to: 398, dur: 2.2, vol: 0.05, att: 0.25 });
         o('sawtooth', 98, { to: 196, dur: 2.2, vol: 0.03, lp: 500, att: 0.3 });
