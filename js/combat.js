@@ -753,11 +753,14 @@ class Coloso {
     // anillo del garfio y repisa del pecho (solo mientras está atascado)
     const ringMat = new THREE.MeshStandardMaterial({ color: 0xffe27a, emissive: 0xffb02a, emissiveIntensity: 1.5, metalness: 0.5 });
     this.ring = mesh(new THREE.TorusGeometry(0.45, 0.09, 10, 24), ringMat, c.root); this.ring.visible = false; this.ringMat = ringMat;
+    this.ring.scale.setScalar(1.6); // anillo grande y con un haz de luz: se ve desde el suelo
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 7, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    beam.position.y = 3.5; this.ring.add(beam); beam.scale.setScalar(1 / 1.6); beam.position.y = 3.5 / 1.6;
     this.ledgeMesh = mesh(new THREE.BoxGeometry(1.8, 0.3, 1.8), brass, c.root); this.ledgeMesh.visible = false;
     this.ledge = null;
     const self = this;
     this.gp = { pos: new THREE.Vector3(), landAt: new THREE.Vector3(), land: true, get active() { return self.state === 'stuck'; }, onArrive: () => {} };
-    this.weak = { radius: 0.8, pos: new THREE.Vector3(), get hittable() { return (self.state === 'stuck') && self.stuckHits < 2; }, hit: () => self.wound() };
+    this.weak = { radius: 1.3, pos: new THREE.Vector3(), get hittable() { return (self.state === 'stuck') && self.stuckHits < 2; }, hit: () => self.wound() };
     this.weakPoints = [this.weak];
     this.tele = new THREE.Mesh(new THREE.CircleGeometry(2.4, 32), new THREE.MeshBasicMaterial({ color: 0xff4a2a, transparent: true, opacity: 0, depthWrite: false }));
     this.tele.rotation.x = -Math.PI / 2; c.root.add(this.tele);
@@ -829,7 +832,7 @@ class Coloso {
           R.sh.rotation.x = 0.72; this.tele.material.opacity = 0;
           const p = this.tele.position; this.c.vfx && this.c.vfx.shock(this.pos, 0xffe0a0, 7, 0.6); this.c.audio.play('stomp', this.pos); this.c.shake(0.7, 0.5); this.c.fx.dust(p, 20, 2, 0xb8a080);
           if (Math.hypot(pl.pos.x - p.x, pl.pos.z - p.z) < 2.5 && Math.abs(pl.pos.y - this.pos.y) < 1.5) pl.damage(1, p);
-          this.state = 'stuck'; this.st = 4.2; this.stuckHits = 0; this.eyeMat.emissive.setHex(0x3a5a6a);
+          this.state = 'stuck'; this.st = this.phase === 1 ? 7 : 5.5; this.stuckHits = 0; this.stuckMax = this.st; this.eyeMat.emissive.setHex(0x3a5a6a);
           const lp = this.local(0, 5.6, -2.45);
           this.ledge = this.c.physics.addBox(lp.x, lp.y - 0.15, lp.z, 1.8, 0.3, 1.8, { noCamera: true });
           this.ledgeMesh.position.set(lp.x, lp.y - 0.15, lp.z); this.ledgeMesh.rotation.y = this.facing; this.ledgeMesh.visible = true;

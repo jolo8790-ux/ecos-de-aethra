@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { HD, lavaMaterial, flameMaterial } from './hd.js';
+import { HD, lavaMaterial, flameMaterial, flameSheetMaterial } from './hd.js';
+import { glowTex, smokeTex } from './vfx.js';
 import { Traps } from './traps.js';
 
 // Peligros y plataformas especiales:
@@ -63,9 +64,57 @@ export class Hazards {
     const n = 36, geo = new THREE.BufferGeometry(), pos = new Float32Array(n * 3), col = new Float32Array(n * 3), seeds = [];
     for (let i = 0; i < n; i++) { seeds.push([Math.random() * Math.PI * 2, Math.random() * r, Math.random(), 0.7 + Math.random() * 0.6]); const c = new THREE.Color().setHSL(0.02 + Math.random() * 0.1, 1, 0.6); col.set([c.r, c.g, c.b], i * 3); }
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    const sparks = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.22, vertexColors: true, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
+    const sparks = new THREE.Points(geo, new THREE.PointsMaterial({ size: HD.on ? 0.32 : 0.22, map: HD.on ? glowTex() : null, vertexColors: true, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
     sparks.visible = false; g.add(sparks);
-    this.jets.push({ g, x, y, z, h, r, period, on, phase, flames, core, glowMat, sparks, geo, pos, seeds, hot: 0, was: 'off' });
+    const J = { g, x, y, z, h, r, period, on, phase, flames, core, glowMat, sparks, geo, pos, seeds, hot: 0, was: 'off' };
+    if (HD.on) this._jetHD(J);
+    this.jets.push(J);
+  }
+  // fuego HD: láminas de llama de cara a la cámara, lenguas de fuego que suben, humo y un resplandor en el suelo
+  _jetHD(J) {
+    const { g, r } = J;
+    J.flames.forEach(f => { f.visible = false; f.userData.off = true; });
+    J.sheets = [0, 1, 2].map(i => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), flameSheetMaterial(i === 0 ? 1.15 : 0.8, i * 3.7 + J.x));
+      m.renderOrder = 3; m.visible = false; m.userData.i = i; g.add(m);
+      m.onBeforeRender = (rd, sc, cam) => { const wp = J._wp || (J._wp = new THREE.Vector3()); g.getWorldPosition(wp); m.rotation.y = Math.atan2(cam.position.x - wp.x, cam.position.z - wp.z) + (m.userData.i - 1) * 0.5; m.updateMatrixWorld(); m.modelViewMatrix.multiplyMatrices(cam.matrixWorldInverse, m.matrixWorld); };
+      return m;
+    });
+    const ftex = glowTex(), stex = smokeTex();
+    J.puffs = []; J.smoke = [];
+    for (let i = 0; i < 16; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: ftex, color: 0xffa040, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); s.visible = false; g.add(s); J.puffs.push({ s, o: i / 16, a: Math.random() * 6.28, sp: 0.8 + Math.random() * 0.5 }); }
+    for (let i = 0; i < 8; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: stex, color: 0x2a2220, transparent: true, opacity: 0, depthWrite: false })); s.visible = false; g.add(s); J.smoke.push({ s, o: i / 8, a: Math.random() * 6.28 }); }
+    // resplandor en el suelo y en la boca
+    J.pool = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: ftex, color: 0xff6a1a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+    J.pool.rotation.x = -Math.PI / 2; J.pool.position.y = 0.4; J.pool.scale.setScalar(r * 7); g.add(J.pool);
+    J.halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: ftex, color: 0xff7a2a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); g.add(J.halo);
+  }
+  _jetHDUpdate(J, t, st) {
+    const hot = J.hot, h = J.h * hot, vis = hot > 0.03;
+    J.sheets.forEach((m, i) => {
+      m.visible = vis; if (!vis) return; m.material.uniforms.uTime.value = t;
+      const hh = Math.max(0.2, h * (1.08 - i * 0.12) * (0.94 + Math.sin(t * 13 + i * 2) * 0.06)), ww = J.r * (4.6 - i * 0.9) * (0.85 + hot * 0.15);
+      m.scale.set(ww, hh, 1); m.position.y = 0.3 + hh / 2;
+    });
+    for (const P of J.puffs) {
+      P.s.visible = vis; if (!vis) continue;
+      const k = (P.o + t * 1.15 * P.sp) % 1, rise = 0.4 + k * h * 1.05, sw = Math.sin(t * 5 + P.a) * J.r * 0.35 * k;
+      P.s.position.set(Math.cos(P.a + t) * J.r * 0.6 * (1 - k) + sw, rise, Math.sin(P.a + t) * J.r * 0.3 * (1 - k));
+      const sc = J.r * (2.6 - k * 1.2) * (0.7 + hot * 0.3); P.s.scale.setScalar(sc);
+      P.s.material.color.setHSL(0.09 - k * 0.08, 1, 0.5 - k * 0.25); P.s.material.opacity = (k < 0.1 ? k * 10 : 1 - k) * 0.6 * hot;
+    }
+    const smokeOn = hot > 0.2 || st === 'warn';
+    for (const S of J.smoke) {
+      S.s.visible = smokeOn || S.s.material.opacity > 0.01;
+      const k = (S.o + t * 0.35) % 1, top = Math.max(1.5, J.h * Math.max(hot, 0.25));
+      S.s.position.set(Math.sin(S.a + t * 0.6) * (0.3 + k * 1.2), top + k * 3.5, Math.cos(S.a + t * 0.5) * (0.3 + k * 1.2));
+      S.s.scale.setScalar(J.r * (1.4 + k * 3)); S.s.material.rotation = S.a + t * 0.3;
+      const target = (smokeOn ? (st === 'warn' ? 0.12 : 0.32) : 0) * Math.sin(k * Math.PI);
+      S.s.material.opacity += (target - S.s.material.opacity) * 0.15;
+    }
+    const warnGlow = st === 'warn' ? 0.35 + Math.sin(t * 30) * 0.25 : 0;
+    J.pool.material.opacity = Math.max(warnGlow, hot * (0.45 + Math.sin(t * 17) * 0.1));
+    J.halo.position.y = 0.6 + h * 0.3; J.halo.scale.setScalar(J.r * (3 + hot * 4)); J.halo.material.opacity = Math.max(warnGlow * 0.5, hot * 0.22 * (0.9 + Math.sin(t * 23) * 0.1));
   }
   // fase del chorro: 'off' | 'warn' (0.8 s antes) | 'burst'
   jetState(J, t = this.t) {
@@ -149,7 +198,7 @@ export class Hazards {
     const geo = new THREE.BufferGeometry(), pos = new Float32Array(n * 3), col = new Float32Array(n * 3), sd = [];
     for (let i = 0; i < n; i++) { sd.push([cx + (Math.random() - 0.5) * area, cz + (Math.random() - 0.5) * area, Math.random(), 0.3 + Math.random() * 0.7]); const c = new THREE.Color().setHSL(0.03 + Math.random() * 0.09, 1, 0.55 + Math.random() * 0.2); col.set([c.r, c.g, c.b], i * 3); }
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.18, vertexColors: true, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ size: HD.on ? 0.3 : 0.18, map: HD.on ? glowTex() : null, vertexColors: true, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
     pts.frustumCulled = false; this.root.add(pts);
     const H = y1 - y0;
     this.w.animated.push(t => {
@@ -188,7 +237,8 @@ export class Hazards {
       const target = st === 'burst' ? 1 : 0; J.hot += (target - J.hot) * Math.min(1, dt * (target ? 14 : 6));
       J.glowMat.emissiveIntensity = st === 'warn' ? 1.2 + Math.sin(t * 30) * 0.8 : 0.4 + J.hot * 2;
       const vis = J.hot > 0.03; J.sparks.visible = vis || st === 'warn';
-      J.flames.forEach((f, i) => { f.visible = vis; const hh = J.h * J.hot * (1 - i * 0.08) * (0.92 + Math.sin(t * 23 + i * 2) * 0.08); f.scale.set(1 + Math.sin(t * 17 + i) * 0.06, Math.max(0.01, hh), 1 + Math.cos(t * 19 + i) * 0.06); f.position.y = 0.4 + hh / 2; });
+      if (J.sheets) this._jetHDUpdate(J, t, st);
+      J.flames.forEach((f, i) => { f.visible = vis && !f.userData.off; const hh = J.h * J.hot * (1 - i * 0.08) * (0.92 + Math.sin(t * 23 + i * 2) * 0.08); f.scale.set(1 + Math.sin(t * 17 + i) * 0.06, Math.max(0.01, hh), 1 + Math.cos(t * 19 + i) * 0.06); f.position.y = 0.4 + hh / 2; });
       if (J.sparks.visible) {
         const hh = Math.max(1.2, J.h * J.hot);
         for (let i = 0; i < J.seeds.length; i++) { const [a, rr, o, s] = J.seeds[i]; const k = (o + t * 1.6 * s) % 1; const spread = 0.3 + k * 0.7; J.pos[i * 3] = Math.cos(a + t * 2) * rr * spread; J.pos[i * 3 + 1] = 0.4 + k * hh; J.pos[i * 3 + 2] = Math.sin(a + t * 2) * rr * spread; }

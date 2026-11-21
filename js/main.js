@@ -384,7 +384,7 @@ function enterZone(id, checkpointId) {
   const flag = id === 'puerto_bruma' ? 'intro' : 'intro_' + id;
   if (zone.story && zone.story.intro && !save.flags[flag]) {
     save.flags[flag] = true; writeSave(save);
-    setTimeout(() => { if (state === 'play') { startDialog(zone.story.intro, '', null, () => zone.story.onIntroEnd && zone.story.onIntroEnd(S)); startFlyover(); } }, 900);
+    setTimeout(() => { if (state === 'play') { startDialog(zone.story.intro, '', null, () => zone.story.onIntroEnd && zone.story.onIntroEnd(S), 'intro'); startFlyover(); } }, 900);
   }
 }
 
@@ -509,8 +509,28 @@ function lightLantern(it) {
 }
 
 // ---------- diálogos ----------
+// Tocar un Sello: estalla en luz (círculo de runas, ondas, columna de luz con espiral de chispas) y luego habla
+function selloFx(it) {
+  const p = it.pos.clone(), col = (zone._sendero && SENDEROS[zone.id] && SENDEROS[zone.id].crystal) || 0xbff4ff;
+  audio.play('unlock'); music.stinger('hallazgo'); combat.shake(0.35, 1.2); input.rumble(400, 0.6);
+  fx.rainbow(p.clone().setY(p.y + 1.5), 40); fx.sparkle(p.clone().setY(p.y + 1.2), 40, col);
+  if (vfx) {
+    vfx.circle(p, col, 4.2, 2.6); vfx.flash(p.clone().setY(p.y + 1.4), 0xffffff, 6, 0.5); vfx.burst(p.clone().setY(p.y + 1.4), col, 40, 1.6, 0.24);
+    vfx.ascend(p, col, 2.6, 1.7);
+    [0, 350, 700].forEach((ms, i) => setTimeout(() => { vfx.shock(p, i % 2 ? 0xffe7a0 : col, 7 + i * 2, 0.8); audio.play('crystal', p); }, ms));
+  }
+  if (it.mesh) { const m = it.mesh, y0 = m.position.y; let k = 0; const tick = () => { k += 1 / 60; m.rotation.y += 0.25; m.position.y = y0 + k * 2.2; m.scale.setScalar(Math.max(0.01, 1 + k * 0.6 - k * k * 1.2)); if (k < 1.3) requestAnimationFrame(tick); else m.visible = false; }; tick(); }
+  player.gesture('Cheer', { speed: 1.1 });
+}
 function openDialog(it) {
   const t = zone.story && zone.story.talk && zone.story.talk[it.id];
+  if (it._fx) return; // el Sello todavía está brillando
+  if (it.type === 'item' && /^sello_/.test(it.id) && !it._fxDone) {
+    it._fx = true; selloFx(it); player.frozen = true;
+    setTimeout(() => { player.frozen = false; it._fx = false; it._fxDone = true; if (state === 'play') openDialog(it); else it._fxDone = false; }, 1700);
+    return;
+  }
+  if (it._fxDone) { it._fxDone = false; const res = (t && t(S)) || { lines: it.lines }; startDialog(res.lines, it.who, it, res.then); return; }
   const res = (t && t(S)) || { lines: it.lines };
   if (it.type === 'item') player.gesture('PickUp', { speed: 1.3 });
   else if (it.type === 'trigger') player.gesture('Interact', { speed: 1.2 });
@@ -546,8 +566,76 @@ function adaptLine(l) {
   if (H.male) text = text.replace(/ya estás lista/g, 'ya estás listo').replace(/Ve tranquila/g, 'Ve tranquilo');
   return { ...l, who, text };
 }
-function startDialog(lines, defaultWho, it, then) {
-  const norm = lines.map(l => adaptLine(typeof l === 'string' ? { who: defaultWho, text: l } : l));
+// Cada personaje habla a su manera: una muletilla al empezar a hablar y frases propias al llegar a una isla,
+// antes y después de cada jefe y al tocar un Sello.
+const PERSONA = {
+  kael: { inter: ['Hmph.', 'Vale.', 'Sin prisa, pero sin pausa.', 'Ya veo.'],
+    intro: ['Silencioso... demasiado silencioso. Me gusta.', 'Nadie me verá llegar. Así es como trabajo.', 'Rápido y sin ruido: entro, encuentro el fragmento y salgo.'],
+    boss: ['Grande y lento. Justo como me gustan.', 'Tú pegas fuerte; yo soy más rápido.', 'No me alcanzarás ni una vez.'],
+    win: ['Demasiado fácil.', 'Ni un rasguño. Bueno... casi.', 'Siguiente.'],
+    sello: ['Ni las trampas me frenan.'] },
+  marta: { inter: ['¡Por todos los vientos!', '¡Rumbo firme!', 'Escucha a tu capitana.', '¡Ja!'],
+    intro: ['¡Tierra a la vista! Mi dirigible nunca falla.', 'Treinta años surcando cielos y esta isla aún me sorprende.', 'Tripulación de uno: yo. ¡Adelante!'],
+    boss: ['¡He capeado tormentas peores que tú!', '¡A sus puestos! Esto va a ser movido.', 'Ninguna bestia detiene a esta capitana.'],
+    win: ['¡Victoria! Esto lo apunto en el cuaderno de bitácora.', '¡Ja! ¡Así se navega!', 'Otra historia para contar en el puerto.'],
+    sello: ['¡Viento a favor! Ese Sello era mío.'] },
+  tomas: { inter: ['¡Uau!', '¡Ala!', '¡Qué pasada!', 'Eh... ¿vale?'],
+    intro: ['¡Esto es enorme! Cuando se lo cuente a todos no se lo van a creer.', '¡Huele raro! ¡Me encanta!', 'Seré pequeño, pero mi bastón pega fuerte.'],
+    boss: ['¡E-es gigante! ...¡Pero no tengo miedo! Bueno, un poquito.', '¡Ven aquí, grandullón!', '¡Mi bastón y yo contra ti!'],
+    win: ['¡LO HE HECHO! ¡¿Lo habéis visto?!', '¡Toma ya! ¡Soy un héroe de verdad!', '¡Choca esos cinco! ...Ah, que estoy solo.'],
+    sello: ['¡Ha sido como el mejor juego del mundo!'] },
+  nerea: { inter: ['Tranquila...', 'Respira hondo.', 'Mmm.', 'Como las mareas.'],
+    intro: ['Aquí arriba el aire pesa distinto que bajo el mar.', 'Las corrientes de esta isla cuentan historias. Hay que saber escucharlas.', 'Sin agua alrededor me siento rara... pero vamos.'],
+    boss: ['He visto criaturas más grandes en las fosas de Mareth.', 'Calma. Cada ola tiene su ritmo; la tuya también.', 'Contengo la respiración... y voy.'],
+    win: ['Como una ola que rompe y se va.', 'Ya está. Que el mar te acoja.', 'Respira. Lo hemos conseguido.'],
+    sello: ['Fluir, no forzar. Así se pasa cualquier sendero.'] },
+  brasa: { inter: ['¡Por el yunque!', '¡Ja!', '¡A martillazos!', '¡Fuego!'],
+    intro: ['Esta isla necesita más calor. Y yo lo traigo.', 'Huelo a metal viejo. Aquí hay cosas que forjar.', '¡Que tiemble la isla, que llega la herrera!'],
+    boss: ['¡Te voy a dejar más plano que una herradura!', 'He doblado acero más duro que tu caparazón.', '¡A la forja contigo!'],
+    win: ['¡Bien templado! Esa pelea tenía buen acero.', '¡Ja! Ni sudé. Bueno, sí: soy herrera.', 'Esto lo funde todo.'],
+    sello: ['¡Caliente, caliente! Ese Sello ya es mío.'] },
+  ilan: { inter: ['Ah...', 'Lo recuerdo bien.', 'Ay, ay, ay.', 'Paciencia.'],
+    intro: ['Hacía tanto que no pisaba esta isla... sigue igual de hermosa.', 'Cuando era joven crucé estos caminos con tu abuela. ¡Qué tiempos!', 'Los ecos me reconocen. Me están esperando.'],
+    boss: ['Te sellé una vez. Puedo volver a hacerlo.', 'Viejo, sí. Lento, nunca.', 'Muchos años de aventuras me miran desde estos huesos.'],
+    win: ['Ya descansa, criatura.', 'Ah, todavía me queda fuerza en el bastón.', 'Igual que en los viejos tiempos.'],
+    sello: ['Las rodillas me crujen... pero el sendero es mío.'] },
+  // estilos de tu heroína
+  encapuchada: { inter: ['Shh...', 'Mmm.', 'En silencio.', 'Bien.'],
+    intro: ['Entre sombras se ve lo que otros no ven.', 'Nadie sabe quién soy. Mejor así.', 'La capucha bien puesta. Vamos.'],
+    boss: ['No me verás venir.', 'Las sombras están de mi lado.', 'Un golpe certero basta.'],
+    win: ['Desaparece como una sombra al mediodía.', 'Silencio otra vez. Perfecto.', 'Hecho. Nadie lo sabrá.'],
+    sello: ['Ni una trampa me ha rozado.'] },
+  maga: { inter: ['Interesante...', 'Según mis libros...', 'Fascinante.', '¡Oh!'],
+    intro: ['Siento la magia del Eco latiendo en esta isla.', 'Tomaré notas. Esta isla merece un capítulo entero.', 'Las runas de aquí son antiquísimas... ¡qué maravilla!'],
+    boss: ['Conozco el hechizo perfecto para ti.', 'Teoría aprendida. Ahora, la práctica.', '¡Por la luz del Eco!'],
+    win: ['Exactamente como predijeron mis cálculos.', 'La magia nunca falla si se estudia.', 'Un experimento muy exitoso.'],
+    sello: ['Una secuencia de saltos perfectamente calculada.'] },
+  caballera: { inter: ['¡Por Aethra!', 'Con honor.', 'Firme.', '¡A la carga!'],
+    intro: ['Mi armadura brilla y mi juramento también: protegeré esta isla.', 'Ninguna amenaza quedará en pie mientras yo esté aquí.', 'Caballera de Aethra, a su servicio.'],
+    boss: ['¡En guardia, bestia!', '¡Por mi honor, caerás!', 'Mi escudo no retrocede.'],
+    win: ['¡Victoria con honor!', 'Una batalla digna de canciones.', 'Descansa, criatura. Has luchado bien.'],
+    sello: ['Un sendero digno de una caballera.'] },
+};
+const STYLE_PERSONA = { kael: 'encapuchada', marta: 'maga', tomas: 'caballera' };
+function heroPersona() {
+  if (!save) return null;
+  if (save.hero && save.hero !== 'lia') return PERSONA[save.hero] ? { p: PERSONA[save.hero], name: HERO_SWAP[save.hero] ? HERO_SWAP[save.hero].name : 'Lía' } : null;
+  const st = save.custom && save.custom.estilo, k = STYLE_PERSONA[st];
+  return k ? { p: PERSONA[k], name: 'Lía' } : null;
+}
+const hashStr = str => { let h = 7; for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0; return Math.abs(h); };
+function flavorDialog(norm, ctx) {
+  const P = heroPersona(); if (!P || !norm.length) return norm;
+  const me = P.name, seed = hashStr(norm.map(l => l.text).join('|') + zone.id), pick = a => a[seed % a.length];
+  const out = norm.slice(), mine = out.findIndex(l => l.who === me);
+  if (mine >= 0 && seed % 3 !== 0) out[mine] = { ...out[mine], text: `${pick(P.p.inter)} ${out[mine].text}` };
+  const pool = ctx === 'intro' ? P.p.intro : ctx === 'boss' ? P.p.boss : ctx === 'win' ? P.p.win : ctx === 'sello' ? P.p.sello : null;
+  if (pool) { const line = { who: me, text: pick(pool) }; if (ctx === 'intro' && mine >= 0) out.splice(mine + 1, 0, line); else out.push(line); }
+  return out;
+}
+function startDialog(lines, defaultWho, it, then, ctx) {
+  if (!ctx && it && /^sello_/.test(it.id || '')) ctx = 'sello';
+  const norm = flavorDialog(lines.map(l => adaptLine(typeof l === 'string' ? { who: defaultWho, text: l } : l)), ctx);
   dialog = { lines: norm, i: 0, shown: 0, full: '', it, then };
   state = 'dialog';
   player.frozen = true;
@@ -1045,7 +1133,7 @@ function setSub(on, silent) {
 // el viento del Sello: fundido, aparecer junto al farol de vuelta y guardar allí
 function warpTo(cp) {
   $('fade').style.opacity = 1; player.frozen = true; fx.rainbow(player.pos.clone().setY(player.pos.y + 1), 30);
-  setTimeout(() => { save.checkpoint = cp; respawn(cp); writeSave(save); player.frozen = false; $('fade').style.opacity = 0; toast('El viento del Sello te devolvió al camino'); }, 700);
+  setTimeout(() => { save.checkpoint = cp; respawn(cp); writeSave(save); player.frozen = false; $('fade').style.opacity = 0; toast('El viento del Sello te devolvió al camino'); fx.sparkle(player.pos.clone().setY(player.pos.y + 1), 30, 0xbff4ff); if (vfx) { vfx.circle(player.pos, 0xbff4ff, 2.6, 1.6); vfx.ascend(player.pos, 0xbff4ff, 1.4, 1); } }, 700);
 }
 function startDeath() {
   if (state === 'dead') return;
@@ -1092,7 +1180,7 @@ function updateGrapple() {
     if (_v.z < 1) {
       hint.style.display = 'block';
       hint.style.left = `${(_v.x * 0.5 + 0.5) * innerWidth}px`; hint.style.top = `${(-_v.y * 0.5 + 0.5) * innerHeight}px`;
-      $('hookKey').textContent = input.usingGamepad ? 'RB' : input.isTouch ? 'GARFIO' : 'G';
+      $('hookKey').textContent = input.usingGamepad ? input.padIcon('grapple') : input.isTouch ? 'GARFIO' : 'G';
     } else hint.style.display = 'none';
     if (input.pressed('grapple')) player.startGrapple(hookTarget);
   } else hint.style.display = 'none';
@@ -1104,7 +1192,7 @@ function checkRegions() {
   const B = zone.boss;
   if (B && combat.boss && combat.boss.state === 'sleep' && inBox(player.pos, B.region)) {
     bossActive = true;
-    startDialog(zone.story.bossIntro, '', null, () => { combat.boss.wake(); bossHurt = false; });
+    startDialog(zone.story.bossIntro, '', null, () => { combat.boss.wake(); bossHurt = false; }, 'boss');
   }
 }
 combat.onBossDefeated = () => {
@@ -1113,7 +1201,7 @@ combat.onBossDefeated = () => {
   else if (!isAutoMode() && addTo('guardianes', zone.id) >= 5) logro('cinco_guardianes');
   music.stinger('victoria'); addEcos(ECO_REWARD.jefe);
   bossActive = false;
-  setTimeout(() => { startDialog(zone.story.bossDefeated, '', null, () => { zone.story.onBossDefeated && zone.story.onBossDefeated(S); player.gesture('Cheer', { speed: 1.2 }); }); }, 300);
+  setTimeout(() => { startDialog(zone.story.bossDefeated, '', null, () => { zone.story.onBossDefeated && zone.story.onBossDefeated(S); player.gesture('Cheer', { speed: 1.2 }); }, 'win'); }, 300);
 };
 combat.onBossClang = () => { if (!hintClang) { hintClang = true; toast({ bosque_colgante: 'El tronco es demasiado duro. ¡Golpea los nudos brillantes de las raíces!', ruinas_vidrio: 'Su caparazón es irrompible. Haz que choque contra un pilar.', ciudad_engranajes: 'El latón es demasiado duro. Espera a que se atasque tras el puñetazo.', glaciar_eco: 'Está demasiado alto. Devuélvele un orbe de hielo con el escudo (mantén V).', ciudadela_orden: 'La barrera de sombra lo protege. Rómpela con el pulso de luz (Z) o devolviéndole un orbe con el escudo.' }[zone.id] || 'Demasiado duro'); } };
 combat.onKill = e => {
@@ -1135,6 +1223,64 @@ combat.onLockHit = L => { world.openLock(L); if (L.flag) S.set(L.flag); audio.pl
 combat.onAuraClang = () => { if (!hintAura) { hintAura = true; toast(player.canPulse ? 'Un aura de sombra lo protege. ¡Usa el pulso de luz (Z)!' : 'Un aura de sombra lo protege.'); } };
 combat.onBonus = pos => { if (!isAutoMode() && !challenge && save) addEcos(1, pos); };
 combat.onBossStun = () => { if (!hintStun) { hintStun = true; toast({ ruinas_vidrio: '¡Está aturdido! Golpea el cristal de su cola', ciudad_engranajes: '¡Se quedó atascado! Lanza el garfio al anillo de su pecho', glaciar_eco: '¡Cayó al suelo! Golpea el cuerno de cristal', ciudadela_orden: '¡Su barrera se rompió! Golpéalo ahora' }[zone.id] || '¡Ahora!'); } };
+// Guía del jefe: qué hacer en cada momento + una flecha sobre lo que hay que golpear o alcanzar
+const keyOf = a => input.usingGamepad ? input.padIcon(a) : input.isTouch ? { attack: 'GOLPE', dodge: 'ESQUIVA', jump: 'SALTO', grapple: 'GARFIO', shield: 'ESCUDO', pulse: 'PULSO' }[a] : { attack: 'J / clic', dodge: 'K', jump: 'Espacio', grapple: 'G', shield: 'V (mantén)', pulse: 'Z' }[a];
+let guideArrow = null;
+function bossGuide(b) {
+  const K = a => `[${keyOf(a)}]`, type = zone.boss && zone.boss.type, st = b.state;
+  if (st === 'intro' || st === 'dying' || st === 'dead') return null;
+  if (type === 'raiz') {
+    const r = (b.roots || []).find(x => x.hittable);
+    return r ? { now: true, text: `¡Una raíz salió! Golpea su nudo brillante ${K('attack')}`, at: r.pos.clone().setY(r.pos.y + 1.2) }
+      : { text: 'Aléjate de los círculos rojos: de ahí salen raíces. Cuando salga una, golpea su nudo naranja.' };
+  }
+  if (type === 'escorpion') {
+    if (st === 'stunned') return { now: true, text: `¡Está aturdido! Corre a su cola y golpea el cristal ${K('attack')}`, at: b.weak.pos.clone() };
+    if (st === 'sweep') return { now: true, text: `¡Rayo láser! Sáltalo ${K('jump')}` };
+    const P = (combat.world && combat.world.pillars || world.pillars || []).filter(p => p.alive);
+    let near = null, d = Infinity; for (const p of P) { const q = Math.hypot(p.pos.x - player.pos.x, p.pos.z - player.pos.z); if (q < d) { d = q; near = p; } }
+    return { text: `Ponte delante de un pilar de cristal. Cuando embista, esquiva ${K('dodge')} y chocará contra el pilar.`, at: near ? near.pos.clone().setY(near.pos.y + 3.2) : null };
+  }
+  if (type === 'coloso') {
+    if (st === 'stuck') {
+      const onTop = player.pos.y - b.pos.y > 4;
+      return onTop ? { now: true, text: `¡Golpea el núcleo azul de su pecho! ${K('attack')}`, at: b.weak.pos.clone() }
+        : { now: true, text: `¡Se quedó atascado! Mira al anillo dorado y lanza el garfio ${K('grapple')}`, at: b.gp.pos.clone() };
+    }
+    if (st === 'stomp') return { text: `¡Ondas de choque! Sáltalas ${K('jump')} cuando lleguen.` };
+    if (st === 'raise' || st === 'slam') return { now: true, text: `¡Va a dar un puñetazo! Sal del círculo rojo ${K('dodge')}` };
+    return { text: 'Su armadura es irrompible. Espera su puñetazo: se le quedará el brazo atascado en el suelo.' };
+  }
+  if (type === 'sierpe') {
+    if (st === 'downed') return { now: true, text: `¡Cayó! Golpea el cuerno de cristal ${K('attack')}`, at: b.weak.pos.clone() };
+    return { text: `Cuando lance un orbe de hielo, mantén el escudo ${K('shield')} mirando hacia él para devolvérselo.` };
+  }
+  if (type === 'vaelor' || type === 'eco') {
+    if (st === 'exposed') return { now: true, text: `¡Sin barrera! Golpéalo ahora ${K('attack')}`, at: b.pos.clone().setY(b.pos.y + 2.6) };
+    return { text: `Rompe su barrera: usa el pulso de luz ${K('pulse')} cerca de él, o devuélvele un orbe con el escudo ${K('shield')}.` };
+  }
+  return null;
+}
+function updateBossGuide(b, show, dt) {
+  const g = show && state === 'play' ? bossGuide(b) : null;
+  $('bossGuide').style.display = g ? '' : 'none';
+  if (g) { $('bossGuideT').textContent = g.text; $('bossGuide').classList.toggle('now', !!g.now); }
+  if (!guideArrow) {
+    guideArrow = new THREE.Group();
+    const m = new THREE.MeshBasicMaterial({ color: 0xffe27a, transparent: true, opacity: 0.95, depthTest: false });
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.9, 4), m); cone.rotation.x = Math.PI; cone.position.y = 0.45; cone.renderOrder = 999; guideArrow.add(cone);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.06, 8, 24), m); ring.rotation.x = Math.PI / 2; ring.position.y = -0.2; ring.renderOrder = 999; guideArrow.add(ring);
+    guideArrow.userData.ring = ring; scene.add(guideArrow);
+  }
+  if (guideArrow.parent !== scene) scene.add(guideArrow);
+  guideArrow.visible = !!(g && g.at);
+  if (guideArrow.visible) {
+    const t = performance.now() / 1000;
+    guideArrow.position.copy(g.at).setY(g.at.y + 1.1 + Math.abs(Math.sin(t * 4)) * 0.45); guideArrow.rotation.y = t * 2;
+    guideArrow.children.forEach(c => c.material.color.setHex(g.now ? 0x9ff0ff : 0xffe27a));
+    guideArrow.userData.ring.scale.setScalar(1 + (t * 1.5 % 1) * 0.8);
+  }
+}
 function updateCombatHUD() {
   if (player.hp !== lastHp || player._lastMax !== player.maxHp) {
     lastHp = player.hp; player._lastMax = player.maxHp;
@@ -1144,6 +1290,7 @@ function updateCombatHUD() {
   const show = b && (b.state === 'intro' || b.fighting || b.state === 'dying');
   $('bossbar').classList.toggle('hidden', !show);
   if (show) { $('bossName').textContent = b.name; $('bossFill').style.width = `${Math.max(0, b.hp / b.maxHp) * 100}%`; }
+  updateBossGuide(b, show);
 }
 
 // ---------- UI ----------

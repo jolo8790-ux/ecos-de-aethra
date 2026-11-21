@@ -515,6 +515,32 @@ export function flameMaterial(strength = 1) {
   });
 }
 
+// llama de frente a la cámara: forma de lágrima con bordes que se deshilachan, núcleo blanco y lenguas que suben
+export function flameSheetMaterial(strength = 1, seed = 0) {
+  return new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    uniforms: { uTime: { value: 0 }, uStr: { value: strength }, uSeed: { value: seed } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: NOISE + `uniform float uTime; uniform float uStr; uniform float uSeed; varying vec2 vUv;
+      void main(){
+        float y = vUv.y, x = (vUv.x - 0.5) * 2.0;
+        float t = uTime * 2.6 + uSeed;
+        float n = hdFbm(vec2(vUv.x * 3.0 + uSeed, y * 2.2 - t));
+        float n2 = hdFbm(vec2(vUv.x * 7.0 - uSeed, y * 4.5 - t * 1.7));
+        float sway = (n - 0.5) * 0.5 * y;                      // la llama ondea más arriba
+        float w = mix(0.95, 0.08, pow(y, 0.8)) * (0.75 + n2 * 0.5); // ancha abajo, fina arriba
+        float d = abs(x + sway) / max(w, 0.02);
+        float shape = smoothstep(1.0, 0.25, d) * smoothstep(0.0, 0.06, y) * smoothstep(1.0, 0.55, y + (n2 - 0.5) * 0.5);
+        float core = smoothstep(0.45, 0.0, d) * smoothstep(0.6, 0.05, y + n * 0.3);
+        float heat = clamp(core * 1.2 + (1.0 - y) * 0.35, 0.0, 1.0);
+        vec3 col = mix(vec3(0.75, 0.08, 0.01), vec3(1.0, 0.42, 0.05), smoothstep(0.05, 0.45, heat));
+        col = mix(col, vec3(1.0, 0.82, 0.35), smoothstep(0.45, 0.8, heat));
+        col = mix(col, vec3(1.0, 0.93, 0.7), smoothstep(0.88, 1.0, heat));
+        float a = shape * (0.55 + n2 * 0.7) * uStr;
+        gl_FragColor = vec4(col * a * 0.85, a);
+      }`,
+  });
+}
 // ---------- agua: olas en dos direcciones, reflejo del cielo en ángulo (Fresnel), brillo del sol ----------
 export function waterMaterial({ shallow = 0x3fc2d8, deep = 0x0d4f7a, sky = 0xcfe8ff, opacity = 0.88, scale = 1 } = {}) {
   return new THREE.ShaderMaterial({

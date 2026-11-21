@@ -101,6 +101,24 @@ export class VFX {
       this.spark(new THREE.Vector3(pos.x + Math.cos(a) * rr, pos.y + 0.1, pos.z + Math.sin(a) * rr), new THREE.Vector3(0, 2 + Math.random() * 3, 0), color, 0.18, 0.6 + Math.random() * 0.5, 0, 0.5);
     }
   }
+  // columna de luz que sube con una espiral de chispas (al tocar un Sello)
+  ascend(pos, color = 0xbff4ff, dur = 2.4, r = 1.6) {
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.55, r, 22, 24, 1, true), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    col.position.set(pos.x, pos.y + 11, pos.z);
+    const core = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.18, r * 0.3, 22, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+    col.add(core);
+    let acc = 0;
+    this._add(col, dur, (k, dt) => {
+      const a = k < 0.15 ? k / 0.15 : k > 0.7 ? 1 - (k - 0.7) / 0.3 : 1;
+      col.material.opacity = 0.32 * a; core.material.opacity = 0.7 * a; col.scale.set(0.6 + a * 0.4, 0.2 + Math.min(1, k * 4) * 0.8, 0.6 + a * 0.4);
+      col.position.y = pos.y + 11 * col.scale.y; col.rotation.y += dt * 2;
+      acc += dt; while (acc > 0.02 && k < 0.8) { acc -= 0.02;
+        const t = k * dur * 7, rr = r * (1.1 + Math.random() * 0.4);
+        this.spark(new THREE.Vector3(pos.x + Math.cos(t) * rr, pos.y + 0.2, pos.z + Math.sin(t) * rr), new THREE.Vector3(-Math.sin(t) * 1.5, 5 + Math.random() * 4, Math.cos(t) * 1.5), Math.random() < 0.3 ? 0xffffff : color, 0.22, 1.1 + Math.random() * 0.6, 0, 0.1);
+        this.spark(new THREE.Vector3(pos.x - Math.cos(t) * rr, pos.y + 0.2, pos.z - Math.sin(t) * rr), new THREE.Vector3(Math.sin(t) * 1.5, 5 + Math.random() * 4, -Math.cos(t) * 1.5), 0xffe7a0, 0.18, 1.1 + Math.random() * 0.6, 0, 0.1);
+      }
+    });
+  }
   // onda de choque que se expande sobre el suelo
   shock(pos, color = 0xffffff, r = 4, life = 0.5, y = 0.08) {
     const m = new THREE.Mesh(this.plane, addMat(ringTex(), color, 1));
