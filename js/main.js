@@ -93,6 +93,7 @@ renderer.domElement.addEventListener('webglcontextrestored', () => {
 Object.assign(sun.shadow.camera, { left: -28, right: 28, top: 28, bottom: -28, near: 1, far: 140 });
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
 scene.add(sun, sun.target);
+const SH_D = new THREE.Vector3(-18, -30, -10).normalize(), SH_R = new THREE.Vector3().crossVectors(SH_D, new THREE.Vector3(0, 1, 0)).normalize(), SH_U = new THREE.Vector3().crossVectors(SH_R, SH_D), _shq = new THREE.Vector3();
 
 // cielo con degradado
 const skyMat = new THREE.ShaderMaterial({
@@ -511,7 +512,7 @@ function lightLantern(it) {
 // ---------- diálogos ----------
 // Tocar un Sello: estalla en luz (círculo de runas, ondas, columna de luz con espiral de chispas) y luego habla
 function selloFx(it) {
-  const p = it.pos.clone(), col = (zone._sendero && SENDEROS[zone.id] && SENDEROS[zone.id].crystal) || 0xbff4ff;
+  const p = it.pos.clone(), col = (/^sello_/.test(it.id) && SENDEROS[zone.id] && SENDEROS[zone.id].crystal) || 0xbff4ff;
   audio.play('unlock'); music.stinger('hallazgo'); combat.shake(0.35, 1.2); input.rumble(400, 0.6);
   fx.rainbow(p.clone().setY(p.y + 1.5), 40); fx.sparkle(p.clone().setY(p.y + 1.2), 40, col);
   if (vfx) {
@@ -519,13 +520,13 @@ function selloFx(it) {
     vfx.ascend(p, col, 2.6, 1.7);
     [0, 350, 700].forEach((ms, i) => setTimeout(() => { vfx.shock(p, i % 2 ? 0xffe7a0 : col, 7 + i * 2, 0.8); audio.play('crystal', p); }, ms));
   }
-  if (it.mesh) { const m = it.mesh, y0 = m.position.y; let k = 0; const tick = () => { k += 1 / 60; m.rotation.y += 0.25; m.position.y = y0 + k * 2.2; m.scale.setScalar(Math.max(0.01, 1 + k * 0.6 - k * k * 1.2)); if (k < 1.3) requestAnimationFrame(tick); else m.visible = false; }; tick(); }
+  if (it.crystal) { const m = it.crystal; let k = 0; const tick = () => { k += 1 / 60; m.userData.spin = (m.userData.spin || 0) + 0.25 + k * 0.4; m.userData.lift = k * 2.2; m.scale.setScalar(Math.max(0.01, 1 + k * 0.6 - k * k * 1.2)); if (k < 1.3) requestAnimationFrame(tick); else m.visible = false; }; tick(); }
   player.gesture('Cheer', { speed: 1.1 });
 }
 function openDialog(it) {
   const t = zone.story && zone.story.talk && zone.story.talk[it.id];
   if (it._fx) return; // el Sello todavía está brillando
-  if (it.type === 'item' && /^sello_/.test(it.id) && !it._fxDone) {
+  if (it.type === 'item' && (it.model === 'bigshard' || /^sello_/.test(it.id)) && !it._fxDone) { // Sellos y grandes fragmentos: estallido de luz antes de hablar
     it._fx = true; selloFx(it); player.frozen = true;
     setTimeout(() => { player.frozen = false; it._fx = false; it._fxDone = true; if (state === 'play') openDialog(it); else it._fxDone = false; }, 1700);
     return;
@@ -2281,8 +2282,12 @@ function simulate(dt) {
   for (let i = pulseFx.length - 1; i >= 0; i--) if (pulseFx[i].done) pulseFx.splice(i, 1);
   const wantFov = 60 + player.anim.runW * 5 * (state === 'play' ? 1 : 0);
   if (Math.abs(camera.fov - wantFov) > 0.01) { camera.fov += (wantFov - camera.fov) * Math.min(1, dt * 4); camera.updateProjectionMatrix(); }
-  sun.position.set(player.pos.x + 18, player.pos.y + 30, player.pos.z + 10);
-  sun.target.position.copy(player.pos);
+  { // la sombra sigue a la protagonista en saltos de un texel: así no tiembla ni parpadea al moverse
+    const P = player.pos, tx = (sun.shadow.camera.right - sun.shadow.camera.left) / sun.shadow.mapSize.x;
+    const a = Math.round(P.dot(SH_R) / tx) * tx, b = Math.round(P.dot(SH_U) / tx) * tx, c = P.dot(SH_D);
+    const q = _shq.copy(SH_R).multiplyScalar(a).addScaledVector(SH_U, b).addScaledVector(SH_D, c);
+    sun.position.set(q.x + 18, q.y + 30, q.z + 10); sun.target.position.copy(q);
+  }
   sky.position.copy(camera.position);
 
   if (toastT > 0 && (toastT -= dt) <= 0) $('toast').style.opacity = 0;

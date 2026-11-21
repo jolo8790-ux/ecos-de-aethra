@@ -286,7 +286,7 @@ export class World {
     }
     if (HD.on && Math.min(w, d, h) > 0.35) { // bordes redondeados
       const rb = Math.min(0.28, Math.min(w, d, h - capH) * 0.18);
-      this._mesh(new RoundedBoxGeometry(w, h - capH, d, 3, rb), mat(color), x, y - capH - (h - capH) / 2, z);
+      this._mesh(new RoundedBoxGeometry(w, h - capH, d, 3, rb), mat(color), x, y - capH - (h - capH) / 2 + 0.03, z); // +3 cm: no se funde con el suelo
       const hsl = {}; new THREE.Color(cap || 0).getHSL(hsl);
       if (cap && hsl.h > 0.5 && hsl.h < 0.62 && hsl.s > 0.5) { // agua (fuentes, estanques)
         const wm = waterMaterial({ shallow: 0x5fd0e8, deep: 0x1a6f9a, sky: 0xe6f6ff, opacity: 0.9, scale: 3 });
@@ -419,8 +419,8 @@ export class World {
     }
     const glow = new THREE.PointLight(0xffd27a, 1.2, 4, 2); glow.position.y = 0.8; g.add(glow);
     const baseY = k.position.y;
-    this.animated.push(t => { k.rotation.y = t * 1.6; k.position.y = baseY + Math.sin(t * 2.2) * 0.08; });
-    this.interactables.push({ id, type: 'item', pos: new THREE.Vector3(x, y, z), radius, verb, who: '', lines: [], mesh: g, when, headY: 0.8 });
+    this.animated.push(t => { k.rotation.y = t * 1.6 + (k.userData.spin || 0); k.position.y = baseY + Math.sin(t * 2.2) * 0.08 + (k.userData.lift || 0); });
+    this.interactables.push({ id, type: 'item', model, crystal: k, pos: new THREE.Vector3(x, y, z), radius, verb, who: '', lines: [], mesh: g, when, headY: 0.8 });
   }
 
   _trigger({ id, x, y = 0, z, radius = 1.8, verb = 'Usar', name = '', lines = [], when }) {

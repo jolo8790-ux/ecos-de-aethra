@@ -378,6 +378,7 @@ export class HeroModelAnimator {
 
     restorePose(this.ch);
     this.ch.mixer.update(0.0001); // aplica los pesos y tiempos fijados a mano
+    relaxArms(this.ch);
     savePose(this.ch);
 
     // derrape
@@ -435,6 +436,22 @@ export class HeroModelAnimator {
 // La mezcladora de Three.js solo escribe un hueso cuando su valor animado cambia. Como la cabeza
 // y el pecho se giran a mano después, hay que devolverlos a la pose animada antes de cada mezcla:
 // si no, el giro se acumula fotograma a fotograma y la cabeza da vueltas o se cae.
+// Los modelos generados heredan las animaciones de KayKit, que corren con los brazos muy abiertos (sus cuerpos son anchos).
+// Aquí se bajan los brazos hacia el cuerpo, girándolos sobre el eje frontal del personaje: corren y esperan con naturalidad.
+const _aq = new THREE.Quaternion(), _pq = new THREE.Quaternion(), _mq = new THREE.Quaternion(), _ax = new THREE.Vector3();
+export function relaxArms(ch, amount = 0.64) {
+  if (typeof window !== 'undefined' && window.__relax != null) amount = window.__relax;
+  const m = ch.model; if (!m || !m.userData.hipsY) return;
+  if (!ch._arms) ch._arms = [['upperarml', -1], ['upperarmr', 1]].map(([n, sg]) => [findBone(m, n), sg]).filter(a => a[0]);
+  if (!ch._arms.length) return;
+  m.getWorldQuaternion(_mq); _ax.set(0, 0, 1).applyQuaternion(_mq);
+  for (const [b, sg] of ch._arms) {
+    b.parent.getWorldQuaternion(_pq);
+    _aq.setFromAxisAngle(_ax, sg * amount);
+    // local' = padre⁻¹ · R · padre · local
+    b.quaternion.premultiply(_pq).premultiply(_aq).premultiply(_pq.invert());
+  }
+}
 export function restorePose(ch) { for (const b of [ch.bones.head, ch.bones.chest]) if (b && b.userData.baseQ) b.quaternion.copy(b.userData.baseQ); }
 export function savePose(ch) { for (const b of [ch.bones.head, ch.bones.chest]) if (b) (b.userData.baseQ || (b.userData.baseQ = new THREE.Quaternion())).copy(b.quaternion); }
 
@@ -492,6 +509,7 @@ export class NpcModelAnimator {
     this.b.apply(dt, { Idle: 1 }, 8);
     restorePose(ch);
     ch.mixer.update(0.0001);
+    relaxArms(ch);
     savePose(ch);
 
     let tyaw = 0, tpitch = 0;

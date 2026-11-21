@@ -377,6 +377,8 @@ export function organicIsland({ w, d, top, depth, rock = true, seed = 0, sideMat
   const shape = new THREE.Shape(out.map(p => new THREE.Vector2(p.x, -p.z)));
   const topGeo = new THREE.ShapeGeometry(shape); topGeo.rotateX(-Math.PI / 2);
   { const p = topGeo.attributes.position, uv = topGeo.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, p.getX(i) / 3, p.getZ(i) / 3); }
+  // el suelo cede ante cualquier cosa apoyada a su misma altura (muelles, losas, caminos): sin parpadeo
+  topMat.polygonOffset = true; topMat.polygonOffsetFactor = 1; topMat.polygonOffsetUnits = 4;
   const topM = new THREE.Mesh(topGeo, topMat); topM.position.y = top; topM.receiveShadow = true; g.add(topM);
   // --- borde de pasto que cuelga (faldón) ---
   const lip = [], lipUv = [], lipIdx = [];
