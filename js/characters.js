@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { HD, rigGenerated, setSkeletonClone, genClips, HD_CHARS } from './hd.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+import { glbBuffer, shrinkTextures, LOW_MEM } from './glbload.js';
 
 // Personajes con malla y esqueleto reales (KayKit Adventurers, CC0, de Kay Lousberg)
 // y animaciones compartidas en un solo archivo (assets/characters/anims.glb).
@@ -15,9 +16,7 @@ export async function loadCharacterLibrary(onProgress) {
   const total = MODELS.length + 1;
   // Los modelos van dentro de módulos .js (base64) para poder publicarse como página; se decodifican aquí.
   const load = async f => {
-    const mod = await import(`../${BASE}${f}.glb.js`);
-    const bin = Uint8Array.from(atob(mod.default), ch => ch.charCodeAt(0));
-    const g = await loader.parseAsync(bin.buffer, '');
+    const g = await loader.parseAsync(await glbBuffer(new URL(`../${BASE}${f}.glb.js`, import.meta.url)), '');
     done++; onProgress && onProgress(done / total);
     return g;
   };
@@ -30,9 +29,8 @@ export async function loadCharacterLibrary(onProgress) {
     lib.genClips = {}; lib.swap = {};
     for (const C of HD_CHARS) {
       try {
-        const mod = await import(`../assets/props/${C.id}.glb.js`);
-        const bin = Uint8Array.from(atob(mod.default), ch => ch.charCodeAt(0));
-        const g = await loader.parseAsync(bin.buffer, '');
+        const g = await loader.parseAsync(await glbBuffer(new URL(`../assets/props/${C.id}.glb.js`, import.meta.url)), '');
+        if (LOW_MEM) shrinkTextures(g.scene, 1024);
         const m = rigGenerated(g.scene, lib.models[C.replaces] || lib.models.lia, C.id === 'heroina' ? 'Heroina' : C.id);
         lib.models[C.id] = m; lib.genClips[C.id] = genClips(lib.clips, m.userData.hipsY); lib.swap[C.replaces] = C.id;
         if (C.id === 'tomas_hd') LOOKS.tomas.scale = 0.96; // el caballero HD a la altura de los demás

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { glbBuffer, shrinkTextures, LOW_MEM } from './glbload.js';
 
 // Modelos 3D generados (Hunyuan3D 2.1, ver tools/gen3d). Cada uno vive en assets/props/<id>.glb.js.
 // Si un modelo falta o no carga, el juego usa la pieza hecha con primitivas de siempre.
@@ -14,9 +15,9 @@ export async function loadProps(onProgress) {
   let done = 0;
   await Promise.all(list.map(async id => {
     try {
-      const mod = await import(`${BASE}${id}.glb.js`);
-      const bin = Uint8Array.from(atob(mod.default), ch => ch.charCodeAt(0));
-      const g = await loader.parseAsync(bin.buffer, '');
+      const buf = await glbBuffer(new URL(`${BASE}${id}.glb.js`, import.meta.url));
+      const g = await loader.parseAsync(buf, '');
+      if (LOW_MEM) shrinkTextures(g.scene, 512); // en el teléfono: texturas a 512 px (cuatro veces menos memoria)
       prepare(g.scene);
       cache[id] = g.scene;
     } catch (e) { console.warn('prop', id, e); }
