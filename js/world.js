@@ -336,7 +336,7 @@ export class World {
     const g = new THREE.Group(); g.position.set(x, base, z); this.root.add(g);
     const rh0 = Math.min(w, d) * 0.45;
     if (this._model('casa', { x: w + 0.7, y: h + rh0 + 0.2, z: d + 0.7 }, 0, 0, 0, { parent: g, rotY: door === 'z+' ? 0 : Math.PI })) {
-      this.physics.addBox(x, base + h / 2, z, w, h, d);
+      this.physics.addBox(x, base + h / 2, z, w + 0.5, h, d + 0.5); // la huella completa del modelo (arbustos y zócalo incluidos)
       this.physics.addBox(x, base + h + rh0 * 0.25, z, w * 0.5, rh0 * 0.5, d + 0.6);
       return;
     }
@@ -918,19 +918,19 @@ export class World {
     const g = new THREE.Group(); g.position.set(x, y, z); g.scale.setScalar(s); this.root.add(g);
     if (HD.on) {
       fluffyTree(g, null, { leaf: this.zone && this.zone.hdLeaf || 0x5fa83e, seed: x * 0.7 + z }); g.rotation.y = (x * 7 + z * 3) % 6.28;
-      this.physics.addBox(x, y + 0.8 * s, z, 0.5 * s, 1.6 * s, 0.5 * s, { noCamera: true });
+      this.physics.addBox(x, y + 1.1 * s, z, 1.3 * s, 2.2 * s, 1.3 * s, { noCamera: true }); // tronco y copa baja: no se atraviesa el follaje
       const ph = Math.random() * 6; this.animated.push(t => { g.rotation.z = Math.sin(t * 1.3 + ph) * 0.015; });
       return;
     }
     if (this._model('arbol', { h: 3.6 }, 0, 0, 0, { parent: g, rotY: (x * 7 + z * 3) % 6.28 })) {
-      this.physics.addBox(x, y + 0.8 * s, z, 0.5 * s, 1.6 * s, 0.5 * s, { noCamera: true });
+      this.physics.addBox(x, y + 1.1 * s, z, 1.3 * s, 2.2 * s, 1.3 * s, { noCamera: true }); // tronco y copa baja: no se atraviesa el follaje
       const ph = Math.random() * 6; this.animated.push(t => { g.rotation.z = Math.sin(t * 1.3 + ph) * 0.015; });
       return;
     }
     this._mesh(new THREE.CylinderGeometry(0.18, 0.26, 1.6, 7), mat(C.woodDark), 0, 0.8, 0, g);
     [[0, 2.1, 0, 1.1], [0.5, 1.7, 0.2, 0.75], [-0.45, 1.8, -0.2, 0.8], [0, 2.8, 0, 0.7]].forEach(([a, b, c, r]) =>
       this._mesh(new THREE.IcosahedronGeometry(r, 0), mat(C.grassDark, { flatShading: true }), a, b, c, g));
-    this.physics.addBox(x, y + 0.8 * s, z, 0.5 * s, 1.6 * s, 0.5 * s, { noCamera: true });
+    this.physics.addBox(x, y + 1.1 * s, z, 1.3 * s, 2.2 * s, 1.3 * s, { noCamera: true }); // tronco y copa baja: no se atraviesa el follaje
     const ph = Math.random() * 6;
     this.animated.push(t => { g.rotation.z = Math.sin(t * 1.3 + ph) * 0.015; });
   }
