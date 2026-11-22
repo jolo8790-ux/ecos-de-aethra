@@ -35,7 +35,7 @@ import { Powers, POWERS, loadout, powerUnlocked, powerPoints, powerById, ENERGY_
 import { Net } from './net.js';
 import { Endless, ENDLESS_ZONE } from './endless.js';
 import { runIntro } from './intro.js';
-import { HD, patchRim, upgradeSky, GradeShader, warmZone, skyEnvironment } from './hd.js';
+import { HD, patchRim, upgradeSky, GradeShader, InkShader, warmZone, skyEnvironment } from './hd.js';
 import { VFX } from './vfx.js';
 import { Reef } from './reef.js';
 patchRim();
@@ -74,7 +74,7 @@ const QUALITY = {
   media: { ratio: 1, shadows: true, soft: false, map: 1024, fx: 1, grade: true },
   baja: { ratio: 0.75, shadows: false, soft: false, map: 512, fx: 0.5 },
 };
-let qualityNow = '';
+let qualityNow = '', inkPass = null;
 let composer = null, bloomLoading = false, bloomPass = null; // resplandor (bloom) en calidad Alta
 const aq = { t: 0, n: 0, slow: 0 };
 
@@ -2166,9 +2166,18 @@ async function ensureBloom() {
       import('three/addons/postprocessing/EffectComposer.js'), import('three/addons/postprocessing/RenderPass.js'),
       import('three/addons/postprocessing/UnrealBloomPass.js'), import('three/addons/postprocessing/OutputPass.js'),
       import('three/addons/postprocessing/ShaderPass.js')]);
-    const c = new EffectComposer(renderer);
+    // el búfer de la escena guarda también la profundidad, para dibujar los contornos de tinta
+    const rt = new THREE.WebGLRenderTarget(innerWidth, innerHeight, { type: THREE.HalfFloatType });
+    rt.depthTexture = new THREE.DepthTexture(innerWidth, innerHeight); rt.depthTexture.type = THREE.UnsignedIntType;
+    const c = new EffectComposer(renderer, rt);
+    { c.renderTarget2.depthTexture = new THREE.DepthTexture(innerWidth, innerHeight); c.renderTarget2.depthTexture.type = THREE.UnsignedIntType; } // cada búfer, su propia profundidad (un clon compartiría la misma en la GPU)
     c.addPass(new RenderPass(scene, camera));
-    bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), HD.on ? 0.8 : 0.5, HD.on ? 0.6 : 0.55, HD.on ? 0.88 : 0.82); // HD: más resplandor en hechizos y brillos
+    inkPass = new ShaderPass(InkShader);
+    const inkRender = inkPass.render.bind(inkPass);
+    inkPass.render = (r, w, rd, dt, mask) => { const U = inkPass.uniforms; U.tDepth.value = rd.depthTexture; U.near.value = camera.near; U.far.value = camera.far; const pr = renderer.getPixelRatio(); U.texel.value.set(1 / (innerWidth * pr), 1 / (innerHeight * pr)); U.thick.value = Math.max(1, pr * 0.9); inkRender(r, w, rd, dt, mask); };
+    inkPass.enabled = !!(QUALITY[qualityNow] && QUALITY[qualityNow].grade) && settings.ink !== false;
+    c.addPass(inkPass);
+    bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), HD.on ? 0.85 : 0.55, HD.on ? 0.55 : 0.5, HD.on ? 0.9 : 0.84); // HD: más resplandor en hechizos y brillos
     bloomPass.enabled = !!(QUALITY[qualityNow] && QUALITY[qualityNow].bloom);
     c.addPass(bloomPass);
     c.addPass(new OutputPass());

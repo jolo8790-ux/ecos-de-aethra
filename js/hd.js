@@ -30,7 +30,7 @@ export function patchRim() {
     float hdRim = pow( 1.0 - clamp( dot( normal, hdV ), 0.0, 1.0 ), 3.0 );
     vec3 hdUp = normalize( ( viewMatrix * vec4( 0.0, 1.0, 0.0, 0.0 ) ).xyz );
     hdRim *= 1.0 - smoothstep( 0.35, 0.8, dot( normal, hdUp ) ); // el suelo no se ilumina de borde
-    totalEmissiveRadiance += vec3( 1.0, 0.82, 0.6 ) * hdRim * 0.09;
+    totalEmissiveRadiance += vec3( 1.0, 0.72, 0.95 ) * hdRim * 0.16; // borde de luz rosado-dorado: los personajes «saltan» del fondo
   }
   #endif
   `;
@@ -156,8 +156,30 @@ export function makeCumulus(rnd, { tint = 0xffffff, sunCol = new THREE.Color(0xf
 }
 
 // ---------- corrección de color (paso de post-proceso) ----------
+// Tinta de dibujo animado: contornos donde la profundidad cambia de golpe (siluetas de personajes, rocas, casas…).
+// Líneas violeta oscuro, no negras, como en las ilustraciones de colores intensos; se desvanecen a lo lejos.
+export const InkShader = {
+  uniforms: { tDiffuse: { value: null }, tDepth: { value: null }, texel: { value: new THREE.Vector2(1 / 1280, 1 / 720) }, near: { value: 0.1 }, far: { value: 600 }, thick: { value: 1.25 }, ink: { value: new THREE.Color(0x1c0b30) }, strength: { value: 0.85 } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+  fragmentShader: /* glsl */`
+  uniform sampler2D tDiffuse, tDepth; uniform vec2 texel; uniform float near, far, thick, strength; uniform vec3 ink; varying vec2 vUv;
+  float lin(vec2 uv){ float z = texture2D(tDepth, uv).x * 2.0 - 1.0; return (2.0 * near * far) / (far + near - z * (far - near)); }
+  void main(){
+    vec4 c = texture2D(tDiffuse, vUv);
+    vec2 o = texel * thick;
+    float d0 = lin(vUv);
+    float d1 = lin(vUv + vec2(o.x, 0.0)), d2 = lin(vUv - vec2(o.x, 0.0)), d3 = lin(vUv + vec2(0.0, o.y)), d4 = lin(vUv - vec2(0.0, o.y));
+    // diferencia relativa: un salto grande de profundidad respecto a la del píxel = borde
+    float dmin = min(d0, min(min(d1, d2), min(d3, d4)));
+    float diff = (max(abs(d1 - d0), max(abs(d2 - d0), max(abs(d3 - d0), abs(d4 - d0))))) / max(dmin, 0.5);
+    float e = smoothstep(0.08, 0.22, diff);
+    e *= 1.0 - smoothstep(45.0, 120.0, dmin);   // a lo lejos, sin tinta (evita ruido)
+    gl_FragColor = vec4(mix(c.rgb, ink, e * strength), c.a);
+  }`,
+};
+
 export const GradeShader = {
-  uniforms: { tDiffuse: { value: null }, warmth: { value: 0.07 }, sat: { value: 1.14 }, contrast: { value: 1.1 }, vig: { value: 0.38 }, lift: { value: new THREE.Color(0x1a1230) } },
+  uniforms: { tDiffuse: { value: null }, warmth: { value: 0.06 }, sat: { value: 1.3 }, contrast: { value: 1.15 }, vig: { value: 0.42 }, lift: { value: new THREE.Color(0x2a0f4a) } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
   fragmentShader: /* glsl */`
   uniform sampler2D tDiffuse; uniform float warmth, sat, contrast, vig; uniform vec3 lift; varying vec2 vUv;
@@ -166,11 +188,13 @@ export const GradeShader = {
     vec3 col = c.rgb;
     float l = dot(col, vec3(0.299,0.587,0.114));
     col = mix(vec3(l), col, sat);                       // saturación
+    { float mx = max(col.r, max(col.g, col.b)), mn = min(col.r, min(col.g, col.b)), cs = mx - mn; // «vibrance»: aviva más los colores apagados
+      col = mix(vec3(dot(col, vec3(0.299,0.587,0.114))), col, 1.0 + (1.0 - smoothstep(0.0, 0.5, cs)) * 0.35); }
     col = (col - 0.5) * contrast + 0.5;                 // contraste
     col += vec3(warmth, warmth*0.35, -warmth*0.6) * smoothstep(0.35, 1.0, l); // luces cálidas
-    col += lift * 0.12 * (1.0 - smoothstep(0.0, 0.45, l));                    // sombras violetas
-    col += vec3(-0.025, 0.012, 0.04) * (1.0 - smoothstep(0.05, 0.55, l));   // sombras frías (look de cine: luces cálidas, sombras azuladas)
-    vec2 d = vUv - 0.5; col *= 1.0 - vig * smoothstep(0.35, 0.85, length(d * vec2(1.15, 1.0)));
+    col += lift * 0.22 * (1.0 - smoothstep(0.0, 0.5, l));                     // sombras violeta-magenta (estilo ilustración)
+    col += vec3(0.05, 0.015, -0.03) * smoothstep(0.55, 1.0, l);               // luces anaranjadas
+    vec2 d = vUv - 0.5; float vg = vig * smoothstep(0.35, 0.85, length(d * vec2(1.15, 1.0))); col = mix(col, col * vec3(0.55, 0.35, 0.75), vg); // viñeta violeta
     gl_FragColor = vec4(clamp(col, 0.0, 1.0), c.a);
   }`,
 };
@@ -184,6 +208,9 @@ export function warmZone(zone, skyMat, scene, hemi, sun) {
   skyMat.uniforms.bottom.value.setHex(zone.sky.bottom).lerp(warm, k);
   skyMat.uniforms.top.value.setHex(zone.sky.top).lerp(deep, 0.15);
   skyMat.uniforms.horizon.value.copy(warm).lerp(new THREE.Color(0xffb27a), 0.3);
+  // cielos más vivos: más saturación en lo alto y un toque violeta, como las ilustraciones de colores intensos
+  const pump = (c, k) => { const h = {}; c.getHSL(h); c.setHSL(h.h, Math.min(1, h.s * k), h.l); };
+  pump(skyMat.uniforms.top.value.lerp(new THREE.Color(0x5a4cff), 0.12), 1.35); pump(skyMat.uniforms.bottom.value, 1.2); pump(skyMat.uniforms.horizon.value, 1.25);
   if (scene.fog) { scene.fog.color.setHex(zone.sky.fog).lerp(warm, k * 0.8); scene.fog.near *= 1.3; scene.fog.far *= 1.6; }
   sun.color.lerp(new THREE.Color(0xffd2a0), 0.3); sun.intensity = 1.9;
   hemi.color.lerp(new THREE.Color(0xbcd4ff), 0.2); hemi.groundColor.lerp(new THREE.Color(0x6a5a7a), 0.25);
