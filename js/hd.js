@@ -179,7 +179,7 @@ export const InkShader = {
 };
 
 export const GradeShader = {
-  uniforms: { tDiffuse: { value: null }, warmth: { value: 0.06 }, sat: { value: 1.3 }, contrast: { value: 1.15 }, vig: { value: 0.42 }, lift: { value: new THREE.Color(0x2a0f4a) } },
+  uniforms: { tDiffuse: { value: null }, warmth: { value: 0.07 }, sat: { value: 1.42 }, contrast: { value: 1.2 }, vig: { value: 0.5 }, lift: { value: new THREE.Color(0x3a0f6a) } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
   fragmentShader: /* glsl */`
   uniform sampler2D tDiffuse; uniform float warmth, sat, contrast, vig; uniform vec3 lift; varying vec2 vUv;
@@ -187,13 +187,15 @@ export const GradeShader = {
     vec4 c = texture2D(tDiffuse, vUv);
     vec3 col = c.rgb;
     float l = dot(col, vec3(0.299,0.587,0.114));
+    col = pow(max(col, 0.0), vec3(1.18));             // medios tonos más profundos: de pastel a color rico
+    l = dot(col, vec3(0.299,0.587,0.114));
     col = mix(vec3(l), col, sat);                       // saturación
     { float mx = max(col.r, max(col.g, col.b)), mn = min(col.r, min(col.g, col.b)), cs = mx - mn; // «vibrance»: aviva más los colores apagados
       col = mix(vec3(dot(col, vec3(0.299,0.587,0.114))), col, 1.0 + (1.0 - smoothstep(0.0, 0.5, cs)) * 0.35); }
     col = (col - 0.5) * contrast + 0.5;                 // contraste
     col += vec3(warmth, warmth*0.35, -warmth*0.6) * smoothstep(0.35, 1.0, l); // luces cálidas
-    col += lift * 0.22 * (1.0 - smoothstep(0.0, 0.5, l));                     // sombras violeta-magenta (estilo ilustración)
-    col += vec3(0.05, 0.015, -0.03) * smoothstep(0.55, 1.0, l);               // luces anaranjadas
+    col += lift * 0.34 * (1.0 - smoothstep(0.0, 0.55, l));                    // sombras violeta-magenta (estilo ilustración)
+    col += vec3(0.07, 0.02, -0.04) * smoothstep(0.5, 1.0, l);                 // luces anaranjadas
     vec2 d = vUv - 0.5; float vg = vig * smoothstep(0.35, 0.85, length(d * vec2(1.15, 1.0))); col = mix(col, col * vec3(0.55, 0.35, 0.75), vg); // viñeta violeta
     gl_FragColor = vec4(clamp(col, 0.0, 1.0), c.a);
   }`,
@@ -210,7 +212,12 @@ export function warmZone(zone, skyMat, scene, hemi, sun) {
   skyMat.uniforms.horizon.value.copy(warm).lerp(new THREE.Color(0xffb27a), 0.3);
   // cielos más vivos: más saturación en lo alto y un toque violeta, como las ilustraciones de colores intensos
   const pump = (c, k) => { const h = {}; c.getHSL(h); c.setHSL(h.h, Math.min(1, h.s * k), h.l); };
-  pump(skyMat.uniforms.top.value.lerp(new THREE.Color(0x5a4cff), 0.12), 1.35); pump(skyMat.uniforms.bottom.value, 1.2); pump(skyMat.uniforms.horizon.value, 1.25);
+  pump(skyMat.uniforms.top.value.lerp(new THREE.Color(0x4a2aa8), 0.38), 1.45);           // lo alto: violeta intenso
+  pump(skyMat.uniforms.bottom.value.lerp(new THREE.Color(0xff7ab0), 0.18), 1.35);        // abajo: rosado
+  pump(skyMat.uniforms.horizon.value.lerp(new THREE.Color(0xff9a4a), 0.3), 1.4);         // horizonte: naranja encendido
+  if (scene.fog) pump(scene.fog.color.lerp(new THREE.Color(0xc98ad8), 0.2), 1.3);
+  hemi.groundColor.lerp(new THREE.Color(0x6a2a8a), 0.35);                                // rebote violeta en las sombras
+  sun.color.lerp(new THREE.Color(0xffc080), 0.25);
   if (scene.fog) { scene.fog.color.setHex(zone.sky.fog).lerp(warm, k * 0.8); scene.fog.near *= 1.3; scene.fog.far *= 1.6; }
   sun.color.lerp(new THREE.Color(0xffd2a0), 0.3); sun.intensity = 1.9;
   hemi.color.lerp(new THREE.Color(0xbcd4ff), 0.2); hemi.groundColor.lerp(new THREE.Color(0x6a5a7a), 0.25);

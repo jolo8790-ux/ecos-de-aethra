@@ -2175,7 +2175,7 @@ async function ensureBloom() {
     inkPass = new ShaderPass(InkShader);
     const inkRender = inkPass.render.bind(inkPass);
     inkPass.render = (r, w, rd, dt, mask) => { const U = inkPass.uniforms; U.tDepth.value = rd.depthTexture; U.near.value = camera.near; U.far.value = camera.far; const pr = renderer.getPixelRatio(); U.texel.value.set(1 / (innerWidth * pr), 1 / (innerHeight * pr)); U.thick.value = Math.max(1, pr * 0.9); inkRender(r, w, rd, dt, mask); };
-    inkPass.enabled = !!(QUALITY[qualityNow] && QUALITY[qualityNow].grade) && settings.ink !== false;
+    inkPass.enabled = settings.ink === true; // contornos de tinta: apagados (se veía demasiado «dibujado»)
     c.addPass(inkPass);
     bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), HD.on ? 0.85 : 0.55, HD.on ? 0.55 : 0.5, HD.on ? 0.9 : 0.84); // HD: más resplandor en hechizos y brillos
     bloomPass.enabled = !!(QUALITY[qualityNow] && QUALITY[qualityNow].bloom);
