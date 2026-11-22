@@ -4,6 +4,8 @@
 // Si la página no puede conectarse (abierta fuera de claude.ai), usa un canal entre pestañas de este
 // navegador para que se pueda jugar abriendo el juego dos veces.
 
+// servidor propio (Cloudflare): se usa cuando el juego se abre fuera de claude.ai
+export const SERVER = (typeof window !== 'undefined' && window.AETHRA_SERVER) || 'wss://aethra-salas.rocketrip-jolo8790.workers.dev';
 const EV_KEEP = 14; // sucesos recientes que viajan en la presencia (se repiten hasta que caducan: nada se pierde)
 
 export class Net {
@@ -12,8 +14,8 @@ export class Net {
     this.lastSeq = {}; this.handlers = []; this.closed = false; this.sendT = 0;
     this.chats = []; this.cseq = 0; this.lastChat = {}; this.chatHandlers = [];
   }
-  static async open(code) {
-    const n = new Net(); const name = 'arena-' + code.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20);
+  static async open(code, prefix = 'arena-') {
+    const n = new Net(); const name = prefix + String(code).toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 24);
     let lobby = null;
     try { if (window.claude && window.claude.use) lobby = await Promise.race([window.claude.use('room'), new Promise(r => setTimeout(() => r(null), 6000))]); } catch (e) { lobby = null; }
     if (lobby) {
@@ -26,6 +28,8 @@ export class Net {
         return n;
       } catch (e) { console.warn('Sala no disponible, se usa el canal local', e); }
     }
+    // fuera de claude.ai: el servidor de salas de Ecos de Aethra (WebSocket)
+    if (SERVER && typeof WebSocket !== 'undefined') { try { if (await n._ws(name)) return n; } catch (e) { console.warn('Servidor de salas no disponible', e); } }
     // canal local entre pestañas
     n.kind = 'local'; n.me = 'p' + Math.random().toString(36).slice(2, 10);
     const bc = new BroadcastChannel('aethra-' + name); n.bc = bc; const seen = {};
@@ -39,7 +43,24 @@ export class Net {
     n._local();
     return n;
   }
-  get connected() { return this.kind === 'local' ? true : !!(this.room && this.room.connected()); }
+  _ws(name) {
+    return new Promise(res => {
+      let done = false; const fin = ok => { if (!done) { done = true; res(ok); } };
+      const others = new Map(); this.kind = 'ws'; this._wsName = name;
+      const ws = new WebSocket(`${SERVER}/room/${name}`); this.ws = ws;
+      const t = setTimeout(() => { try { ws.close(); } catch (e) {} fin(false); }, 15000); // generoso: al cargar una isla el teléfono puede estar ocupado unos segundos
+      ws.onmessage = e => {
+        let d; try { d = JSON.parse(e.data); } catch (er) { return; }
+        if (d.t === 'hi') { this.me = d.id; for (const p of d.peers || []) others.set(p.id, p.p || {}); clearTimeout(t); fin(true); }
+        else if (d.t === 'p') others.set(d.id, d.p || {});
+        else if (d.t === 'bye') others.delete(d.id);
+        this.peersList = [{ id: this.me, me: true, pres: this.myPres }, ...[...others].map(([id, pres]) => ({ id, me: false, pres }))];
+      };
+      ws.onclose = () => { clearTimeout(t); fin(false); if (!this.closed && done) setTimeout(() => { if (!this.closed) this._ws(this._wsName); }, 2000); }; // se reconecta sola
+      ws.onerror = () => {};
+    });
+  }
+  get connected() { return this.kind === 'local' ? true : this.kind === 'ws' ? !!(this.ws && this.ws.readyState === 1) : !!(this.room && this.room.connected()); }
   // todos los jugadores de la sala (yo incluido)
   peers() { if (this._local) this._local(); return this.peersList.filter(p => p.me || (p.pres && p.pres.n)); }
   others() { return this.peers().filter(p => !p.me); }
@@ -61,6 +82,7 @@ export class Net {
       this.sendT = 1 / 15;
       this.myPres.ev = this.evs; this.myPres.cm = this.chats;
       if (this.kind === 'room') this.room.presence(this.myPres).catch(() => {});
+      else if (this.kind === 'ws') { if (this.ws && this.ws.readyState === 1) try { this.ws.send(JSON.stringify({ t: 'p', p: this.myPres })); } catch (e) {} }
       else { try { this.bc.postMessage({ peer: this.me, pres: JSON.parse(JSON.stringify(this.myPres)) }); } catch (e) {} }
     }
     // sucesos nuevos de los demás
@@ -82,6 +104,7 @@ export class Net {
   close() {
     this.closed = true;
     try { if (this.room) this.room.leave(); } catch (e) {}
+    try { if (this.ws) this.ws.close(); } catch (e) {}
     try { if (this.bc) { this.bc.postMessage({ peer: this.me, bye: true }); this.bc.close(); } } catch (e) {}
   }
 }

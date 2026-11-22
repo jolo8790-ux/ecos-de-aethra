@@ -335,6 +335,9 @@
   .powSlots button.sel { border-style: solid; border-color: #7ad7ff; background: rgba(122,215,255,.15); }
   .powSlots b { display: block; font-size: 22px; } .powSlots small { font-size: 12px; opacity: .8; }
   /* ---- chat ---- */
+  #netChat { position: fixed; inset: 0; pointer-events: none; z-index: 6; } body.cine #netChat { display: none; }
+  #onlineBadge { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); background: rgba(10,16,30,.6); color: #dff3ff; font-size: 13px; padding: 4px 12px; border-radius: 12px; z-index: 6; pointer-events: none; }
+  body.cine #onlineBadge { display: none; }
   #chatBox { position: absolute; left: 14px; bottom: 16px; width: min(380px, 60vw); display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
   #chatLog { display: flex; flex-direction: column; gap: 3px; max-height: 40vh; overflow: hidden; justify-content: flex-end; }
   #chatLog div { background: rgba(10,16,30,.55); padding: 4px 10px; border-radius: 10px; font-size: 14px; line-height: 1.3; width: fit-content; max-width: 100%; word-wrap: break-word; transition: opacity 1s; }
@@ -430,6 +433,10 @@
 <div id="blackout"></div>
 <div id="airBar" class="hidden"><span class="ic">○</span><div class="track"><div id="airFill"></div></div><span id="airSecs"></span></div>
 <div id="achv"><span id="achvIcon"></span><span><small>Logro conseguido</small><b id="achvTitle"></b><em id="achvDesc"></em></span></div>
+<div id="netChat">
+  <div id="chatBox"><div id="chatLog"></div><div id="chatQuick"></div><div id="chatRow"><input id="chatInput" maxlength="100" placeholder="Escribe y pulsa Enter" autocomplete="off"><button class="btn small" id="bChatSend">Enviar</button></div></div>
+  <button class="btn alt small hidden" id="chatBtn">💬 Chat (Enter)</button>
+</div>
 <div id="arenaHud" class="hidden">
   <div id="splitLine"></div><div class="splitTag" id="tagP1">Jugador 1</div><div class="splitTag" id="tagP2">Jugador 2</div>
   <div id="arenaTop"><div id="arenaMode"></div><div id="arenaInfo"></div></div>
@@ -437,8 +444,6 @@
   <div id="arenaBoard"></div>
   <div id="arenaMsg"></div>
   <div id="arenaBoss" class="hidden">Jefe de la oleada<div class="tr"><div id="arenaBossFill"></div></div></div>
-  <div id="chatBox"><div id="chatLog"></div><div id="chatQuick"></div><div id="chatRow"><input id="chatInput" maxlength="100" placeholder="Escribe y pulsa Enter" autocomplete="off"><button class="btn small" id="bChatSend">Enviar</button></div></div>
-  <button class="btn alt small hidden" id="chatBtn">💬 Chat (Enter)</button>
   <div id="arenaPauseBox" class="hidden"><h2>Arena</h2><div class="sub" id="arenaPauseNote"></div><button class="btn" id="bArenaResume">Seguir</button><button class="btn warn" id="bArenaLeave">Salir de la Arena</button></div>
   <div id="arenaEnd" class="hidden"><h2 id="arenaEndTitle"></h2><div class="sub" id="arenaEndSub"></div><ul id="arenaEndList"></ul><div id="arenaEndRewards"></div>
     <div class="row2"><button class="btn" id="bArenaAgain">Otra ronda</button><button class="btn alt" id="bArenaEndLeave">Salir</button></div><div class="sub hidden" id="arenaEndWait">Esperando a que el anfitrión empiece otra ronda…</div></div>
@@ -653,6 +658,7 @@
   <div class="panel hidden" id="settingsPanel">
     <label>Sensibilidad de cámara <input type="range" id="sSens" min="0.3" max="2.5" step="0.1"></label>
     <label>Invertir eje vertical <input type="checkbox" id="sInv"></label>
+    <label>Jugar en línea (ver a otros jugadores y chat, tecla T) <input type="checkbox" id="sOnline"></label>
     <label>Volumen general <input type="range" id="sVol" min="0" max="1" step="0.05"></label>
     <label>Música <input type="range" id="sMus" min="0" max="1" step="0.05"></label>
     <label>Calidad gráfica <select id="sQual" class="diffSel"><option value="auto">Automática</option><option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja (teléfonos viejos)</option></select></label>

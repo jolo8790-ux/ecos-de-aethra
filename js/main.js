@@ -31,6 +31,7 @@ import { applySenderos, SENDEROS } from './zones/senderos.js';
 import { HEROES, heroById, heroLook, heroUnlocked } from './heroes.js';
 import { ZONE_PIECES, MISIONES, PIECE_TOTAL, piecesOf, pieceCount, pieceHearts, pieceBreakable, newlyDone, givePiece, bumpMax as bumpMaxL } from './piezas.js';
 import { Arena, ARENA_MODES, wireChat } from './arena.js';
+import { WorldNet } from './worldnet.js';
 import { Powers, POWERS, loadout, powerUnlocked, powerPoints, powerById, ENERGY_MAX } from './powers.js';
 import { Net } from './net.js';
 import { Endless, ENDLESS_ZONE } from './endless.js';
@@ -2134,12 +2135,13 @@ $('bImport').onclick = () => {
 function applySettings() {
   cam.settings.sens = settings.sens; cam.settings.invert = settings.invert; audio.volume = settings.volume; music.setVolume(settings.music ?? 0.6);
   if (!challenge) applyPartida();
-  $('sSens').value = settings.sens; $('sInv').checked = settings.invert; $('sVol').value = settings.volume; $('sMus').value = settings.music ?? 0.6; $('sDbg').checked = settings.debug;
+  $('sSens').value = settings.sens; $('sInv').checked = settings.invert; if ($('sOnline')) $('sOnline').checked = settings.online !== false; $('sVol').value = settings.volume; $('sMus').value = settings.music ?? 0.6; $('sDbg').checked = settings.debug;
   $('debug').classList.toggle('hidden', !settings.debug);
   $('sQual').value = settings.quality || 'auto'; applyQuality();
 }
 $('sSens').oninput = e => { settings.sens = +e.target.value; writeSettings(settings); applySettings(); };
 $('sInv').onchange = e => { settings.invert = e.target.checked; writeSettings(settings); applySettings(); };
+$('sOnline').onchange = e => { settings.online = e.target.checked; writeSettings(settings); if (!settings.online) worldNet.setZone(null); };
 $('sVol').oninput = e => { settings.volume = +e.target.value; writeSettings(settings); applySettings(); };
 // ---------- calidad gráfica ----------
 // alta: resolución nítida y sombras suaves · media: resolución normal y sombras simples · baja: sin sombras, menos resolución y partículas
@@ -2255,6 +2257,11 @@ function simulate(dt) {
   else if (input.pressed('pause') && state === 'arena') arena.togglePause();
   if (input.pressed('heroes') && state === 'play' && !challenge) openHeroes('play');
   if (state === 'arena') arena.update(dt);
+  { // mundo compartido: sala de la isla actual (no en desafíos, Aethra sin fin, modo Automático ni pantalla dividida)
+    const zid = save && zone && state !== 'title' && state !== 'arena' && !challenge && !isAutoMode() && !splitView && !(endless.active && endless.inZone) ? zone.id : null;
+    worldNet.setZone(zid); // la sala solo cambia al cambiar de isla (no en cada diálogo o pausa)
+    if (zid && (state === 'play' || state === 'dialog' || state === 'pause')) worldNet.update(dt, state === 'play');
+  }
 
   if (state === 'play' || state === 'dialog') {
     save.playTime += dt; talkCooldown -= dt;
@@ -2522,7 +2529,9 @@ const arena = new Arena({
   checkMissions: () => { checkMissions(); if (save) writeSave(save); },
   pulseFx: (pos, r) => { const sph = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshBasicMaterial({ color: 0xfff2a8, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending })); sph.position.copy(pos).setY(pos.y + 0.9); scene.add(sph); pulseFx.push({ m: sph, t: 0, r }); },
 });
-wireChat(arena);
+// mundo compartido: en cada isla se ve a los demás jugadores y se chatea en vivo (Opciones › Jugar en línea)
+const worldNet = new WorldNet({ scene, physics, audio, fx, input, toast, charLib: () => charLib, getSave: () => save, player: () => player, settings: () => settings, arenaActive: () => arena.active });
+wireChat(arena, worldNet, () => state === 'play');
 input.onPad = () => { if (!padWoke) { padWoke = true; wakeAudio(); } };
 // los navegadores no dejan encender el sonido con el mando: si sigue apagado, se avisa para tocar una vez
 let soundHintT = 0;
@@ -2784,7 +2793,7 @@ $('bArenaGo').onclick = async () => {
     try { net = await Net.open(code); } catch (e) { net = null; }
     $('bArenaGo').disabled = false;
     if (!net) { $('arenaNetMsg').textContent = 'No se pudo abrir la sala. Prueba otra vez.'; return; }
-    if (net.kind === 'local') toast('Sala local: funciona entre pestañas de este navegador. En claude.ai se conecta con otras personas.');
+    if (net.kind === 'local') toast('Sin conexión al servidor: sala local entre pestañas de este navegador.');
   }
   if (state === 'pause') writeSave(save);
   $('arenaMenu').classList.add('hidden'); showOverlay(null);
@@ -2819,6 +2828,7 @@ frame();
 // gancho para pruebas automáticas
 // step(n): avanza n pasos de 1/60 s sin depender de la velocidad de dibujo (para pruebas en máquinas lentas)
 window.__aethra = {
+  get worldNet() { return worldNet; },
   music, renderer, auto, navLog, nav, autoTarget: () => autoTarget(), get focus() { return focus; },
   player, cam, world, input, get state() { return state; }, get save() { return save; }, startGame, newSave, loadZone,
   // atajos para las pruebas: partida nueva sin pasar por los menús, y abrir los desafíos de la partida

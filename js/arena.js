@@ -131,7 +131,7 @@ class BotInput {
 }
 
 // cartel con el nombre sobre la cabeza
-function nameplate(text, color, title = '') {
+export function nameplate(text, color, title = '') {
   const cv = document.createElement('canvas'); cv.width = 256; cv.height = 96; const c = cv.getContext('2d');
   c.font = 'bold 30px system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
   const w = Math.min(250, c.measureText(text).width + 30);
@@ -171,7 +171,7 @@ export class Arena {
     const p1 = C.player, cu = (sv && sv.custom) || {};
     this.fighters = [this._fighter({ id: this.net ? 'me' : 'p1', kind: 'p1', name: (sv && sv.name) || 'Jugador 1', player: p1, color: this.net ? (cu.aura ? hex(auraOf(cu)) : COLORS[Math.floor(Math.random() * COLORS.length)]) : COLORS[0], title: titleOf(cu), hero: (sv && sv.hero) || 'lia' })];
     this._arm(p1, heroById((sv && sv.hero) || 'lia'), loadout(sv)); p1.aura = auraOf(cu);
-    this.chatLog = []; $('chatLog').innerHTML = ''; $('chatBtn').classList.toggle('hidden', !this.net); this._chatClose();
+    this.chatLog = []; $('chatLog').innerHTML = ''; $('chatBtn').classList.toggle('hidden', !this.net); $('chatBtn').textContent = '💬 Chat (Enter)'; this._chatClose();
     C.input.arenaKeys = opts.players === 'local';
     C.setSplit(opts.players === 'local'); C.cam.distOverride = 0;
     if (opts.players === 'local' || opts.players === 'cpu') {
@@ -670,18 +670,24 @@ Object.assign(Arena.prototype, {
     if (!this.net || !this.active) return;
     const box = $('chatBox'); box.classList.add('open'); this.chatOpenNow = true;
     this.ctx.input.keys = {}; const inp = $('chatInput'); inp.value = ''; setTimeout(() => inp.focus(), 10);
-    const q = $('chatQuick'); if (!q.children.length) for (const t of QUICK) { const b = document.createElement('button'); b.textContent = t; b.onclick = () => { this.sendChat(t); this._chatClose(); }; q.appendChild(b); }
+    const q = $('chatQuick'); q.innerHTML = ''; for (const t of QUICK) { const b = document.createElement('button'); b.textContent = t; b.onclick = () => { this.sendChat(t); this._chatClose(); }; q.appendChild(b); }
   },
   _chatClose() { const box = $('chatBox'); if (box) box.classList.remove('open'); this.chatOpenNow = false; const inp = $('chatInput'); if (inp) inp.blur(); },
 });
-export function wireChat(arena) {
+// el chat lo usa la Arena online o, fuera de ella, el mundo compartido
+export function wireChat(arena, world, canWorld = () => true) {
+  const T = () => (arena.active ? arena : world);
   $('chatInput').addEventListener('keydown', e => {
     e.stopPropagation();
-    if (e.key === 'Enter') { arena.sendChat($('chatInput').value); arena._chatClose(); e.preventDefault(); }
-    if (e.key === 'Escape') { arena._chatClose(); e.preventDefault(); }
+    if (e.key === 'Enter') { T().sendChat($('chatInput').value); T()._chatClose(); e.preventDefault(); }
+    if (e.key === 'Escape') { T()._chatClose(); e.preventDefault(); }
   });
   $('chatInput').addEventListener('keyup', e => e.stopPropagation());
-  $('bChatSend').onclick = () => { arena.sendChat($('chatInput').value); arena._chatClose(); };
-  $('chatBtn').onclick = () => arena._chatOpen();
-  addEventListener('keydown', e => { if (arena.active && arena.net && !arena.chatOpenNow && (e.key === 'Enter' || e.code === 'KeyT')) { e.preventDefault(); arena._chatOpen(); } }, true);
+  $('bChatSend').onclick = () => { T().sendChat($('chatInput').value); T()._chatClose(); };
+  $('chatBtn').onclick = () => T()._chatOpen();
+  addEventListener('keydown', e => {
+    const t = T(); if (!t || !t.net || t.chatOpenNow) return;
+    if (t === arena) { if (arena.active && (e.key === 'Enter' || e.code === 'KeyT')) { e.preventDefault(); arena._chatOpen(); } }
+    else if (e.code === 'KeyT' && canWorld()) { e.preventDefault(); e.stopPropagation(); t._chatOpen(); } // en el mundo, Enter sigue siendo «hablar»
+  }, true);
 }
