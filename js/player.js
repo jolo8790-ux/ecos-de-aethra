@@ -233,7 +233,8 @@ export class Player {
       const launching = this.launchT > 0 && !this.grounded; // tras el garfio se conserva el impulso
       const speed = Math.max((input.walk ? WALK : RUN) * (this.mods.speed || 1) * (this.slowT > 0 ? 0.3 : 1) * (atk ? 0.15 : 1) * (this.shielding ? 0.35 : 1), launching ? Math.hypot(this.vel.x, this.vel.z) : 0);
       const wx = dirX * speed, wz = dirZ * speed;
-      const a = (this.grounded ? ACCEL : this.gliding ? AIR_ACCEL * 1.6 : AIR_ACCEL) * dt;
+      const airK = input.isTouch && !input.usingGamepad ? 1.4 : 1; // en el teléfono, más control en el aire
+      const a = (this.grounded ? ACCEL : this.gliding ? AIR_ACCEL * 1.6 * airK : AIR_ACCEL * airK) * dt;
       if (this.hurtT <= 0) {
         this.vel.x += clamp(wx - this.vel.x, -a, a);
         this.vel.z += clamp(wz - this.vel.z, -a, a);
@@ -251,19 +252,25 @@ export class Player {
 
     // ---- saltos con tiempo de gracia y salto variable ----
     this.coyote = this.grounded ? COYOTE : this.coyote - dt;
-    if (!locked && !this.attack && input.pressed('jump')) this.buffer = BUFFER; else this.buffer -= dt;
+    if (!locked && input.pressed('jump')) this.buffer = BUFFER; else this.buffer -= dt; // también durante un golpe: el salto lo cancela
     if (this.buffer > 0 && !this.dodge) {
-      if (this.coyote > 0) {
-        this.vel.y = JUMP_V * (this.mods.jump || 1); this.grounded = false; this.coyote = 0; this.buffer = 0; this.jumps = 1;
+      if (this.attack) { this.attack = null; this.attackQueued = false; }
+      if (this.coyote > 0 && this.jumps === 0) {
+        this.vel.y = JUMP_V * (this.mods.jump || 1); this.grounded = false; this.coyote = 0; this.buffer = 0; this.jumps = 1; this.jumpT = 0;
         this.audio.play('jump'); this._jumped = true;
         if (this.fx) this.fx.dust(this.pos, 5, 0.6);
       } else if (this.jumps < 2) {
-        this.vel.y = DOUBLE_JUMP_V * (this.mods.jump || 1); this.buffer = 0; this.jumps = 2;
+        // el segundo salto SUMA impulso aunque se pulse enseguida (antes, pulsado al subir, apenas ganaba altura)
+        const base = DOUBLE_JUMP_V * (this.mods.jump || 1);
+        this.vel.y = Math.min(base * 1.4, Math.max(base, Math.max(0, this.vel.y) * 0.45 + base)); this.buffer = 0; this.jumps = 2; this.coyote = 0;
         this.audio.play('djump'); this._dj = true;
         if (this.fx) this.fx.colorRing(this.pos.clone().setY(this.pos.y + 0.2), 0.5 + Math.random() * 0.1);
       }
     }
-    if (this.vel.y > 0 && !input.held('jump') && this.jumps === 1 && !this.bounced) this.vel.y -= GRAVITY * 1.4 * dt; // soltar = salto más bajo
+    this.jumpT = (this.jumpT || 0) + dt;
+    // soltar = salto más bajo; en pantalla táctil solo si se suelta muy pronto no se recorta (un toque rápido da un salto completo)
+    const touchTap = input.isTouch && !input.usingGamepad;
+    if (this.vel.y > 0 && !input.held('jump') && this.jumps === 1 && !this.bounced && !touchTap) this.vel.y -= GRAVITY * 1.4 * dt;
     if (!(this.dodge && this.dodge.air)) this.vel.y = Math.max(-32, this.vel.y - GRAVITY * dt);
     if (iced) { this.vel.x = 0; this.vel.z = 0; }
     if (this.liftT > 0) { // flota indefensa
