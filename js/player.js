@@ -180,9 +180,13 @@ export class Player {
     if (!locked && this.powerSlots) for (let i = 0; i < 3; i++) if (input.pressed('power' + (i + 1)) && this.powerSlots[i]) this.events.push({ type: 'power', id: this.powerSlots[i] });
 
     // ---- ataques ----
-    if (!locked && this.canFight && input.pressed('attack')) {
-      if (this.attack && this.attack.t > this.attack.dur * 0.35) this.attackQueued = true;
-      else if (!this.attack && !this.dodge && this.attackCd <= 0) this._startAttack(0, targets, dirX, dirZ);
+    // búfer de botones: un toque que llega un instante antes de poder actuar no se pierde (se cumple en cuanto se pueda)
+    this.atkBuf = Math.max(0, (this.atkBuf || 0) - dt); this.dodgeBuf = Math.max(0, (this.dodgeBuf || 0) - dt);
+    if (!locked && this.canFight && input.pressed('attack')) this.atkBuf = 0.22;
+    if (!locked && input.pressed('dodge')) this.dodgeBuf = 0.2;
+    if (!locked && this.canFight && this.atkBuf > 0) {
+      if (this.attack) { this.attackQueued = true; this.atkBuf = 0; }
+      else if (!this.dodge && this.attackCd <= 0) { this.atkBuf = 0; this._startAttack(0, targets, dirX, dirZ); }
     }
     if (this.attack) {
       const A = this.attack;
@@ -195,7 +199,8 @@ export class Player {
     }
 
     // ---- esquiva / impulso aéreo ----
-    if (!locked && input.pressed('dodge') && !this.dodge && this.dodgeCd <= 0) {
+    if (!locked && this.dodgeBuf > 0 && !this.dodge && this.dodgeCd <= 0) {
+      this.dodgeBuf = 0;
       let dx = dirX, dz = dirZ;
       if (Math.hypot(dx, dz) < 0.2) { dx = -Math.sin(this.facing); dz = -Math.cos(this.facing); }
       const l = Math.hypot(dx, dz); dx /= l; dz /= l;

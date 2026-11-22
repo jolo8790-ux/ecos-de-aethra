@@ -66,17 +66,26 @@ export class Input {
     this._joy = { x: 0, y: 0 };
     // A saltar · B golpear · C esquivar · X usar/hablar · Y escudo (mantener) · Z garfio o pulso de luz
     const MAP = { tA: 'jump', tB: 'attack', tC: 'dodge', tX: 'interact', tY: 'shield', tZ: 'special', tPause: 'pause', tP1: 'power1', tP2: 'power2', tP3: 'power3' };
+    // Botones: responden al primer contacto (pointerdown llega antes que touchstart en muchos teléfonos), tienen un área
+    // de toque más grande que el dibujo, y se puede deslizar el dedo de un botón a otro sin levantarlo (p. ej. golpe → salto).
+    const BTN = new Map(), owner = new Map(); // id de dedo → botón
+    const down = (el, action, fid) => { if (owner.get(fid) === el) return; const prev = owner.get(fid); if (prev) release(prev, fid); owner.set(fid, el); this._pressed.add(action); this._held.add(action); el.classList.add('on'); if (navigator.vibrate) try { navigator.vibrate(6); } catch (e) {} };
+    const release = (el, fid) => { owner.delete(fid); const a = BTN.get(el); if (![...owner.values()].includes(el)) { this._held.delete(a); el.classList.remove('on'); } };
     for (const [id, action] of Object.entries(MAP)) {
-      const el = document.getElementById(id);
-      el.addEventListener('touchstart', e => { e.stopPropagation(); e.preventDefault(); this._pressed.add(action); this._held.add(action); el.classList.add('on'); if (navigator.vibrate) navigator.vibrate(8); }, { passive: false });
-      const up = () => { this._held.delete(action); el.classList.remove('on'); };
-      el.addEventListener('touchend', up); el.addEventListener('touchcancel', up);
+      const el = document.getElementById(id); if (!el) continue; BTN.set(el, action);
+      el.addEventListener('touchstart', e => { e.stopPropagation(); e.preventDefault(); for (const t of e.changedTouches) down(el, action, t.identifier); }, { passive: false });
     }
+    const btnAt = (x, y) => { const h = document.elementFromPoint(x, y); const b = h && h.closest && h.closest('.tbtn'); return b && BTN.has(b) ? b : null; };
+    addEventListener('touchmove', e => {
+      for (const t of e.changedTouches) { if (!owner.has(t.identifier)) continue; const b = btnAt(t.clientX, t.clientY); if (b && b !== owner.get(t.identifier) && BTN.get(b) !== 'pause') down(b, BTN.get(b), t.identifier); }
+    }, { passive: true });
+    const lift = e => { for (const t of e.changedTouches) { const el = owner.get(t.identifier); if (el) release(el, t.identifier); } };
+    addEventListener('touchend', lift, { passive: true }); addEventListener('touchcancel', lift, { passive: true });
     // la palanca está fija abajo a la izquierda; cualquier toque en la mitad izquierda la mueve
     const center = () => { const r = joy.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
     const setKnob = (x, y) => {
       const [cx, cy] = center(); let dx = x - cx, dy = y - cy;
-      const l = Math.hypot(dx, dy), m = 52;
+      const l = Math.hypot(dx, dy), m = 44; // recorrido corto: velocidad máxima antes
       if (l > m) { dx *= m / l; dy *= m / l; }
       this._joy.x = dx / m; this._joy.y = -dy / m;
       knob.style.left = (39 + dx) + 'px'; knob.style.top = (39 + dy) + 'px';

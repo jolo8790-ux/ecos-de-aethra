@@ -168,7 +168,10 @@
   #joy { position: fixed; left: calc(28px + env(safe-area-inset-left)); bottom: 28px; width: 132px; height: 132px; border-radius: 50%; background: rgba(255,255,255,.10); border: 2px solid rgba(255,255,255,.28); pointer-events: none; z-index: 5; }
   #joyKnob { position: absolute; left: 39px; top: 39px; width: 54px; height: 54px; border-radius: 50%; background: rgba(255,255,255,.42); box-shadow: 0 2px 8px rgba(0,0,0,.25); }
   .tbtn { position: fixed; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 24px; z-index: 5; color: rgba(255,255,255,.92); text-shadow: 0 1px 3px rgba(0,0,0,.5); border: 2px solid rgba(255,255,255,.45); background: rgba(255,255,255,.14); width: 62px; height: 62px; -webkit-tap-highlight-color: transparent; user-select: none; }
-  .tbtn.on { background: rgba(255,255,255,.38); transform: scale(.94); }
+  .tbtn::after { content: ''; position: absolute; inset: -7px; border-radius: 50%; } /* área de toque más grande que el botón */
+  .tbtn.pw::after { inset: -5px; }
+  .tbtn { touch-action: none; }
+  .tbtn.on { background: rgba(255,255,255,.42); transform: scale(.92); transition: none; }
   .tbtn.off { opacity: .35; }
   #tA { right: calc(176px + env(safe-area-inset-right)); bottom: 26px; }  #tB { right: calc(100px + env(safe-area-inset-right)); bottom: 46px; }  #tC { right: calc(24px + env(safe-area-inset-right)); bottom: 66px; }
   #tX { right: calc(176px + env(safe-area-inset-right)); bottom: 104px; } #tY { right: calc(100px + env(safe-area-inset-right)); bottom: 124px; } #tZ { right: calc(24px + env(safe-area-inset-right)); bottom: 144px; }
