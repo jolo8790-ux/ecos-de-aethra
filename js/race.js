@@ -73,6 +73,20 @@ function kartTex(map, color, hsl, ranges) {
   try { t = recolor(map, ranges.map(r => ({ from: r, minSat: 0.2, to: hsl.h * 360, ...(grey ? { setSat: 0.08 } : { sat: 1.15 }), light }))); } catch (e) {}
   _kartTex.set(key, t); return t;
 }
+// kart listo para mostrar: el modelo de Artlist (con la carrocería repintada si paint no es null) o el hecho con formas
+export function makeKart(kartId, paint = null, fallback = 0x3aa0ff) {
+  const K = kartById(kartId), id = hasProp(K.model) ? K.model : hasProp('kart') ? 'kart' : null;
+  if (!id) return { kart: buildKart(paint ?? fallback), art: false };
+  const kart = prop(id, { w: 2.25 }, { rotY: 0 });
+  const hsl = {}; if (paint != null) new THREE.Color(paint).getHSL(hsl);
+  kart.traverse(m => {
+    if (!m.isMesh) return; m.castShadow = true;
+    m.material = m.material.clone(); m.material.roughness = 0.55; m.material.metalness = 0.15;
+    if (m.material.map && paint != null) m.material.map = kartTex(m.material.map, paint, hsl, id === K.model ? K.hue : KARTS[0].hue);
+  });
+  kart.userData.wheels = [];
+  return { kart, art: true };
+}
 // ---------- kart hecho con formas (si no hay modelo de Artlist) ----------
 function buildKart(color) {
   const g = new THREE.Group();
@@ -242,17 +256,7 @@ class Racer {
     this.root = new THREE.Group(); race.root.add(this.root);
     this.body = new THREE.Group(); this.root.add(this.body);
     const K = kartById(this.kartId); this.mods = this.mods || kartMods(K.stats);
-    let kart = hasProp(K.model) ? prop(K.model, { w: 2.25 }, { rotY: 0 }) : hasProp('kart') ? prop('kart', { w: 2.25 }, { rotY: 0 }) : null;
-    if (kart) { // el kart de Artlist: la carrocería toma el color del corredor (la madera y el metal no cambian)
-      const hsl = {}; new THREE.Color(this.paint ?? this.color).getHSL(hsl);
-      kart.traverse(m => {
-        if (!m.isMesh) return; m.castShadow = true;
-        m.material = m.material.clone(); m.material.roughness = 0.55; m.material.metalness = 0.15;
-        if (m.material.map && this.paint !== null) m.material.map = kartTex(m.material.map, this.paint ?? this.color, hsl, hasProp(K.model) ? K.hue : KARTS[0].hue);
-      });
-      kart.userData.wheels = []; this.artKart = true;
-    }
-    else kart = buildKart(this.paint ?? this.color);
+    const made = makeKart(this.kartId, this.paint === undefined ? this.color : this.paint, this.color); let kart = made.kart; this.artKart = made.art;
     this.kart = kart; this.body.add(kart);
     // piloto: el héroe sentado en el kart
     const lib = C.charLib();
@@ -310,7 +314,8 @@ export class Race {
     const G = garageOf(sv), P = PAINTS.find(p => p.id === G.paint) || PAINTS[0];
     const me = new Racer(this, { id: 'me', name: sv.name || 'Tú', you: true, color: COLORS[0], paint: P.color, kartId: G.kart, trail: G.trail, mods: kartMods(kartPoints(sv)), look: heroLook(mine, sv.custom || {}), skill: 1 });
     const grid = [];
-    for (let k = 0; k < n; k++) { const h = pool[k % pool.length]; grid.push(new Racer(this, { id: 'cpu' + k, name: heroById(h).name, color: COLORS[(k + 1) % COLORS.length], kartId: KARTS[k % KARTS.length].id, trail: ['fuego', 'hielo', 'veneno', 'dorada'][k % 4], look: heroLook(h, {}), skill: level * (0.94 + 0.08 * (k / Math.max(1, n - 1))), lane: ((k % 3) - 1) * 0.45 })); }
+    const others = KARTS.filter(k => k.id !== G.kart); // cada rival en un kart distinto (y distinto del tuyo)
+    for (let k = 0; k < n; k++) { const h = pool[k % pool.length]; grid.push(new Racer(this, { id: 'cpu' + k, name: heroById(h).name, color: COLORS[(k + 1) % COLORS.length], kartId: others[k % others.length].id, paint: null, trail: ['fuego', 'hielo', 'veneno', 'dorada'][k % 4], look: heroLook(h, {}), skill: level * (0.94 + 0.08 * (k / Math.max(1, n - 1))), lane: ((k % 3) - 1) * 0.45 })); }
     // la jugadora sale desde el medio de la parrilla
     grid.splice(Math.min(grid.length, Math.floor(n * 0.6)), 0, me);
     this.racers = grid; this.me = me;

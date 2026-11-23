@@ -17,6 +17,7 @@ import { loadProps } from './props.js';
 import { Race, TRACKS, RACE_LAPS } from './race.js';
 import { KARTS, STATS, UP_COST, PAINTS, TRAILS, garageOf, kartById, kartPoints } from './garage.js';
 import { loadPropIds } from './props.js';
+import { Showroom } from './showroom.js';
 import { newSave, loadSave, peekSave, getSlot, setSlot, SLOTS, freeSlot, listSaves, writeSlot, deleteSave, writeSave as writeSaveRaw, loadSettings, writeSettings, exportCode, importCode } from './save.js';
 import puertoBruma from './zones/puerto_bruma.js';
 import bosqueColgante from './zones/bosque_colgante.js';
@@ -2996,44 +2997,58 @@ const KART_MODELS = KARTS.map(k => k.model);
 let kartsLoading = null;
 const loadKarts = () => kartsLoading || (kartsLoading = loadPropIds(KART_MODELS));
 // ---------- Taller de karts ----------
-const tallUI = { tab: 'karts', from: 'raceMenu' };
-function openTaller(from = 'raceMenu') { tallUI.from = from; audio.play('open'); $(from).classList.add('hidden'); $('taller').classList.remove('hidden'); buildTaller(); }
+const tallUI = { tab: 'karts', from: 'raceMenu', view: null };
+let showroom = null;
+function openTaller(from = 'raceMenu') {
+  tallUI.from = from; tallUI.view = garageOf(save).kart; audio.play('open');
+  $(from).classList.add('hidden'); $('taller').classList.remove('hidden');
+  if (!showroom) { try { showroom = new Showroom($('tallCanvas')); } catch (e) { console.warn('vitrina', e); } }
+  buildTaller(); if (showroom) showroom.start();
+  loadKarts().then(() => { if (!$('taller').classList.contains('hidden')) { if (showroom) showroom.key = ''; buildTaller(); } });
+}
+const colorOf = list => id => { const it = list.find(x => x.id === id) || list[0]; return it.color; };
 function buildTaller() {
-  const sv = save, G = garageOf(sv), ecos = sv.ecos || 0, K = kartById(G.kart);
+  const sv = save, G = garageOf(sv), ecos = sv.ecos || 0;
+  if (tallUI.tab !== 'karts') tallUI.view = G.kart;
+  const V = kartById(tallUI.view || G.kart), own = G.owned.includes(V.id), mine = V.id === G.kart;
   $('tallSub').innerHTML = `Tienes <b class="ecoTag">✧ ${ecos} Ecos</b><span class="long">. Ganas Ecos subiendo al podio en las Carreras (el doble a 5 vueltas) y en todo el juego.</span>`;
+  const idx = KARTS.indexOf(V);
+  $('tallName').innerHTML = `${V.name}<small>${idx + 1} de ${KARTS.length} · ${mine ? '✔ En uso' : own ? 'Tuyo' : `✧ ${V.cost} Ecos`}</small>`;
+  $('tallPrev').style.visibility = $('tallNext').style.visibility = tallUI.tab === 'karts' ? 'visible' : 'hidden';
+  if (showroom) showroom.show(V.id, mine ? colorOf(PAINTS)(G.paint) : null, mine ? colorOf(TRAILS)(G.trail) : 0xffa040);
   const tabs = [['karts', '🏎', 'Karts'], ['mejoras', '⚙', 'Mejoras'], ['pintura', '🎨', 'Pintura'], ['estela', '🔥', 'Estela']];
   $('tallTabs').innerHTML = tabs.map(([id, ic, n]) => `<button class="${tallUI.tab === id ? 'sel' : ''}" data-t="${id}"><b>${ic}</b><small>${n}</small></button>`).join('');
   $('tallTabs').querySelectorAll('button').forEach(b => b.onclick = () => { tallUI.tab = b.dataset.t; audio.play('uiMove'); buildTaller(); });
   const body = $('tallBody'); body.innerHTML = '';
   const bars = (base, up) => { let h = ''; for (let i = 0; i < 7; i++) { const v = i + 1; h += `<i class="${base < 0 && i < -base ? 'neg' : v <= Math.max(0, base) ? 'base' : v <= Math.max(0, base) + up ? 'up' : ''}"></i>`; } return `<div class="bars">${h}</div>`; };
-  const save2 = () => { writeSave(save); buildTaller(); refreshRaceMenu(); };
+  const save2 = (fx) => { writeSave(save); buildTaller(); refreshRaceMenu(); if (fx && showroom) showroom.celebrate(); };
   if (tallUI.tab === 'karts') {
-    const grid = document.createElement('div'); grid.className = 'kartGrid'; body.appendChild(grid);
-    for (const k of KARTS) {
-      const own = G.owned.includes(k.id), on = G.kart === k.id, can = ecos >= k.cost, b = document.createElement('button');
-      b.className = 'kartCard' + (on ? ' on' : '') + (own || can ? '' : ' locked');
-      b.innerHTML = `<img src="${k.img}" alt=""><b>${k.name}</b><small>${k.desc}</small><div class="mini">${STATS.map(S => `<span>${S.icon} ${S.name}</span>${bars(k.stats[S.id], 0)}`).join('')}</div><em>${on ? '✔ En uso' : own ? 'Tuyo · pulsa para usarlo' : `✧ ${k.cost} Ecos${can ? ' · pulsa para comprar' : ` (te faltan ${k.cost - ecos})`}`}</em>`;
-      b.onclick = () => {
-        if (!own) { if (!can) { audio.play('powerFail'); return; } sv.ecos = ecos - k.cost; G.owned.push(k.id); audio.play('unlock'); music.stinger('hallazgo'); }
-        else audio.play('open');
-        G.kart = k.id; save2();
-      };
-      grid.appendChild(b);
-    }
+    const u = G.up[V.id], box = document.createElement('div'); box.className = 'kartInfo';
+    box.innerHTML = `<p>${V.desc}</p>` + STATS.map(S => `<div class="statRow"><div><b>${S.icon} ${S.name}</b></div>${bars(V.stats[S.id], u[S.id] || 0)}<span></span></div>`).join('');
+    const b = document.createElement('button'), can = ecos >= V.cost;
+    b.className = 'btn' + (mine ? ' alt' : !own && !can ? ' alt' : '');
+    b.textContent = mine ? '✔ Es tu kart' : own ? 'Usar este kart' : can ? `Comprar · ✧ ${V.cost} Ecos` : `✧ ${V.cost} Ecos (te faltan ${V.cost - ecos})`;
+    b.onclick = () => {
+      if (mine) return;
+      if (!own) { if (!can) { audio.play('powerFail'); return; } sv.ecos = ecos - V.cost; G.owned.push(V.id); audio.play('unlock'); music.stinger('hallazgo'); }
+      else audio.play('open');
+      G.kart = V.id; save2(true);
+    };
+    box.querySelector('p').after(b); body.appendChild(box);
   } else if (tallUI.tab === 'mejoras') {
-    const u = G.up[K.id];
-    body.insertAdjacentHTML('beforeend', `<div class="sub" style="font-size:14px">Mejoras del <b>${K.name}</b> (cada kart guarda las suyas)</div>`);
+    const u = G.up[V.id];
+    body.insertAdjacentHTML('beforeend', `<div class="sub" style="font-size:13px;margin:0 0 4px">Mejoras del <b>${V.name}</b> (cada kart guarda las suyas)</div>`);
     for (const S of STATS) {
       const lv = u[S.id] || 0, cost = UP_COST[lv], row = document.createElement('div'); row.className = 'statRow';
-      row.innerHTML = `<div><b>${S.icon} ${S.name}</b><small>${S.desc}</small></div>${bars(K.stats[S.id], lv)}`;
+      row.innerHTML = `<div><b>${S.icon} ${S.name}</b><small>${S.desc}</small></div>${bars(V.stats[S.id], lv)}`;
       const b = document.createElement('button'); b.className = 'btn small' + (cost != null && ecos >= cost ? '' : ' alt');
-      b.textContent = cost == null ? 'Al máximo' : `Mejorar · ✧ ${cost}`; b.disabled = cost == null;
-      b.onclick = () => { if (ecos < cost) { audio.play('powerFail'); toast(`Te faltan ${cost - ecos} Ecos`); return; } sv.ecos = ecos - cost; u[S.id] = lv + 1; audio.play('unlock'); save2(); };
+      b.textContent = cost == null ? 'Al máximo' : `✧ ${cost}`; b.disabled = cost == null;
+      b.onclick = () => { if (ecos < cost) { audio.play('powerFail'); toast(`Te faltan ${cost - ecos} Ecos`); return; } sv.ecos = ecos - cost; u[S.id] = lv + 1; audio.play('unlock'); save2(true); };
       row.appendChild(b); body.appendChild(row);
     }
   } else {
     const list = tallUI.tab === 'pintura' ? PAINTS : TRAILS, ownKey = tallUI.tab === 'pintura' ? 'paints' : 'trails', curKey = tallUI.tab === 'pintura' ? 'paint' : 'trail';
-    if (tallUI.tab === 'estela') body.insertAdjacentHTML('beforeend', '<div class="sub" style="font-size:14px">El color del fuego que sale del escape con el turbo.</div>');
+    body.insertAdjacentHTML('beforeend', `<div class="sub" style="font-size:13px;margin:0 0 6px">${tallUI.tab === 'estela' ? 'El color del fuego que sale del escape con el turbo.' : 'Se pinta la carrocería; lo demás conserva su material.'}</div>`);
     const box = document.createElement('div'); box.className = 'swatches'; body.appendChild(box);
     for (const it of list) {
       const own = G[ownKey].includes(it.id), on = G[curKey] === it.id, can = ecos >= it.cost, b = document.createElement('button');
@@ -3043,13 +3058,16 @@ function buildTaller() {
       b.onclick = () => {
         if (!own) { if (!can) { audio.play('powerFail'); toast(`Te faltan ${it.cost - ecos} Ecos`); return; } sv.ecos = ecos - it.cost; G[ownKey].push(it.id); audio.play('unlock'); }
         else audio.play('open');
-        G[curKey] = it.id; save2();
+        G[curKey] = it.id; save2(tallUI.tab === 'estela');
       };
       box.appendChild(b);
     }
   }
 }
-$('bTallBack').onclick = () => { $('taller').classList.add('hidden'); $(tallUI.from).classList.remove('hidden'); refreshRaceMenu(); };
+const tallStep = d => { const i = KARTS.findIndex(k => k.id === tallUI.view); tallUI.view = KARTS[(i + d + KARTS.length) % KARTS.length].id; audio.play('uiMove'); buildTaller(); };
+$('tallPrev').onclick = () => tallStep(-1);
+$('tallNext').onclick = () => tallStep(1);
+$('bTallBack').onclick = () => { if (showroom) showroom.stop(); $('taller').classList.add('hidden'); $(tallUI.from).classList.remove('hidden'); refreshRaceMenu(); };
 $('bRaceTaller').onclick = () => { $('raceMenu').classList.add('hidden'); openTaller('raceMenu'); };
 $('bRaceBack').onclick = () => { $('raceMenu').classList.add('hidden'); $(raceUI.from).classList.remove('hidden'); };
 $('bRaceGo').onclick = async () => {

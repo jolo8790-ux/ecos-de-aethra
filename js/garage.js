@@ -9,6 +9,16 @@ export const KARTS = [
     desc: 'Tallado en madera viva del Bosque Colgante. Arranca rápido y gira muy cerrado.', stats: { vel: -1, acc: 2, giro: 2, turbo: 0 } },
   { id: 'engranaje', name: 'Engranaje Turbo', model: 'kart_engranaje', img: 'assets/karts/engranaje.jpg', cost: 450, hue: [[340, 360], [0, 12]],
     desc: 'Cobre y engranajes de la Ciudad. El más rápido en recta y con el mejor turbo, pero gira peor.', stats: { vel: 2, acc: -1, giro: -1, turbo: 2 } },
+  { id: 'cristal', name: 'Cristal de las Ruinas', model: 'kart_ruinas', img: 'assets/karts/cristal.jpg', cost: 600, hue: [[160, 205]],
+    desc: 'Paneles de cristal turquesa y arenisca de las Ruinas de Vidrio. Rápido y ágil.', stats: { vel: 1, acc: 1, giro: 1, turbo: -1 } },
+  { id: 'trineo', name: 'Trineo del Glaciar', model: 'kart_glaciar', img: 'assets/karts/trineo.jpg', cost: 650, hue: [[185, 230]],
+    desc: 'Un trineo con motor del Glaciar del Eco. Sus derrapes sobre hielo cargan el turbo volando.', stats: { vel: 0, acc: 1, giro: 0, turbo: 3 } },
+  { id: 'concha', name: 'Concha de Mareth', model: 'kart_mareth', img: 'assets/karts/concha.jpg', cost: 700, hue: [[160, 200], [320, 355]],
+    desc: 'Caparazón marino con hélice de la ciudad sumergida. El que mejor acelera.', stats: { vel: 0, acc: 3, giro: 1, turbo: -1 } },
+  { id: 'obsidiana', name: 'Obsidiana de Ignis', model: 'kart_forja', img: 'assets/karts/obsidiana.jpg', cost: 900, hue: [[12, 42]],
+    desc: 'Forjado en la lava de la Forja. Una bala en recta, pero pesado en las curvas.', stats: { vel: 3, acc: -1, giro: -2, turbo: 1 } },
+  { id: 'sombra', name: 'Sombra de la Ciudadela', model: 'kart_ciudadela', img: 'assets/karts/sombra.jpg', cost: 1200, hue: [[255, 300]],
+    desc: 'El kart de los villanos de la Ciudadela del Orden. Muy bueno en todo.', stats: { vel: 2, acc: 1, giro: 1, turbo: 1 } },
 ];
 export const STATS = [
   { id: 'vel', icon: '💨', name: 'Velocidad', desc: 'Velocidad máxima' },
