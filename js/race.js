@@ -428,7 +428,7 @@ export class Race {
 
   _myControls() {
     const I = this.ctx.input, k = I.keys, touch = I.isTouch && !I.usingGamepad;
-    const steer = clamp(I.move.x, -1, 1);
+    const steer = -clamp(I.move.x, -1, 1); // el giro positivo del kart va hacia la izquierda de la cámara
     const throttle = touch ? (this.tBrake ? 0 : 1) : ((k.KeyW || k.ArrowUp || I._padJump || I.move.y > 0.35) ? 1 : 0);
     const brake = (k.KeyS || k.ArrowDown || I._padDodge || this.tBrake || (!touch && I.move.y < -0.5)) ? 1 : 0;
     const drift = !!(k.Space || k.ShiftLeft || k.ShiftRight || I._padShield || this.tDrift);

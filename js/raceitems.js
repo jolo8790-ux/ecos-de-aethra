@@ -40,7 +40,7 @@ export class RaceItems {
   local(R) { return !R.remote; } // este equipo decide por R (yo, o la CPU si soy el anfitrión)
   constructor(race) {
     this.race = race; this.root = new THREE.Group(); race.root.add(this.root);
-    this.boxes = []; this.shots = []; this.booms = [];
+    this.boxes = []; this.shots = []; this.booms = []; this.bits = [];
     const T = race.track, mat = new THREE.MeshStandardMaterial({ map: qTex(), transparent: true, opacity: 0.92, roughness: 0.3, emissive: 0x331144, emissiveIntensity: 0.5 });
     const geo = new THREE.BoxGeometry(1.25, 1.25, 1.25);
     const glow = new THREE.MeshBasicMaterial({ color: 0xfff0a0, transparent: true, opacity: 0.25, depthWrite: false, blending: THREE.AdditiveBlending });
@@ -67,11 +67,11 @@ export class RaceItems {
       else B.m.scale.setScalar(0.01);
       if (!on) continue;
       for (const R of race.racers) {
-        if (R.item || R.roll > 0 || R.remote) continue;
-        if (Math.hypot(R.pos.x - B.m.position.x, R.pos.z - B.m.position.z) < 1.7) {
-          B.t = 3; R.roll = R.you ? 1.0 : 0.4; R.rollFor = roll(R.place, race.racers.length);
-          if (R.you) race.ctx.audio.play('crystal');
-          this._pop(B.m.position, 0xffd24a, 0.8);
+        if (B.t > 0) break;
+        if (Math.hypot(R.pos.x - B.m.position.x, R.pos.z - B.m.position.z) < 2.1) { // la caja se rompe siempre; da objeto si tienes la mano libre
+          B.t = 3; this._pop(B.m.position, 0xffd24a, 1.2); this._shards(B.m.position);
+          if (R.you) race.ctx.audio.play(R.item || R.roll > 0 ? 'crack' : 'crystal');
+          if (!R.item && !(R.roll > 0) && !R.remote) { R.roll = R.you ? 1.0 : 0.4; R.rollFor = roll(R.place, race.racers.length); }
         }
       }
     }
@@ -83,6 +83,12 @@ export class RaceItems {
       if (!R.you && !R.remote && R.item && race.phase === 'race') this._cpuThink(R, dt);
     }
     this._shots(dt, time);
+    for (let k = this.bits.length - 1; k >= 0; k--) {
+      const b = this.bits[k]; b.t += dt; b.vy -= 18 * dt;
+      b.m.position.x += b.vx * dt; b.m.position.y += b.vy * dt; b.m.position.z += b.vz * dt; b.m.rotation.x += dt * 9; b.m.rotation.y += dt * 7;
+      b.m.material.opacity = Math.max(0, 1 - b.t / 0.8);
+      if (b.t > 0.8) { this.root.remove(b.m); b.m.material.dispose(); this.bits.splice(k, 1); }
+    }
     for (let k = this.booms.length - 1; k >= 0; k--) {
       const b = this.booms[k]; b.t += dt; const q = b.t / b.dur;
       b.m.scale.setScalar(0.3 + q * b.r); b.m.material.opacity = (b.a || 0.85) * (1 - q);
@@ -213,6 +219,16 @@ export class RaceItems {
     R.spin = 1.1; R.inv = 2.2; R.v *= 0.25; R.drift = 0; R.charge = 0; R.boostT = 0;
     if (R.you) { race.ctx.audio.play('hurt'); race.ctx.input.rumble(260, 0.9); race._flash('¡Te dieron!', '#ff8a7a'); }
     else if (by && by.you) { race._flash(`¡Le diste a ${R.name}!`, '#7affa0'); const sv = race.ctx.getSave(); if (sv) { sv.race = sv.race || {}; sv.race.hits = (sv.race.hits || 0) + 1; } }
+  }
+  // pedacitos de colores al romper una caja
+  _shards(pos) {
+    const cols = [0xff7ab8, 0xffd24a, 0x4cbcff, 0x8be36a];
+    for (let i = 0; i < 10; i++) {
+      const m = new THREE.Mesh(this._shGeo || (this._shGeo = new THREE.BoxGeometry(0.28, 0.28, 0.06)), new THREE.MeshBasicMaterial({ color: cols[i % 4], transparent: true }));
+      m.position.copy(pos); this.root.add(m);
+      const a = Math.random() * 6.28, v = 4 + Math.random() * 4;
+      this.bits.push({ m, vx: Math.cos(a) * v, vz: Math.sin(a) * v, vy: 3 + Math.random() * 5, t: 0 });
+    }
   }
   _smoke(pos, color) {
     const m = new THREE.Mesh(this._puffGeo || (this._puffGeo = new THREE.IcosahedronGeometry(0.22, 1)), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.5, depthWrite: false }));
