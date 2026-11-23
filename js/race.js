@@ -263,7 +263,7 @@ class Track {
     // línea de meta y arco
     const c0 = this.c[0], r0 = this.r[0], t0 = this.t[0], yaw = Math.atan2(t0.x, t0.z);
     const fin = new THREE.Mesh(new THREE.PlaneGeometry(this.def.w, 2.2), new THREE.MeshStandardMaterial({ map: checker(), roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }));
-    fin.rotation.set(-Math.PI / 2, 0, yaw + Math.PI / 2); fin.position.set(c0.x, c0.y + 0.02, c0.z); root.add(fin);
+    fin.rotation.set(-Math.PI / 2, 0, yaw); fin.position.set(c0.x, c0.y + 0.02, c0.z); root.add(fin);
     const arch = new THREE.Group(); arch.position.set(c0.x, c0.y, c0.z); arch.rotation.y = yaw; root.add(arch);
     const pm = new THREE.MeshStandardMaterial({ color: 0xf4ecd8, roughness: 0.6 });
     for (const sg of [-1, 1]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 7, 12), pm); p.position.set(sg * (this.hw + 1), 3.5, 0); p.castShadow = true; arch.add(p); }
