@@ -14,6 +14,7 @@ const writeSave = s => challenge ? true : writeSaveRaw(s);
 import { FX } from './fx.js';
 import { loadCharacterLibrary, createCharacter, customLook, CUSTOM, DEFAULT_CUSTOM, auraOf } from './characters.js';
 import { loadProps } from './props.js';
+import { Race, TRACKS, RACE_LAPS } from './race.js';
 import { newSave, loadSave, peekSave, getSlot, setSlot, SLOTS, freeSlot, listSaves, writeSlot, deleteSave, writeSave as writeSaveRaw, loadSettings, writeSettings, exportCode, importCode } from './save.js';
 import puertoBruma from './zones/puerto_bruma.js';
 import bosqueColgante from './zones/bosque_colgante.js';
@@ -1973,7 +1974,7 @@ function menuNav() {
   if (!input.usingGamepad) { document.querySelectorAll('.padFocus').forEach(e => e.classList.remove('padFocus')); return; }
   if (state === 'play' || state === 'dialog' || state === 'dead' || state === 'cutscene') return;
   // en la Arena solo cuentan sus cuadros de pausa y de final de ronda
-  const ov = state === 'arena' ? [...document.querySelectorAll('#arenaEnd:not(.hidden), #arenaPauseBox:not(.hidden)')].pop() : [...document.querySelectorAll('.overlay:not(.hidden)')].pop();
+  const ov = state === 'arena' ? [...document.querySelectorAll('#arenaEnd:not(.hidden), #arenaPauseBox:not(.hidden)')].pop() : state === 'race' ? [...document.querySelectorAll('#raceEnd:not(.hidden), #racePause:not(.hidden)')].pop() : [...document.querySelectorAll('.overlay:not(.hidden)')].pop();
   if (!ov) return;
   const items = [...ov.querySelectorAll('button, select')].filter(el => !el.disabled && el.offsetParent !== null);
   if (!items.length) return;
@@ -2311,7 +2312,7 @@ function renderScene() {
 // En «Automática», si el juego va lento un buen rato, baja un nivel (y lo recuerda para la próxima vez).
 
 function autoQualityTick(realDt) {
-  if ((settings.quality || 'auto') !== 'auto' || !(state === 'play' || state === 'arena') || document.hidden) { aq.t = aq.n = 0; return; }
+  if ((settings.quality || 'auto') !== 'auto' || !(state === 'play' || state === 'arena' || state === 'race') || document.hidden) { aq.t = aq.n = 0; return; }
   aq.t += Math.min(realDt, 0.5); aq.n++;
   if (aq.t < 3) return;
   const f = aq.n / aq.t; aq.t = aq.n = 0;
@@ -2362,9 +2363,10 @@ function simulate(dt) {
   else if (input.pressed('pause') && state === 'arena') arena.togglePause();
   if (input.pressed('heroes') && state === 'play' && !challenge) openHeroes('play');
   if (state === 'arena') arena.update(dt);
+  if (state === 'race') { if (input.pressed('pause')) race.togglePause(); race.update(dt); }
   tickBossCard(dt);
   { // mundo compartido: sala de la isla actual (no en desafíos, Aethra sin fin, modo Automático ni pantalla dividida)
-    const zid = save && zone && state !== 'title' && state !== 'arena' && !challenge && !isAutoMode() && !splitView && !(endless.active && endless.inZone) ? zone.id : null;
+    const zid = save && zone && state !== 'title' && state !== 'arena' && state !== 'race' && !challenge && !isAutoMode() && !splitView && !(endless.active && endless.inZone) ? zone.id : null;
     worldNet.setZone(zid); // la sala solo cambia al cambiar de isla (no en cada diálogo o pausa)
     if (zid && (state === 'play' || state === 'dialog' || state === 'pause')) worldNet.update(dt, state === 'play');
   }
@@ -2434,7 +2436,7 @@ function simulate(dt) {
   for (const p of pulseFx) { p.t += dt; const k = p.t / 0.45; p.m.scale.setScalar(0.5 + k * p.r); p.m.material.opacity = 0.5 * (1 - k); if (k >= 1) { scene.remove(p.m); p.done = true; } }
   for (let i = pulseFx.length - 1; i >= 0; i--) if (pulseFx[i].done) pulseFx.splice(i, 1);
   const wantFov = 60 + player.anim.runW * 5 * (state === 'play' ? 1 : 0);
-  if (Math.abs(camera.fov - wantFov) > 0.01) { camera.fov += (wantFov - camera.fov) * Math.min(1, dt * 4); camera.updateProjectionMatrix(); }
+  if (state !== 'race' && Math.abs(camera.fov - wantFov) > 0.01) { camera.fov += (wantFov - camera.fov) * Math.min(1, dt * 4); camera.updateProjectionMatrix(); }
   { // la sombra sigue a la protagonista en saltos de un texel: así no tiembla ni parpadea al moverse
     const P = player.pos, tx = (sun.shadow.camera.right - sun.shadow.camera.left) / sun.shadow.mapSize.x;
     const a = Math.round(P.dot(SH_R) / tx) * tx, b = Math.round(P.dot(SH_U) / tx) * tx, c = P.dot(SH_D);
@@ -2946,6 +2948,72 @@ $('bArenaAgain').onclick = () => arena.again();
 $('bArenaPause').onclick = () => { if (challenge) { toast('Termina o sal del desafío antes de ir a la Arena'); return; } openArena('pause'); };
 $('bHubArena').onclick = () => { audio.unlock(); openArena('title'); };
 
+
+// ---------- Carreras ----------
+const race = new Race({
+  scene, camera, world, audio, music, input, player, toast,
+  charLib: () => charLib, getSave: () => save, save: () => { if (save) writeSave(save); },
+  addEcos: n => { addEcos(n); if (save) writeSave(save); },
+  loadRaceZone(Z) {
+    if (flyover) flyover = null; document.body.classList.remove('cine');
+    zone = Z; player.inSub = false; player.swimming = false; clearSeaFx(); audio.surface = 'wood';
+    skyMat.uniforms.top.value.setHex(Z.sky.top); skyMat.uniforms.bottom.value.setHex(Z.sky.bottom);
+    scene.fog = new THREE.Fog(Z.sky.fog, Z.sky.fogNear, Z.sky.fogFar);
+    hemi.color.setHex(Z.light.hemiSky); hemi.groundColor.setHex(Z.light.hemiGround); sun.color.setHex(Z.light.sun);
+    combat.clear(); world.build(Z, save || newSave()); music.ambient(ZONE_AMB.puerto_bruma);
+    player.updrafts = []; combat.breakables = world.breakables;
+    pieceBk = null; bossActive = false; $('bossbar').classList.add('hidden');
+    marker.visible = false; $('objective').classList.add('hidden'); $('compass').classList.add('hidden'); $('prompt').classList.add('hidden');
+    player.mesh.visible = false; player.shadow.visible = false;
+    banner(Z.subtitle, Z.title);
+  },
+});
+const raceUI = { track: 'puerto', laps: 3, rivals: 5, from: 'title' };
+function openRace(from) {
+  if (endless.active && from === 'pause') stopEndless();
+  const sv = from === 'title' ? loadSave() : save; if (!sv) { toast('Crea o carga una partida para correr'); return; }
+  if (from === 'title') { save = sv; storeOf(save); applyPartida(); applyHero(); }
+  raceUI.from = from; audio.play('open');
+  $(from).classList.add('hidden'); $('raceMenu').classList.remove('hidden'); refreshRaceMenu();
+}
+function refreshRaceMenu() {
+  const sv = save || {}, best = (sv.race || {})[raceUI.track + '_' + raceUI.laps];
+  const T = TRACKS[raceUI.track];
+  const fmt = t => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`;
+  $('raceTracks').innerHTML = `<div class="raceCard"><span class="ic">${T.icon}</span><div><b>${T.name}</b><small>${T.desc}</small>${best ? `<em>Tu récord: ${fmt(best.time)} · ${best.place}.º lugar</em>` : '<em>Aún sin récord en esta pista</em>'}</div></div>`;
+  const opts = (box, list, key, label) => {
+    box.innerHTML = '';
+    for (const v of list) { const b = document.createElement('button'); b.className = 'btn alt small' + (raceUI[key] === v ? ' sel' : ''); b.textContent = label(v); b.onclick = () => { raceUI[key] = v; audio.play('uiMove'); refreshRaceMenu(); }; box.appendChild(b); }
+  };
+  opts($('raceLaps'), RACE_LAPS, 'laps', v => `${v} vueltas`);
+  opts($('raceRivals'), [3, 5, 7], 'rivals', v => `${v} rivales`);
+}
+$('bRaceBack').onclick = () => { $('raceMenu').classList.add('hidden'); $(raceUI.from).classList.remove('hidden'); };
+$('bRaceGo').onclick = () => {
+  audio.unlock(); music.init(); goFull();
+  if (state === 'pause') writeSave(save);
+  $('raceMenu').classList.add('hidden'); showOverlay(null);
+  if (dialog) closeDialog(false);
+  if (endless.active) { if (endless.inZone) stopEndlessInZone(true); else stopEndless(); }
+  state = 'race';
+  race.start({ track: raceUI.track, laps: raceUI.laps, rivals: raceUI.rivals, from: raceUI.from });
+};
+function leaveRace() {
+  if (!race.active) return;
+  race.exit(); player.mesh.visible = true; player.shadow.visible = true;
+  applyPartida(); applyHero();
+  if (raceUI.from === 'title') { state = 'title'; zone = null; music.play('title'); showOverlay('title'); openHub(); }
+  else { state = 'play'; enterZone(save.zone, save.checkpoint); }
+}
+$('raceBtnPause').onclick = () => race.togglePause();
+$('bRaceResume').onclick = () => race.togglePause();
+$('bRaceRestart').onclick = () => { race.paused = false; race.again(); };
+$('bRaceLeave').onclick = leaveRace;
+$('bRaceEndLeave').onclick = leaveRace;
+$('bRaceAgain').onclick = () => race.again();
+$('bRacePauseMenu').onclick = () => { if (challenge) { toast('Termina o sal del desafío antes de ir a las Carreras'); return; } openRace('pause'); };
+$('bHubRace').onclick = () => { audio.unlock(); openRace('title'); };
+
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
@@ -2964,7 +3032,7 @@ window.__aethra = {
   testNewGame(name = 'Prueba', difficulty = settings.difficulty, opts = {}) { nueva.name = name; nueva.diff = DIFF[difficulty] ? difficulty : 'normal'; nueva.slot = freeSlot() || getSlot() || 1; createPartida(settings.custom || {}); if (opts.sellos !== false) for (const id of Object.keys(SENDEROS)) save.flags['sello_' + id] = true; }, // las pruebas de capítulos saltan los Senderos
   openChallenges() { if (!loadSave()) { nueva.name = 'Prueba'; nueva.diff = DIFF[settings.difficulty] ? settings.difficulty : 'normal'; nueva.slot = freeSlot() || 1; const sv = newSave({ name: 'Prueba', difficulty: nueva.diff, custom: settings.custom || {} }); setSlot(nueva.slot); writeSlot(nueva.slot, sv); } $('bHubCh').click(); },
   playCredits: (then) => playCredits(save, then || (() => {})), showChapterEnd, startEnding, openTrophies, offerLowerDifficulty, get lossStreak() { return lossStreak; },
-  showIntro, get introRun() { return introRun; }, arena, openArena, openArmeria, openHeroes, openMisiones, openPoderes, powers, audio, leaveArena, checkMissions, get arenaUI() { return arenaUI; }, Net,
+  showIntro, get introRun() { return introRun; }, arena, openArena, race, openRace, leaveRace, get raceUI() { return raceUI; }, openArmeria, openHeroes, openMisiones, openPoderes, powers, audio, leaveArena, checkMissions, get arenaUI() { return arenaUI; }, Net,
   endless, startEndless, stopEndless, startChallenge,
   hold(on) { paused4test = on; }, S, combat, enterZone, choose, get zone() { return zone; }, get dialog() { return dialog; },
   step(n, press) {
