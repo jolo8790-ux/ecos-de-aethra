@@ -2,7 +2,7 @@
 // Una pista cerrada de tablones sobre el mar de nubes, karts contra la CPU, 3 o 5 vueltas,
 // derrape con turbo, placas de impulso y podio con premio en Ecos.
 import * as THREE from 'three';
-import { createCharacter } from './characters.js';
+import { createCharacter, recolor } from './characters.js';
 import { HEROES, heroById, heroLook, heroUnlocked } from './heroes.js';
 import { prop, hasProp } from './props.js';
 import { RaceItems, ITEMS } from './raceitems.js';
@@ -63,6 +63,14 @@ function banner(text) {
   }, false);
 }
 
+// textura del kart de Artlist recoloreada (una por color, se reutiliza)
+const _kartTex = new Map();
+function kartTex(map, color, hsl) {
+  const key = map.uuid + color; if (_kartTex.has(key)) return _kartTex.get(key);
+  let t = map;
+  try { t = recolor(map, [{ from: [195, 260], minSat: 0.2, to: hsl.h * 360, sat: 1.15, light: hsl.l > 0.6 ? 1.35 : 1.1 }]); } catch (e) {}
+  _kartTex.set(key, t); return t;
+}
 // ---------- kart hecho con formas (si no hay modelo de Artlist) ----------
 function buildKart(color) {
   const g = new THREE.Group();
@@ -231,8 +239,16 @@ class Racer {
     const C = race.ctx;
     this.root = new THREE.Group(); race.root.add(this.root);
     this.body = new THREE.Group(); this.root.add(this.body);
-    let kart = hasProp('kart') ? prop('kart', { w: 2.9 }, { rotY: 0, tint: this.color }) : null;
-    if (kart) { kart.traverse(m => { if (m.isMesh) m.castShadow = true; }); kart.userData.wheels = []; }
+    let kart = hasProp('kart') ? prop('kart', { w: 2.25 }, { rotY: 0 }) : null;
+    if (kart) { // el kart de Artlist: la carrocería azul toma el color del corredor (la madera y el bronce no cambian)
+      const hsl = {}; new THREE.Color(this.color).getHSL(hsl);
+      kart.traverse(m => {
+        if (!m.isMesh) return; m.castShadow = true;
+        m.material = m.material.clone(); m.material.roughness = 0.55; m.material.metalness = 0.15;
+        if (m.material.map && this.color !== COLORS[0]) m.material.map = kartTex(m.material.map, this.color, hsl);
+      });
+      kart.userData.wheels = []; this.artKart = true;
+    }
     else kart = buildKart(this.color);
     this.kart = kart; this.body.add(kart);
     // piloto: el héroe sentado en el kart
@@ -244,7 +260,7 @@ class Racer {
         const sit = ch.actions.Sit_Floor_Idle || ch.actions.Idle; sit.setEffectiveWeight(1); sit.time = ch.actions.Sit_Floor_Idle ? 0.35 : 0;
         if (ch.actions.Sit_Floor_Idle && ch.actions.Idle) { ch.actions.Idle.setEffectiveWeight(0.0); }
         ch.mixer.update(0);
-        ch.root.position.set(0, 0.36, -0.42); ch.root.rotation.y = Math.PI; ch.root.scale.multiplyScalar(0.9); this.body.add(ch.root);
+        ch.root.position.set(0, this.artKart ? 0.2 : 0.36, this.artKart ? -0.32 : -0.42); ch.root.rotation.y = Math.PI; ch.root.scale.multiplyScalar(0.9); this.body.add(ch.root);
         ch.root.traverse(m => { if (m.isMesh) m.castShadow = true; });
       } catch (e) { console.warn('piloto', e); }
     }

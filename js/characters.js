@@ -41,7 +41,7 @@ export async function loadCharacterLibrary(onProgress) {
 }
 
 // Recolorea la textura de paleta: cambia los tonos dentro de un rango a otro tono.
-function recolor(texture, rules) {
+export function recolor(texture, rules) {
   const img = texture.image;
   const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height;
   const ctx = cv.getContext('2d'); ctx.drawImage(img, 0, 0);
