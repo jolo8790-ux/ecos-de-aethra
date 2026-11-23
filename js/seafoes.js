@@ -171,6 +171,7 @@ export class SeaFoes {
   }
 
   update(dt, player, ctx) {
+    if (this.hold) return []; // pausa mientras se lee la tarjeta del Pulpo Rey
     this.t += dt; const t = this.t, P = player.pos, hits = [], ev = this.events;
     const safe = ctx.inDome || player.inSub, auto = ctx.auto;
     const chest = new THREE.Vector3(P.x, P.y + 0.9, P.z);

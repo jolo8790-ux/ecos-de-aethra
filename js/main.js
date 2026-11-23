@@ -345,7 +345,8 @@ function applyAbilities() {
   player.canPulse = !!save.flags.pulso;
   $('tY').classList.toggle('off', !player.canShield);
   $('tZ').classList.toggle('off', !(player.canGrapple || player.canPulse));
-  player.maxHp = 4 + Math.floor(save.fragments.length / 5) + Math.floor((save.relics || []).length / 2) + pieceHearts(save) + (player.mods.hp || 0);
+  // 5 corazones en todos los niveles; más solo comprándolos en la Tienda (o con armaduras)
+  player.maxHp = 5 + Math.min(5, save.extraHearts || 0) + (player.mods.hp || 0);
   $('hudPieza').textContent = `⚙ ${pieceCount(save)}`;
   applyPowers();
 }
@@ -437,6 +438,11 @@ combat.onBreak = B => {
   else if (B.loot === 'corazon') combat.spawnHeal(B.pos.x, B.pos.y - 0.45, B.pos.z);
   else if (B.loot === 'reloj' && challenge) { challenge.t = Math.max(0, challenge.t - 3); audio.play('unlock'); toast('⏳ ¡Reloj de arena! −3 segundos'); }
   if (!challenge && save && !isAutoMode()) { bump('rotos'); addEcos(ECO_REWARD.roto); }
+  // a veces, dentro de una vasija hay un Portal de rescate (uno, y con suerte dos)
+  if (!challenge && save && !isAutoMode() && !B.loot && Math.random() < 0.13) {
+    const n = Math.random() < 0.2 ? 2 : 1; items().portal = (items().portal || 0) + n; writeSave(save);
+    audio.play('unlock'); fx.sparkle(B.pos.clone().setY(B.pos.y + 0.6), 24, 0x9a7aff); toast(`🌀 ¡Encontraste ${n === 2 ? 'dos Portales' : 'un Portal'} de rescate! Úsalo cuando caigas (${input.isTouch ? 'botón 🌀' : input.usingGamepad ? 'salto sin saltos restantes' : 'tecla B'})`); updatePortalHUD();
+  }
   const pid = zone && 'pz_' + zone.id;
   if (B.id === pieceBk && save && !piecesOf(save).includes(pid)) { world.spawnPieza(pid, B.pos.clone().setY(B.pos.y - 0.45)); fx.sparkle(B.pos, 30, 0xffe08a); toast('¡Algo dorado brilla entre los pedazos!'); }
 };
@@ -456,7 +462,6 @@ function announcePiece(name) {
   const n = pieceCount(save), before = player.maxHp;
   applyAbilities(); if (player.maxHp > before) player.hp = player.maxHp;
   const extra = [];
-  if (n % 4 === 0) extra.push('¡un corazón más!');
   const h = HEROES.find(x => x.need === n); if (h) extra.push(`¡${h.name} se une a tu equipo!`);
   toast(`⚙ ${name} (${n}/${PIECE_TOTAL})${extra.length ? ' · ' + extra.join(' ') : ''}`);
   if (h) achvQ.push({ icon: '☺', title: `Nuevo héroe: ${h.name}`, desc: `${h.perk}. Cámbialo con H o desde la pausa.`, kicker: 'Héroe desbloqueado' });
@@ -481,7 +486,7 @@ function collectRelic(it) {
   const n = save.relics.length, before = player.maxHp;
   applyAbilities(); if (player.maxHp > before) player.hp = player.maxHp;
   logro('primera_reliquia'); if (n >= RELIC_TOTAL) logro('todas_reliquias');
-  toast(n === RELIC_TOTAL ? '¡Encontraste todas las Reliquias de Aethra!' : `Reliquia de Aethra (${n}/${RELIC_TOTAL})${player.maxHp > before ? ' · ¡un corazón más!' : ''}`);
+  toast(n === RELIC_TOTAL ? '¡Encontraste todas las Reliquias de Aethra!' : `Reliquia de Aethra (${n}/${RELIC_TOTAL}) · +${ECO_REWARD.reliquia} ✧`);
   writeSave(save);
 }
 
@@ -642,7 +647,7 @@ function startDialog(lines, defaultWho, it, then, ctx) {
   state = 'dialog';
   player.frozen = true;
   if (it) it.talking = true;
-  $('dialog').classList.remove('hidden');
+  $('dialog').classList.remove('hidden'); document.body.classList.add('dlg'); // en el teléfono, los botones se ocultan mientras se lee
   $('prompt').classList.add('hidden');
   audio.play('open');
   showLine();
@@ -703,7 +708,7 @@ function choose(i) {
   if (c.then) c.then();
 }
 function closeDialog(finished) {
-  $('dialog').classList.add('hidden');
+  $('dialog').classList.add('hidden'); document.body.classList.remove('dlg');
   document.body.classList.remove('memory');
   const d = dialog;
   if (d && d.it) d.it.talking = false;
@@ -1039,7 +1044,7 @@ function doPulse(pos, r) {
 }
 // ---------- nivel submarino: nadar, aire, ahogo y submarino ----------
 const drown = { t: 0, on: false, beatT: 0 }; let underFog = null, aboveFog = null, inkT = 0;
-const toastSeen = new Set(); const onceToast = (k, m) => { if (!toastSeen.has(k)) { toastSeen.add(k); toast(m); } };
+let kingCardShown = false; const toastSeen = new Set(); const onceToast = (k, m) => { if (!toastSeen.has(k)) { toastSeen.add(k); toast(m); } };
 function seaBefore(dt) {
   const sea = world.sea, p = player.pos;
   player.seaY = sea.surface;
@@ -1061,6 +1066,7 @@ function seaAfter(dt) {
     for (const h of sea.update(dt, player, camera, !!player.inSub)) if (player.damage(1, h.from)) { player.vel.copy(h.push); audio.play('fire'); toast('¡Una medusa! Su picadura quema'); }
     // criaturas: tiburones, pulpos, erizos y medusas eléctricas
     const HIT_MSG = { shark: '¡Un tiburón! Cuando agite la cola, apártate de su línea roja', octo: '¡Un tentáculo! Si brilla, aléjate de ese lado', urchin: '¡Erizo! Sus púas no se tocan', zap: '¡Descarga! Cuando la medusa amarilla parpadee, aléjate' };
+    { const K = sea.foes.king(); if (K && !kingCardShown && !isAutoMode() && K.pos.distanceTo(player.pos) < 13) { kingCardShown = true; sea.foes.hold = true; showBossCard('pulpo', 'el Pulpo Rey', () => { sea.foes.hold = false; }); } }
     for (const h of sea.foes.update(dt, player, { inDome: !!sea.inDome(p), auto: isAutoMode(), surface: sea.surface })) if (player.damage(1, h.from)) { player.vel.copy(h.push); audio.play(h.kind === 'zap' ? 'zap' : h.kind === 'urchin' ? 'fire' : 'hitHeavy'); combat.shake(0.2, 0.25); onceToast('mr_' + h.kind, HIT_MSG[h.kind]); }
     for (const ev of sea.foes.events.splice(0)) {
       if (ev.type === 'sharkAim') { audio.play('growl', ev.pos); onceToast('mr_shark_aim', `¡El tiburón te vio! Apártate de la línea roja y, cuando quede cansado, dale una estocada [${keyOf('attack')}]`); }
@@ -1214,9 +1220,9 @@ function checkRegions() {
   if (state !== 'play') return;
   for (const r of zone.regions || []) if (!save.flags[r.flag] && inBox(player.pos, r.box)) S.set(r.flag);
   const B = zone.boss;
-  if (B && combat.boss && combat.boss.state === 'sleep' && inBox(player.pos, B.region)) {
+  if (B && combat.boss && combat.boss.state === 'sleep' && !bossCardCb && inBox(player.pos, B.region)) {
     bossActive = true;
-    startDialog(zone.story.bossIntro, '', null, () => { combat.boss.wake(); bossHurt = false; }, 'boss');
+    startDialog(zone.story.bossIntro, '', null, () => showBossCard(zone.boss.type, combat.boss.name, () => { combat.boss.wake(); bossHurt = false; }), 'boss');
   }
 }
 combat.onBossDefeated = () => {
@@ -1290,10 +1296,35 @@ function bossGuide(b) {
   }
   return null;
 }
+// Tarjeta «Cómo vencerlo»: sale ANTES de la pelea, con el jefe quieto; al tocar (o a los 15 s) desaparece y empieza el combate
+const BOSS_HOW = {
+  raiz: ['Aléjate de los círculos rojos del suelo: de ahí salen raíces.', 'Cuando salga una raíz, golpea su nudo naranja {attack}.', 'Cada nudo roto le quita vida a la Raíz Madre.'],
+  escorpion: ['Ponte delante de un pilar de cristal.', 'Cuando embista, esquívalo {dodge}: chocará contra el pilar y quedará aturdido.', 'Corre a su cola y golpea el cristal {attack}.', 'Si lanza un rayo a ras de suelo, sáltalo {jump}.'],
+  coloso: ['Esquiva su puñetazo (el círculo rojo) {dodge}: se le quedará el brazo atascado.', 'Mira al anillo dorado de su pecho y lanza el garfio {grapple}.', 'Ya arriba, golpea dos veces su núcleo azul {attack}.', 'Salta sus ondas de choque {jump}.'],
+  sierpe: ['Cuando lance un orbe de hielo, mantén el escudo {shield} mirando hacia él: se lo devolverás.', 'Cuando caiga al suelo, golpea su cuerno de cristal {attack}.'],
+  vaelor: ['Rompe su barrera con el pulso de luz {pulse} cerca de él, o devolviéndole un orbe con el escudo {shield}.', 'Sin barrera, golpéalo {attack}.'],
+  eco: ['Rompe su barrera con el pulso de luz {pulse} cerca de él, o devolviéndole un orbe con el escudo {shield}.', 'Sin barrera, golpéalo {attack}.'],
+  pulpo: ['Cuando un tentáculo se levante brillando, apártate de ese lado.', 'Justo después del golpe, nada hasta su cabeza y dale una estocada {attack}.', 'Esquiva las nubes de tinta: te dejan casi a ciegas.'],
+};
+let bossCardCb = null, bossCardT = 0;
+function showBossCard(type, name, done) {
+  const steps = BOSS_HOW[type]; if (!steps || isAutoMode() || window.__aethraNoCard) { done(); return; }
+  let el = $('bossCard');
+  if (!el) { el = document.createElement('div'); el.id = 'bossCard'; document.body.appendChild(el); el.addEventListener('pointerdown', () => closeBossCard()); }
+  el.innerHTML = `<b>CÓMO VENCER ${name ? 'A ' + name.toUpperCase() : 'AL JEFE'}</b><ol>${steps.map(t => `<li>${t.replace(/\{(\w+)\}/g, (m, a) => `<span class="k">${keyOf(a)}</span>`)}</li>`).join('')}</ol><small>${input.isTouch ? 'Toca' : 'Pulsa cualquier botón'} para empezar</small>`;
+  el.classList.add('on'); bossCardCb = done; bossCardT = 0; player.frozen = true; audio.play('open');
+}
+function closeBossCard() {
+  if (!bossCardCb || bossCardT < 0.6) return;
+  $('bossCard').classList.remove('on'); const cb = bossCardCb; bossCardCb = null; player.frozen = false; audio.play('uiMove'); cb();
+}
+function tickBossCard(dt) {
+  if (!bossCardCb) return; bossCardT += dt;
+  if (bossCardT > 15 || (bossCardT > 0.6 && ['jump', 'attack', 'interact', 'click', 'dodge'].some(a => input.pressed(a)))) closeBossCard();
+}
 function updateBossGuide(b, show, dt) {
   const g = show && state === 'play' ? bossGuide(b) : null;
-  $('bossGuide').style.display = g ? '' : 'none';
-  if (g) { $('bossGuideT').textContent = g.text; $('bossGuide').classList.toggle('now', !!g.now); }
+  $('bossGuide').style.display = 'none'; // durante la pelea, sin texto encima: solo la flecha sobre el objetivo (las instrucciones salen antes, en la tarjeta)
   if (!guideArrow) {
     guideArrow = new THREE.Group();
     const m = new THREE.MeshBasicMaterial({ color: 0xffe27a, transparent: true, opacity: 0.95, depthTest: false });
@@ -1338,10 +1369,84 @@ function updateHUD() {
   updateGlideBar();
   const total = zone.fragments.length, got = zone.fragments.filter(f => save.fragments.includes(f.id)).length;
   $('hudFrag').textContent = `◆ ${got}/${total}`;
-  $('hudEcos').textContent = `✧ ${save.ecos || 0}`;
+  $('hudEcos').textContent = `✧ ${save.ecos || 0}`; updatePortalHUD();
 }
 // Ecos (✧): la moneda de la Armería
 let ecoPopT = 0;
+// ---------- Portal de rescate ----------
+// Se encuentra en vasijas (o se compra en la Tienda). Al caer al vacío, se activa: un portal se abre debajo,
+// la protagonista lo atraviesa y sale por otro portal en el aire, sobre el siguiente lugar seguro del camino.
+const items = () => (save.items = save.items || {});
+let lastGround = null, portalFx = null;
+function updatePortalHUD() {
+  let c = $('hudPortal');
+  if (!c) { c = document.createElement('div'); c.className = 'chip'; c.id = 'hudPortal'; c.title = 'Portales de rescate'; $('hud').appendChild(c); }
+  const n = save ? (items().portal || 0) : 0; c.textContent = `🌀 ${n}`; c.style.display = n ? '' : 'none';
+}
+function falling() {
+  return lastGround && !player.grounded && !player.swimming && !player.gliding && player.vel.y < -5 && player.pos.y < lastGround.y - 2.5 && !player.dead;
+}
+function portalSafePoint() {
+  const g = zone.story && zone.story.goal(S), goal = g && g.at ? new THREE.Vector3(...g.at) : null, from = lastGround || player.pos;
+  const d0 = goal ? Math.hypot(from.x - goal.x, from.z - goal.z) : 0;
+  let best = null, bs = Infinity;
+  for (const b of world.physics.boxes) {
+    if (b.off || b.crumble || b.blink || b.delta || b.noPortal) continue;
+    const w = b.maxX - b.minX, d = b.maxZ - b.minZ; if (w < 2.4 || d < 2.4 || b.maxY - b.minY < 0.25) continue;
+    const cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2, top = b.maxY;
+    if (top > from.y + 8 || top < from.y - 25) continue;
+    const dist = Math.hypot(cx - from.x, cz - from.z); if (dist > 55 || dist < 1) continue;
+    // que no haya otra caja encima (casas, rocas): hace falta sitio para aparecer
+    if (world.physics.boxes.some(q => q !== b && cx > q.minX && cx < q.maxX && cz > q.minZ && cz < q.maxZ && q.minY < top + 2.2 && q.maxY > top + 0.1)) continue;
+    let score;
+    // el siguiente lugar seguro: el más cercano a donde estabas que quede más cerca del objetivo (si no hay, el más cercano)
+    score = dist; if (goal && Math.hypot(cx - goal.x, cz - goal.z) > d0 - 1) score += 1000;
+    if (score < bs) { bs = score; best = new THREE.Vector3(cx, top, cz); }
+  }
+  return best;
+}
+function portalRing(pos, color) {
+  const g = new THREE.Group(); g.position.copy(pos);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.12, 12, 40), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 }));
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(1.05, 40), new THREE.MeshBasicMaterial({ color: 0x1a0a3a, transparent: true, opacity: 0.85, side: THREE.DoubleSide }));
+  const swirl = new THREE.Mesh(new THREE.RingGeometry(0.2, 1.0, 40, 1, 0, Math.PI * 1.4), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.5, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
+  ring.rotation.x = disc.rotation.x = swirl.rotation.x = -Math.PI / 2; g.add(ring, disc, swirl); g.userData.swirl = swirl; g.scale.setScalar(0.01);
+  scene.add(g); return g;
+}
+function usePortal() {
+  if (portalFx || !save || (items().portal || 0) <= 0 || !falling()) return false;
+  const dest = portalSafePoint(); if (!dest) { toast('No hay un lugar seguro cerca para el portal'); return false; }
+  items().portal--; writeSave(save); updatePortalHUD(); bump('portales');
+  const inP = portalRing(player.pos.clone().setY(player.pos.y - 0.6), 0x9a6aff);
+  portalFx = { t: 0, inP, outP: null, dest, phase: 'in', s0: player.mesh.scale.x };
+  player.frozen = true; player.vel.set(0, 0, 0); audio.play('tele'); music.stinger('hallazgo'); input.rumble(200, 0.5);
+  if (vfx) vfx.flash(player.pos.clone().setY(player.pos.y + 0.5), 0xb08aff, 4, 0.4);
+  return true;
+}
+function tickPortal(dt) {
+  if (player.grounded && !player.swimming && player.pos.y > -200) { if (!lastGround) lastGround = new THREE.Vector3(); lastGround.copy(player.pos); }
+  $('tPortal') && $('tPortal').classList.toggle('show', !!(save && (items().portal || 0) > 0 && falling() && !portalFx && state === 'play'));
+  if (!portalFx && state === 'play' && falling() && (input.pressed('portal') || (input.usingGamepad && input.pressed('jump') && player.jumps >= 2))) usePortal();
+  const P = portalFx; if (!P) return;
+  P.t += dt; const sw = q => q && (q.userData.swirl.rotation.z += dt * 6);
+  sw(P.inP); sw(P.outP);
+  if (P.phase === 'in') { // el portal se abre debajo y la traga
+    P.inP.scale.setScalar(Math.min(1, P.t * 4));
+    player.mesh.scale.setScalar(P.s0 * Math.max(0.01, 1 - Math.max(0, P.t - 0.2) * 3)); player.pos.y -= dt * 2;
+    if (P.t > 0.55) {
+      P.phase = 'out'; P.t = 0; player.mesh.visible = false;
+      P.outP = portalRing(P.dest.clone().setY(P.dest.y + 4.2), 0x6ae8ff); P.outP.rotation.x = Math.PI; // boca abajo: se cae de él
+      player.teleport(P.dest.x, P.dest.y + 3.6, P.dest.z, player.facing); cam.snap(player);
+      audio.play('tele', P.dest); fx.sparkle(P.dest.clone().setY(P.dest.y + 4), 30, 0x9fe8ff);
+    }
+  } else if (P.phase === 'out') {
+    P.outP.scale.setScalar(Math.min(1, P.t * 5)); P.inP.scale.setScalar(Math.max(0.01, 1 - P.t * 3));
+    if (P.t > 0.25 && !player.mesh.visible) { player.mesh.visible = true; player.frozen = false; player.vel.set(0, -2, 0); player.invuln = 1.2; }
+    player.mesh.scale.setScalar(P.s0 * Math.min(1, Math.max(0.01, (P.t - 0.25) * 4)));
+    if (P.t > 1.2) { P.outP.scale.setScalar(Math.max(0.01, 1 - (P.t - 1.2) * 3)); }
+    if (P.t > 1.6) { scene.remove(P.inP); scene.remove(P.outP); player.mesh.scale.setScalar(P.s0); portalFx = null; }
+  }
+}
 function addEcos(n, pos) {
   if (!save || isAutoMode() || !n) return;
   save.ecos = (save.ecos || 0) + n;
@@ -2257,6 +2362,7 @@ function simulate(dt) {
   else if (input.pressed('pause') && state === 'arena') arena.togglePause();
   if (input.pressed('heroes') && state === 'play' && !challenge) openHeroes('play');
   if (state === 'arena') arena.update(dt);
+  tickBossCard(dt);
   { // mundo compartido: sala de la isla actual (no en desafíos, Aethra sin fin, modo Automático ni pantalla dividida)
     const zid = save && zone && state !== 'title' && state !== 'arena' && !challenge && !isAutoMode() && !splitView && !(endless.active && endless.inZone) ? zone.id : null;
     worldNet.setZone(zid); // la sala solo cambia al cambiar de isla (no en cada diálogo o pausa)
@@ -2301,6 +2407,7 @@ function simulate(dt) {
     if (combat.shakeAmt > 0) camera.position.add(new THREE.Vector3((Math.random() - 0.5) * combat.shakeAmt, (Math.random() - 0.5) * combat.shakeAmt, (Math.random() - 0.5) * combat.shakeAmt));
   }
   if (state === 'play' || state === 'dialog') updateGoal(dt);
+  if (save && (state === 'play' || state === 'dialog')) tickPortal(dt);
   if (state === 'play' && pieceBk && (pieceHintT -= dt) <= 0) { // destellos dorados alrededor de la vasija con la pieza
     pieceHintT = 0.9;
     const B = world.breakables.find(b => b.id === pieceBk);
@@ -2427,8 +2534,8 @@ function openMisiones(from) {
   misUI.from = from;
   const got = new Set(piecesOf(sv)), n = got.size;
   $('misCount').textContent = `${n} de ${PIECE_TOTAL} Piezas especiales`;
-  const perks = [`♥ +${pieceHearts(sv)} corazones (uno cada 4 piezas)`, ...HEROES.filter(h => h.need).map(h => `${n >= h.need ? '✓' : '🔒'} ${h.name} con ${h.need} piezas`)];
-  $('misPerks').innerHTML = perks.map((t, i) => `<span class="${i === 0 ? (pieceHearts(sv) ? 'on' : '') : (t.startsWith('✓') ? 'on' : '')}">${t}</span>`).join('');
+  const perks = HEROES.filter(h => h.need).map(h => `${n >= h.need ? '✓' : '🔒'} ${h.name} con ${h.need} piezas`);
+  $('misPerks').innerHTML = perks.map(t => `<span class="${t.startsWith('✓') ? 'on' : ''}">${t}</span>`).join('');
   $('misList').innerHTML = MISIONES.map(M => {
     const v = Math.min(M.goal, M.prog(sv)), done = got.has('pz_' + M.id);
     return `<div class="mis${done ? ' done' : ''}"><span class="ic">${done ? '✓' : M.icon}</span><b>${M.title}</b><small>${M.desc} · Premio: 1 pieza</small><span class="bar"><i style="width:${v / M.goal * 100}%"></i></span></div>`;
@@ -2451,9 +2558,31 @@ function openArmeria(from) {
 function buildArmeria() {
   const sv = armUI.sv, g = gearOf(sv), ecos = sv.ecos || 0;
   $('armSub').innerHTML = `Tienes <b class="ecoTag">✧ ${ecos} Ecos</b>. Los ganas venciendo enemigos, rompiendo vasijas, encontrando fragmentos, reliquias y piezas, en la Arena, en los desafíos y en Aethra sin fin.`;
-  $('armTabs').innerHTML = `<button class="${armUI.tab === 'arma' ? 'sel' : ''}" data-t="arma"><b>🗡</b><small>Armas</small></button><button class="${armUI.tab === 'armadura' ? 'sel' : ''}" data-t="armadura"><b>🛡</b><small>Armaduras</small></button>`;
+  $('armTabs').innerHTML = `<button class="${armUI.tab === 'arma' ? 'sel' : ''}" data-t="arma"><b>🗡</b><small>Armas</small></button><button class="${armUI.tab === 'armadura' ? 'sel' : ''}" data-t="armadura"><b>🛡</b><small>Armaduras</small></button><button class="${armUI.tab === 'objetos' ? 'sel' : ''}" data-t="objetos"><b>🌀</b><small>Objetos</small></button>`;
   $('armTabs').querySelectorAll('button').forEach(b => b.onclick = () => { armUI.tab = b.dataset.t; audio.play('uiMove'); buildArmeria(); });
   const grid = $('armGrid'); grid.innerHTML = '';
+  if (armUI.tab === 'objetos') { // objetos especiales: se gastan (portales) o suman corazones para siempre
+    const inv = (sv.items = sv.items || {}), xh = sv.extraHearts || 0;
+    const SHOP = [
+      { id: 'portal', icon: '🌀', name: 'Portal de rescate', desc: `Al caer al vacío, te lleva por un portal al siguiente lugar seguro. Tienes ${inv.portal || 0}. (También aparecen en vasijas.)`, cost: 30, can: true },
+      { id: 'corazon', icon: '❤', name: 'Corazón extra', desc: `Un corazón más para siempre (empiezas con 5). Tienes ${xh} de 5 extra.`, cost: 100 + 60 * xh, can: xh < 5 },
+      { id: 'soplador', icon: '🌬', name: 'Soplador de bruma', desc: 'Dispersa la bruma que cubre las plataformas. Muy pronto.', cost: 0, can: false, soon: true },
+    ];
+    for (const it of SHOP) {
+      const b = document.createElement('button'), afford = ecos >= it.cost;
+      b.className = 'powCard' + (it.can && afford ? '' : ' locked');
+      b.innerHTML = `<span class="ic">${it.icon}</span><b>${it.name}</b><small>${it.desc}</small><em>${it.soon ? 'Próximamente' : !it.can ? 'Máximo alcanzado' : `✧ ${it.cost} Ecos${afford ? ' · pulsa para comprar' : ` (te faltan ${it.cost - ecos})`}`}</em>`;
+      b.onclick = () => {
+        if (!it.can || !afford) { audio.play('powerFail'); return; }
+        sv.ecos = ecos - it.cost; audio.play('unlock');
+        if (it.id === 'portal') inv.portal = (inv.portal || 0) + 1; else if (it.id === 'corazon') sv.extraHearts = xh + 1;
+        if (sv === save) { writeSave(save); applyAbilities(); if (it.id === 'corazon') player.hp = player.maxHp; updateHUD(); } else writeSaveRaw(sv);
+        buildArmeria();
+      };
+      grid.appendChild(b);
+    }
+    return;
+  }
   for (const it of armUI.tab === 'arma' ? WEAPONS : ARMORS) {
     const own = g.owned.includes(it.id), on = g[armUI.tab] === it.id, can = ecos >= it.cost, b = document.createElement('button');
     b.className = 'powCard' + (own || can ? '' : ' locked') + (on ? ' on' : '');

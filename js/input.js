@@ -65,7 +65,7 @@ export class Input {
     let joyId = null, camId = null, tx = 0, ty = 0;
     this._joy = { x: 0, y: 0 };
     // A saltar · B golpear · C esquivar · X usar/hablar · Y escudo (mantener) · Z garfio o pulso de luz
-    const MAP = { tA: 'jump', tB: 'attack', tC: 'dodge', tX: 'interact', tY: 'shield', tZ: 'special', tPause: 'pause', tP1: 'power1', tP2: 'power2', tP3: 'power3' };
+    const MAP = { tA: 'jump', tB: 'attack', tC: 'dodge', tX: 'interact', tY: 'shield', tZ: 'special', tPause: 'pause', tP1: 'power1', tP2: 'power2', tP3: 'power3', tPortal: 'portal' };
     // Botones: responden al primer contacto (pointerdown llega antes que touchstart en muchos teléfonos), tienen un área
     // de toque más grande que el dibujo, y se puede deslizar el dedo de un botón a otro sin levantarlo (p. ej. golpe → salto).
     const BTN = new Map(), owner = new Map(); // id de dedo → botón
@@ -191,7 +191,7 @@ export class Input {
 
 const KEYMAP = {
   Space: 'jump', KeyE: 'interact', Enter: 'interact', KeyF: 'interact', KeyJ: 'attack', KeyK: 'dodge', KeyL: 'dodge', KeyG: 'grapple', KeyC: 'grapple', KeyZ: 'pulse', KeyX: 'pulse', Digit1: 'choice1', Digit2: 'choice2', Numpad1: 'choice1', Numpad2: 'choice2',
-  Escape: 'pause', KeyP: 'pause', ArrowUp: 'choiceUp', ArrowDown: 'choiceDown', KeyH: 'heroes',
+  Escape: 'pause', KeyP: 'pause', ArrowUp: 'choiceUp', ArrowDown: 'choiceDown', KeyH: 'heroes', KeyB: 'portal',
 };
 const POWER_KEYS = { Digit1: 'power1', Digit2: 'power2', Digit3: 'power3' };
 const ARENA_P1 = { KeyF: 'attack', KeyG: 'dodge' };
