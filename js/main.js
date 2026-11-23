@@ -3040,8 +3040,10 @@ function buildTaller() {
   $('tallTabs').innerHTML = tabs.map(([id, ic, n]) => `<button class="${tallUI.tab === id ? 'sel' : ''}" data-t="${id}"><b>${ic}</b><small>${n}</small></button>`).join('');
   $('tallTabs').querySelectorAll('button').forEach(b => b.onclick = () => { tallUI.tab = b.dataset.t; tallUI.driverView = null; audio.play('uiMove'); buildTaller(); });
   const body = $('tallBody'); body.innerHTML = '';
+  { const K = kartById(G.kart), Dn = DRIVERS.find(d => d.id === (G.driver || 'hero')) || DRIVERS[0], Pn = PAINTS.find(p => p.id === G.paint) || PAINTS[0], Tn = TRAILS.find(t => t.id === G.trail) || TRAILS[0];
+    $('tallSum').innerHTML = `Llevas: <b>${K.name}</b> · ${Dn.id === 'hero' ? (sv.name || 'tu héroe') : Dn.name} · pintura ${Pn.name.toLowerCase()} · estela ${Tn.name.toLowerCase()}`; }
   const bars = (base, up) => { let h = ''; for (let i = 0; i < 9; i++) { const v = i + 1; h += `<i class="${base < 0 && i < -base ? 'neg' : v <= Math.max(0, base) ? 'base' : v <= Math.max(0, base) + up ? 'up' : ''}"></i>`; } return `<div class="bars">${h}</div>`; };
-  const save2 = (fx) => { writeSave(save); buildTaller(); refreshRaceMenu(); if (fx && showroom) showroom.celebrate(); };
+  const save2 = (fx, msg) => { writeSave(save); buildTaller(); refreshRaceMenu(); if (fx && showroom) showroom.celebrate(); if (msg) toast('✔ ' + msg); };
   const buy = (cost, then) => { if (ecos < cost) { audio.play('powerFail'); toast(`Te faltan ${cost - ecos} Ecos`); return false; } sv.ecos = ecos - cost; audio.play('unlock'); then(); return true; };
   if (tallUI.tab === 'karts') {
     const u = G.up[V.id], box = document.createElement('div'); box.className = 'kartInfo';
@@ -3056,7 +3058,7 @@ function buildTaller() {
       b.onclick = () => {
         if (mine) return;
         if (!own) { if (!buy(V.cost, () => G.owned.push(V.id))) return; music.stinger('hallazgo'); } else audio.play('open');
-        G.kart = V.id; save2(true);
+        G.kart = V.id; save2(true, `Ahora corres con el ${V.name}`);
       };
       box.querySelector('p').after(b); body.appendChild(box);
     }
@@ -3068,7 +3070,7 @@ function buildTaller() {
       row.innerHTML = `<div><b>${S.icon} ${S.name}</b><small>${S.desc}</small></div>${bars(V.stats[S.id], lv)}`;
       const b = document.createElement('button'); b.className = 'btn small' + (cost != null && ecos >= cost ? '' : ' alt');
       b.textContent = cost == null ? 'Al máximo' : `✧ ${cost}`; b.disabled = cost == null;
-      b.onclick = () => buy(cost, () => { u[S.id] = lv + 1; save2(true); });
+      b.onclick = () => buy(cost, () => { u[S.id] = lv + 1; save2(true, `${S.name} mejorada a nivel ${lv + 1}`); });
       row.appendChild(b); body.appendChild(row);
     }
   } else if (tallUI.tab === 'piezas') {
@@ -3083,7 +3085,7 @@ function buildTaller() {
         b.onclick = () => {
           if (locked) { audio.play('powerFail'); toast(`🔒 ${RETOS[P.lock].text}`); return; }
           if (!own) { if (!buy(P.cost, () => G.ownParts.push(key))) return; } else audio.play('open');
-          G.parts[cat] = P.id; save2(true);
+          G.parts[cat] = P.id; save2(true, `${C.name}: ${P.name}`);
         };
         box.appendChild(b);
       }
@@ -3099,7 +3101,7 @@ function buildTaller() {
       b.onclick = () => {
         tallUI.driverView = Dr.id;
         if (!ok) { audio.play('powerFail'); toast(`🔒 ${why}`); buildTaller(); return; }
-        G.driver = Dr.id; audio.play('open'); save2(true);
+        G.driver = Dr.id; audio.play('open'); save2(true, `Al volante: ${Dr.id === 'hero' ? (sv.name || 'tu héroe') : Dr.name}`);
       };
       box.appendChild(b);
     }
@@ -3114,13 +3116,17 @@ function buildTaller() {
       b.innerHTML = `<i style="background:${col}"></i><b>${it.name}</b><small>${on ? '✔ Puesta' : own ? 'Tuya' : `✧ ${it.cost}`}</small>`;
       b.onclick = () => {
         if (!own) { if (!buy(it.cost, () => G[ownKey].push(it.id))) return; } else audio.play('open');
-        G[curKey] = it.id; save2(tallUI.tab === 'estela');
+        G[curKey] = it.id; save2(tallUI.tab === 'estela', `${tallUI.tab === 'pintura' ? 'Pintura' : 'Estela'}: ${it.name}`);
       };
       box.appendChild(b);
     }
   }
 }
-const tallStep = d => { const i = KARTS.findIndex(k => k.id === tallUI.view); tallUI.view = KARTS[(i + d + KARTS.length) % KARTS.length].id; audio.play('uiMove'); buildTaller(); };
+const tallStep = d => {
+  const i = KARTS.findIndex(k => k.id === tallUI.view); tallUI.view = KARTS[(i + d + KARTS.length) % KARTS.length].id; audio.play('uiMove');
+  const G = garageOf(save); if (G.owned.includes(tallUI.view) && G.kart !== tallUI.view) { G.kart = tallUI.view; writeSave(save); refreshRaceMenu(); } // los tuyos se eligen al pasar
+  $('tallBody').scrollTop = 0; buildTaller();
+};
 $('tallPrev').onclick = () => tallStep(-1);
 $('tallNext').onclick = () => tallStep(1);
 $('bTallBack').onclick = () => { if (showroom) showroom.stop(); $('taller').classList.add('hidden'); $(tallUI.from).classList.remove('hidden'); refreshRaceMenu(); };

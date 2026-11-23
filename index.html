@@ -500,7 +500,7 @@
   body.touch #taller h2 { font-size: 22px; margin: 2px 0; } body.touch #tallSub { font-size: 12px; margin: 0 0 4px; }
   body.touch #tallSub .long { display: none; }
   body.touch #tallTabs { margin-bottom: 6px; } body.touch #tallTabs button { width: 96px; padding: 3px; } body.touch #tallTabs button b { font-size: 15px; }
-  body.touch #bTallBack { margin-top: 6px !important; }
+  
   body.touch .tallWrap { gap: 8px; } body.touch .tallStage { min-height: 0; height: calc(100vh - 120px); flex: 1.1; align-self: stretch; } body.touch #tallBody { max-height: calc(100vh - 175px); } body.touch #tallName { font-size: 16px; top: 6px; } body.touch .tallArrow { width: 38px; height: 38px; } body.touch .kartInfo p { font-size: 12px; margin-bottom: 4px; } body.touch .kartInfo .statRow { padding: 3px 8px; margin: 3px 0; grid-template-columns: 112px 1fr 0; font-size: 13px; } body.touch .kartInfo .statRow b { font-size: 13px; white-space: nowrap; } body.touch .kartInfo .btn { padding: 7px; font-size: 15px; } body.touch .tallHint { display: none; } body.touch .swatch { width: 80px; padding: 5px 3px; } body.touch .swatch i { width: 34px; height: 34px; } body.touch .kartGrid { gap: 8px; } body.touch .kartCard small { display: none; } body.touch .statRow { grid-template-columns: 96px 1fr auto; padding: 5px 8px; margin: 4px 0; }
   .partHead { font-weight: 800; margin: 8px 0 4px; font-size: 15px; }
   .partGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
@@ -541,6 +541,11 @@
   body.touch .raceBtns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; } body.touch .raceBtns .btn { padding: 6px 10px; font-size: 14px; margin: 0; }
   body.touch #racePause { gap: 6px; } body.touch #racePause h2 { font-size: 22px; margin: 0; } body.touch #racePause .btn { padding: 6px 12px; font-size: 15px; min-width: 220px; }
   .raceBtns { flex-wrap: wrap; justify-content: center; } #racePause .btn { min-width: 240px; }
+  .tallFoot { display: flex; align-items: center; gap: 14px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
+  #tallSum { font-size: 14px; opacity: .9; } #tallSum b { color: #ffd27a; }
+  .kartInfo .btn { position: sticky; top: 0; z-index: 2; }
+  body.touch .tallFoot { margin-top: 4px; gap: 8px; } body.touch #tallSum { font-size: 11px; } body.touch #bTallBack { padding: 5px 18px; font-size: 15px; }
+  body.touch .tallStage { height: calc(100vh - 140px); } body.touch #tallBody { max-height: calc(100vh - 195px); }
 </style>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
@@ -776,7 +781,7 @@
       <div id="tallName"></div><div class="tallHint">Arrastra para girarlo</div></div>
     <div class="tallSide"><div class="powSlots" id="tallTabs"></div><div id="tallBody"></div></div>
   </div>
-  <button class="btn alt small" id="bTallBack" style="margin-top:10px">Volver</button>
+  <div class="tallFoot"><span id="tallSum"></span><button class="btn" id="bTallBack">✔ Listo</button></div>
 </div>
 <div class="overlay hidden" id="armeria">
   <h2>⚒ Armería y Tienda</h2>
