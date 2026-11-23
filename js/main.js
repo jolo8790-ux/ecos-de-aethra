@@ -15,6 +15,8 @@ import { FX } from './fx.js';
 import { loadCharacterLibrary, createCharacter, customLook, CUSTOM, DEFAULT_CUSTOM, auraOf } from './characters.js';
 import { loadProps } from './props.js';
 import { Race, TRACKS, RACE_LAPS } from './race.js';
+import { KARTS, STATS, UP_COST, PAINTS, TRAILS, garageOf, kartById, kartPoints } from './garage.js';
+import { loadPropIds } from './props.js';
 import { newSave, loadSave, peekSave, getSlot, setSlot, SLOTS, freeSlot, listSaves, writeSlot, deleteSave, writeSave as writeSaveRaw, loadSettings, writeSettings, exportCode, importCode } from './save.js';
 import puertoBruma from './zones/puerto_bruma.js';
 import bosqueColgante from './zones/bosque_colgante.js';
@@ -2973,7 +2975,7 @@ function openRace(from) {
   if (endless.active && from === 'pause') stopEndless();
   const sv = from === 'title' ? loadSave() : save; if (!sv) { toast('Crea o carga una partida para correr'); return; }
   if (from === 'title') { save = sv; storeOf(save); applyPartida(); applyHero(); }
-  raceUI.from = from; audio.play('open');
+  raceUI.from = from; audio.play('open'); loadKarts();
   $(from).classList.add('hidden'); $('raceMenu').classList.remove('hidden'); refreshRaceMenu();
 }
 function refreshRaceMenu() {
@@ -2987,10 +2989,72 @@ function refreshRaceMenu() {
   };
   opts($('raceLaps'), RACE_LAPS, 'laps', v => `${v} vueltas`);
   opts($('raceRivals'), [3, 5, 7], 'rivals', v => `${v} rivales`);
+  const G = garageOf(save), K = kartById(G.kart), P = PAINTS.find(p => p.id === G.paint) || PAINTS[0];
+  $('raceKart').innerHTML = `Tu kart: <b>${K.name}</b>${P.color != null ? ` · pintura ${P.name.toLowerCase()}` : ''} · estela ${(TRAILS.find(t => t.id === G.trail) || TRAILS[0]).name.toLowerCase()}`;
 }
+const KART_MODELS = KARTS.map(k => k.model);
+let kartsLoading = null;
+const loadKarts = () => kartsLoading || (kartsLoading = loadPropIds(KART_MODELS));
+// ---------- Taller de karts ----------
+const tallUI = { tab: 'karts', from: 'raceMenu' };
+function openTaller(from = 'raceMenu') { tallUI.from = from; audio.play('open'); $(from).classList.add('hidden'); $('taller').classList.remove('hidden'); buildTaller(); }
+function buildTaller() {
+  const sv = save, G = garageOf(sv), ecos = sv.ecos || 0, K = kartById(G.kart);
+  $('tallSub').innerHTML = `Tienes <b class="ecoTag">✧ ${ecos} Ecos</b><span class="long">. Ganas Ecos subiendo al podio en las Carreras (el doble a 5 vueltas) y en todo el juego.</span>`;
+  const tabs = [['karts', '🏎', 'Karts'], ['mejoras', '⚙', 'Mejoras'], ['pintura', '🎨', 'Pintura'], ['estela', '🔥', 'Estela']];
+  $('tallTabs').innerHTML = tabs.map(([id, ic, n]) => `<button class="${tallUI.tab === id ? 'sel' : ''}" data-t="${id}"><b>${ic}</b><small>${n}</small></button>`).join('');
+  $('tallTabs').querySelectorAll('button').forEach(b => b.onclick = () => { tallUI.tab = b.dataset.t; audio.play('uiMove'); buildTaller(); });
+  const body = $('tallBody'); body.innerHTML = '';
+  const bars = (base, up) => { let h = ''; for (let i = 0; i < 7; i++) { const v = i + 1; h += `<i class="${base < 0 && i < -base ? 'neg' : v <= Math.max(0, base) ? 'base' : v <= Math.max(0, base) + up ? 'up' : ''}"></i>`; } return `<div class="bars">${h}</div>`; };
+  const save2 = () => { writeSave(save); buildTaller(); refreshRaceMenu(); };
+  if (tallUI.tab === 'karts') {
+    const grid = document.createElement('div'); grid.className = 'kartGrid'; body.appendChild(grid);
+    for (const k of KARTS) {
+      const own = G.owned.includes(k.id), on = G.kart === k.id, can = ecos >= k.cost, b = document.createElement('button');
+      b.className = 'kartCard' + (on ? ' on' : '') + (own || can ? '' : ' locked');
+      b.innerHTML = `<img src="${k.img}" alt=""><b>${k.name}</b><small>${k.desc}</small><div class="mini">${STATS.map(S => `<span>${S.icon} ${S.name}</span>${bars(k.stats[S.id], 0)}`).join('')}</div><em>${on ? '✔ En uso' : own ? 'Tuyo · pulsa para usarlo' : `✧ ${k.cost} Ecos${can ? ' · pulsa para comprar' : ` (te faltan ${k.cost - ecos})`}`}</em>`;
+      b.onclick = () => {
+        if (!own) { if (!can) { audio.play('powerFail'); return; } sv.ecos = ecos - k.cost; G.owned.push(k.id); audio.play('unlock'); music.stinger('hallazgo'); }
+        else audio.play('open');
+        G.kart = k.id; save2();
+      };
+      grid.appendChild(b);
+    }
+  } else if (tallUI.tab === 'mejoras') {
+    const u = G.up[K.id];
+    body.insertAdjacentHTML('beforeend', `<div class="sub" style="font-size:14px">Mejoras del <b>${K.name}</b> (cada kart guarda las suyas)</div>`);
+    for (const S of STATS) {
+      const lv = u[S.id] || 0, cost = UP_COST[lv], row = document.createElement('div'); row.className = 'statRow';
+      row.innerHTML = `<div><b>${S.icon} ${S.name}</b><small>${S.desc}</small></div>${bars(K.stats[S.id], lv)}`;
+      const b = document.createElement('button'); b.className = 'btn small' + (cost != null && ecos >= cost ? '' : ' alt');
+      b.textContent = cost == null ? 'Al máximo' : `Mejorar · ✧ ${cost}`; b.disabled = cost == null;
+      b.onclick = () => { if (ecos < cost) { audio.play('powerFail'); toast(`Te faltan ${cost - ecos} Ecos`); return; } sv.ecos = ecos - cost; u[S.id] = lv + 1; audio.play('unlock'); save2(); };
+      row.appendChild(b); body.appendChild(row);
+    }
+  } else {
+    const list = tallUI.tab === 'pintura' ? PAINTS : TRAILS, ownKey = tallUI.tab === 'pintura' ? 'paints' : 'trails', curKey = tallUI.tab === 'pintura' ? 'paint' : 'trail';
+    if (tallUI.tab === 'estela') body.insertAdjacentHTML('beforeend', '<div class="sub" style="font-size:14px">El color del fuego que sale del escape con el turbo.</div>');
+    const box = document.createElement('div'); box.className = 'swatches'; body.appendChild(box);
+    for (const it of list) {
+      const own = G[ownKey].includes(it.id), on = G[curKey] === it.id, can = ecos >= it.cost, b = document.createElement('button');
+      const col = it.color === 'rainbow' ? 'conic-gradient(#f44,#fc4,#4f6,#4cf,#a6f,#f44)' : it.color == null ? 'linear-gradient(135deg,#2a4fa8 50%,#c8862a 50%)' : '#' + it.color.toString(16).padStart(6, '0');
+      b.className = 'swatch' + (on ? ' on' : '');
+      b.innerHTML = `<i style="background:${col}"></i><b>${it.name}</b><small>${on ? '✔ Puesta' : own ? 'Tuya' : `✧ ${it.cost}`}</small>`;
+      b.onclick = () => {
+        if (!own) { if (!can) { audio.play('powerFail'); toast(`Te faltan ${it.cost - ecos} Ecos`); return; } sv.ecos = ecos - it.cost; G[ownKey].push(it.id); audio.play('unlock'); }
+        else audio.play('open');
+        G[curKey] = it.id; save2();
+      };
+      box.appendChild(b);
+    }
+  }
+}
+$('bTallBack').onclick = () => { $('taller').classList.add('hidden'); $(tallUI.from).classList.remove('hidden'); refreshRaceMenu(); };
+$('bRaceTaller').onclick = () => { $('raceMenu').classList.add('hidden'); openTaller('raceMenu'); };
 $('bRaceBack').onclick = () => { $('raceMenu').classList.add('hidden'); $(raceUI.from).classList.remove('hidden'); };
-$('bRaceGo').onclick = () => {
+$('bRaceGo').onclick = async () => {
   audio.unlock(); music.init(); goFull();
+  $('bRaceGo').textContent = 'Cargando karts…'; await loadKarts(); $('bRaceGo').textContent = '¡A correr!';
   if (state === 'pause') writeSave(save);
   $('raceMenu').classList.add('hidden'); showOverlay(null);
   if (dialog) closeDialog(false);
@@ -3032,7 +3096,7 @@ window.__aethra = {
   testNewGame(name = 'Prueba', difficulty = settings.difficulty, opts = {}) { nueva.name = name; nueva.diff = DIFF[difficulty] ? difficulty : 'normal'; nueva.slot = freeSlot() || getSlot() || 1; createPartida(settings.custom || {}); if (opts.sellos !== false) for (const id of Object.keys(SENDEROS)) save.flags['sello_' + id] = true; }, // las pruebas de capítulos saltan los Senderos
   openChallenges() { if (!loadSave()) { nueva.name = 'Prueba'; nueva.diff = DIFF[settings.difficulty] ? settings.difficulty : 'normal'; nueva.slot = freeSlot() || 1; const sv = newSave({ name: 'Prueba', difficulty: nueva.diff, custom: settings.custom || {} }); setSlot(nueva.slot); writeSlot(nueva.slot, sv); } $('bHubCh').click(); },
   playCredits: (then) => playCredits(save, then || (() => {})), showChapterEnd, startEnding, openTrophies, offerLowerDifficulty, get lossStreak() { return lossStreak; },
-  showIntro, get introRun() { return introRun; }, arena, openArena, race, openRace, leaveRace, get raceUI() { return raceUI; }, openArmeria, openHeroes, openMisiones, openPoderes, powers, audio, leaveArena, checkMissions, get arenaUI() { return arenaUI; }, Net,
+  showIntro, get introRun() { return introRun; }, arena, openArena, race, openRace, leaveRace, get raceUI() { return raceUI; }, openTaller, loadKarts, openArmeria, openHeroes, openMisiones, openPoderes, powers, audio, leaveArena, checkMissions, get arenaUI() { return arenaUI; }, Net,
   endless, startEndless, stopEndless, startChallenge,
   hold(on) { paused4test = on; }, S, combat, enterZone, choose, get zone() { return zone; }, get dialog() { return dialog; },
   step(n, press) {

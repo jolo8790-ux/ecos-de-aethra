@@ -6,6 +6,7 @@ import { createCharacter, recolor } from './characters.js';
 import { HEROES, heroById, heroLook, heroUnlocked } from './heroes.js';
 import { prop, hasProp } from './props.js';
 import { RaceItems, ITEMS } from './raceitems.js';
+import { KARTS, kartById, garageOf, kartPoints, kartMods, PAINTS, TRAILS } from './garage.js';
 
 const $ = id => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -65,10 +66,11 @@ function banner(text) {
 
 // textura del kart de Artlist recoloreada (una por color, se reutiliza)
 const _kartTex = new Map();
-function kartTex(map, color, hsl) {
+function kartTex(map, color, hsl, ranges) {
   const key = map.uuid + color; if (_kartTex.has(key)) return _kartTex.get(key);
   let t = map;
-  try { t = recolor(map, [{ from: [195, 260], minSat: 0.2, to: hsl.h * 360, sat: 1.15, light: hsl.l > 0.6 ? 1.35 : 1.1 }]); } catch (e) {}
+  const grey = hsl.s < 0.15, light = hsl.l > 0.8 ? 1.9 : hsl.l < 0.25 ? 0.45 : hsl.l > 0.6 ? 1.35 : 1.1;
+  try { t = recolor(map, ranges.map(r => ({ from: r, minSat: 0.2, to: hsl.h * 360, ...(grey ? { setSat: 0.08 } : { sat: 1.15 }), light }))); } catch (e) {}
   _kartTex.set(key, t); return t;
 }
 // ---------- kart hecho con formas (si no hay modelo de Artlist) ----------
@@ -239,17 +241,18 @@ class Racer {
     const C = race.ctx;
     this.root = new THREE.Group(); race.root.add(this.root);
     this.body = new THREE.Group(); this.root.add(this.body);
-    let kart = hasProp('kart') ? prop('kart', { w: 2.25 }, { rotY: 0 }) : null;
-    if (kart) { // el kart de Artlist: la carrocería azul toma el color del corredor (la madera y el bronce no cambian)
-      const hsl = {}; new THREE.Color(this.color).getHSL(hsl);
+    const K = kartById(this.kartId); this.mods = this.mods || kartMods(K.stats);
+    let kart = hasProp(K.model) ? prop(K.model, { w: 2.25 }, { rotY: 0 }) : hasProp('kart') ? prop('kart', { w: 2.25 }, { rotY: 0 }) : null;
+    if (kart) { // el kart de Artlist: la carrocería toma el color del corredor (la madera y el metal no cambian)
+      const hsl = {}; new THREE.Color(this.paint ?? this.color).getHSL(hsl);
       kart.traverse(m => {
         if (!m.isMesh) return; m.castShadow = true;
         m.material = m.material.clone(); m.material.roughness = 0.55; m.material.metalness = 0.15;
-        if (m.material.map && this.color !== COLORS[0]) m.material.map = kartTex(m.material.map, this.color, hsl);
+        if (m.material.map && this.paint !== null) m.material.map = kartTex(m.material.map, this.paint ?? this.color, hsl, hasProp(K.model) ? K.hue : KARTS[0].hue);
       });
       kart.userData.wheels = []; this.artKart = true;
     }
-    else kart = buildKart(this.color);
+    else kart = buildKart(this.paint ?? this.color);
     this.kart = kart; this.body.add(kart);
     // piloto: el héroe sentado en el kart
     const lib = C.charLib();
@@ -270,7 +273,7 @@ class Racer {
     // fuego del turbo
     const fm = new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
     this.flames = [-0.3, 0.3].map(x => { const f = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.9, 10), fm); f.rotation.x = -Math.PI / 2; f.position.set(x, 0.42, -1.85); this.body.add(f); return f; });
-    this.flameMat = fm;
+    this.flameMat = fm; const T = TRAILS.find(t => t.id === this.trail) || TRAILS[0]; this.rainbow = T.color === 'rainbow'; if (!this.rainbow) fm.color.setHex(T.color);
     // chispas del derrape
     const sm = new THREE.MeshBasicMaterial({ color: 0x6ad0ff, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
     this.sparks = [-0.85, 0.85].map(x => { const s = new THREE.Mesh(new THREE.IcosahedronGeometry(0.22, 0), sm); s.position.set(x, 0.2, -1.05); this.body.add(s); return s; });
@@ -304,9 +307,10 @@ export class Race {
     const level = LEVEL[sv.difficulty || 'normal'] || LEVEL.normal;
     const n = clamp(opts.rivals ?? 5, 1, 7);
     this.racers = [];
-    const me = new Racer(this, { id: 'me', name: sv.name || 'Tú', you: true, color: COLORS[0], look: heroLook(mine, sv.custom || {}), skill: 1 });
+    const G = garageOf(sv), P = PAINTS.find(p => p.id === G.paint) || PAINTS[0];
+    const me = new Racer(this, { id: 'me', name: sv.name || 'Tú', you: true, color: COLORS[0], paint: P.color, kartId: G.kart, trail: G.trail, mods: kartMods(kartPoints(sv)), look: heroLook(mine, sv.custom || {}), skill: 1 });
     const grid = [];
-    for (let k = 0; k < n; k++) { const h = pool[k % pool.length]; grid.push(new Racer(this, { id: 'cpu' + k, name: heroById(h).name, color: COLORS[(k + 1) % COLORS.length], look: heroLook(h, {}), skill: level * (0.94 + 0.08 * (k / Math.max(1, n - 1))), lane: ((k % 3) - 1) * 0.45 })); }
+    for (let k = 0; k < n; k++) { const h = pool[k % pool.length]; grid.push(new Racer(this, { id: 'cpu' + k, name: heroById(h).name, color: COLORS[(k + 1) % COLORS.length], kartId: KARTS[k % KARTS.length].id, trail: ['fuego', 'hielo', 'veneno', 'dorada'][k % 4], look: heroLook(h, {}), skill: level * (0.94 + 0.08 * (k / Math.max(1, n - 1))), lane: ((k % 3) - 1) * 0.45 })); }
     // la jugadora sale desde el medio de la parrilla
     grid.splice(Math.min(grid.length, Math.floor(n * 0.6)), 0, me);
     this.racers = grid; this.me = me;
@@ -391,21 +395,21 @@ export class Race {
       R.spin -= dt; R.spinA += dt * 14 * clamp(R.spin, 0.2, 1); ctl = { steer: 0, throttle: 0, brake: 0, drift: false };
       R.v -= R.v * damp(3, dt); R.drift = 0;
     } else R.spinA = 0;
-    const top = MAXV * (R.you ? 1 : R.skillNow || R.skill) * (R.boostT > 0 ? 1.42 : 1) * (R.bump > 0 ? 0.7 : 1);
+    const M = R.mods; const top = MAXV * M.vel * (R.you ? 1 : R.skillNow || R.skill) * (R.boostT > 0 ? 1.42 : 1) * (R.bump > 0 ? 0.7 : 1);
     if (ctl.brake && R.v > 0.5) R.v -= BRAKE * dt;
     else if (ctl.brake) R.v = Math.max(-8, R.v - ACC * 0.6 * dt); // marcha atrás
-    else if (ctl.throttle) R.v += (R.v < top ? ACC * (R.boostT > 0 ? 1.8 : 1) * (1 - R.v / (top * 1.15)) * 1.6 : -ACC * 0.8) * dt * ctl.throttle;
+    else if (ctl.throttle) R.v += (R.v < top ? ACC * M.acc * (R.boostT > 0 ? 1.8 : 1) * (1 - R.v / (top * 1.15)) * 1.6 : -ACC * 0.8) * dt * ctl.throttle;
     else R.v -= Math.sign(R.v) * Math.min(Math.abs(R.v), 6 * dt);
     if (R.v > top + 0.1) R.v -= (R.v - top) * damp(2.5, dt);
     // derrape: gira más, carga el turbo; al soltar, sale disparado
     const canDrift = ctl.drift && R.v > 11 && Math.abs(ctl.steer) > 0.2;
     if (canDrift && !R.drift) { R.drift = Math.sign(ctl.steer); R.charge = 0; if (R.you) this.ctx.audio.play('dodge'); }
     if (R.drift && (!ctl.drift || R.v < 8)) {
-      if (R.charge > 0.9) { R.boostT = Math.max(R.boostT, R.charge > 1.8 ? 1.25 : 0.75); R.v = Math.max(R.v, MAXV * 1.05); if (R.you) { this.ctx.audio.play('dash'); this.ctx.input.rumble(140, 0.5); } }
+      if (R.charge > 0.9) { R.boostT = Math.max(R.boostT, (R.charge > 1.8 ? 1.25 : 0.75) * M.boost); R.v = Math.max(R.v, MAXV * 1.05); if (R.you) { this.ctx.audio.play('dash'); this.ctx.input.rumble(140, 0.5); } }
       R.drift = 0; R.charge = 0;
     }
-    let turn = ctl.steer * TURN * clamp(Math.abs(R.v) / 9, 0, 1) * (R.v < 0 ? -1 : 1) * (1 - clamp(R.v / 60, 0, 0.3));
-    if (R.drift) { turn = (R.drift * 0.65 + ctl.steer * 0.55) * TURN * 1.25; R.charge += dt * (0.8 + Math.abs(ctl.steer) * 0.6); }
+    let turn = ctl.steer * TURN * M.giro * clamp(Math.abs(R.v) / 9, 0, 1) * (R.v < 0 ? -1 : 1) * (1 - clamp(R.v / 60, 0, 0.3));
+    if (R.drift) { turn = (R.drift * 0.65 + ctl.steer * 0.55) * TURN * M.giro * 1.25; R.charge += dt * (0.8 + Math.abs(ctl.steer) * 0.6) * M.charge; }
     R.yaw += turn * dt;
     R.slip += ((R.drift ? R.drift * 0.38 : ctl.steer * 0.08 * clamp(R.v / MAXV, 0, 1)) - R.slip) * damp(6, dt);
     const dir = R.yaw - R.slip * 0.6;
@@ -525,6 +529,7 @@ export class Race {
         const b = R.ch.bones; if (b.head) b.head.rotation.y = -(R.steerVis || 0) * 0.25;
       }
       R.shadow.position.set(R.pos.x, R.pos.y + 0.05, R.pos.z); R.shadow.rotation.z = -R.yaw;
+      if (R.rainbow) R.flameMat.color.setHSL((this.clock * 1.5) % 1, 1, 0.6);
       const fl = R.boostT > 0 ? 0.9 : 0; R.flameMat.opacity += (fl - R.flameMat.opacity) * damp(12, dt);
       for (const f of R.flames) f.scale.set(1, 0.7 + Math.random() * 0.6 + fl, 1);
       const lv = R.charge > 1.8 ? 2 : R.charge > 0.9 ? 1 : 0;

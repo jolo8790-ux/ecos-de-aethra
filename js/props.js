@@ -44,6 +44,19 @@ function prepare(root) {
 }
 
 export const hasProp = id => !!cache[id];
+// modelos que se cargan solo cuando hacen falta (p. ej. los karts, al entrar a Carreras)
+const pending = {};
+export function loadPropIds(ids) {
+  const loader = new GLTFLoader();
+  return Promise.all(ids.map(id => cache[id] ? null : (pending[id] = pending[id] || (async () => {
+    try {
+      const buf = await glbBuffer(new URL(`${BASE}${id}.glb.js`, import.meta.url));
+      const g = await loader.parseAsync(buf, '');
+      if (LOW_MEM) shrinkTextures(g.scene, 512);
+      prepare(g.scene); cache[id] = g.scene;
+    } catch (e) { console.warn('prop', id, e); }
+  })())));
+}
 
 // Devuelve una copia del modelo encajada en el tamaño pedido.
 //  fit: { h } altura · { w } ancho máximo en x/z · { x, y, z } caja (escala no uniforme)
