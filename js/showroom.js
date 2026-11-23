@@ -1,7 +1,8 @@
 // Vitrina del Taller: el kart flota y gira sobre un pedestal de luz para verlo en detalle.
 // Se puede girar arrastrando con el dedo o el ratón. Al pintar o mejorar, cambia en vivo.
 import * as THREE from 'three';
-import { makeKart } from './race.js';
+import { makeKart, seatDriver } from './race.js';
+const DARK = new THREE.MeshStandardMaterial({ color: 0x0c0a18, roughness: 1, metalness: 0, emissive: 0x150a30, emissiveIntensity: 0.6 });
 
 export class Showroom {
   constructor(canvas) {
@@ -40,15 +41,19 @@ export class Showroom {
     this._loop = this._loop.bind(this);
   }
   // muestra un kart (se rehace solo si cambió el kart o la pintura); trail: color de la estela o 'rainbow'
-  show(kartId, paint, trail) {
-    const key = kartId + ':' + paint;
+  // opts: { locked: silueta oscura, lib + look + lookKey: piloto sentado }
+  show(kartId, paint, trail, opts = {}) {
+    const key = kartId + ':' + paint + ':' + !!opts.locked + ':' + (opts.lookKey || '') + ':' + !!opts.lib;
     if (key !== this.key) {
       this.key = key;
       if (this.kart) this.holder.remove(this.kart);
-      this.kart = makeKart(kartId, paint).kart; this.holder.add(this.kart);
+      const made = makeKart(kartId, opts.locked ? null : paint); this.kart = made.kart; this.holder.add(this.kart);
+      if (opts.lib && opts.look) { const ch = seatDriver(this.kart, opts.lib, opts.look, made.art); if (ch && opts.lockedDriver) ch.root.traverse(m => { if (m.isMesh) m.material = DARK; }); }
+      if (opts.locked) this.kart.traverse(m => { if (m.isMesh) m.material = DARK; });
       for (const f of this.flames) this.kart.add(f);
       this.spin = 1; // pequeño giro de presentación
     }
+    this.locked = !!opts.locked;
     this.trail = trail;
     if (trail !== 'rainbow') this.flameMat.color.setHex(trail);
   }
@@ -60,7 +65,7 @@ export class Showroom {
   _resize() {
     const w = this.canvas.clientWidth || 480, h = this.canvas.clientHeight || 270;
     if (w !== this._w || h !== this._h) { this._w = w; this._h = h; this.r.setSize(w, h, false); this.cam.aspect = w / h; this.cam.updateProjectionMatrix(); }
-    const far = this.cam.aspect < 1.2 ? 7.2 : 5.6;
+    const far = Math.max(5.4, 2.9 / (Math.tan(THREE.MathUtils.degToRad(16)) * this.cam.aspect)); // que el kart entre siempre a lo ancho
     this.cam.position.set(0, 1.75, far); this.cam.lookAt(0, 0.75, 0);
   }
   _loop(now) {
@@ -75,7 +80,7 @@ export class Showroom {
     this.shadow.material.opacity = 0.35 - (y - 0.32) * 0.6;
     // turbo de muestra cada pocos segundos (y al comprar)
     this.burst = Math.max(0, this.burst - dt);
-    const ph = this.t % 4, show = this.burst > 0 || (ph > 2.6 && ph < 3.6);
+    const ph = this.t % 4, show = !this.locked && (this.burst > 0 || (ph > 2.6 && ph < 3.6));
     if (this.trail === 'rainbow') this.flameMat.color.setHSL((this.t * 1.5) % 1, 1, 0.6);
     this.flameMat.opacity += ((show ? 0.75 : 0) - this.flameMat.opacity) * Math.min(1, dt * 10);
     for (const f of this.flames) f.scale.set(1, 0.6 + Math.random() * 0.5 + (show ? 0.4 : 0), 1);

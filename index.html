@@ -472,7 +472,7 @@
   .raceSoon { opacity: .6; font-size: 13px; margin: 4px 0 10px; }
   /* ---------- Taller ---------- */
   .tallWrap { display: flex; gap: 16px; width: min(1100px, 96vw); align-items: stretch; }
-  .tallStage { position: relative; flex: 1.15; min-height: 300px; border-radius: 20px; background: radial-gradient(ellipse at 50% 70%, rgba(150,110,255,.35), rgba(20,16,50,.6) 70%); border: 2px solid rgba(255,255,255,.12); overflow: hidden; }
+  .tallStage { position: relative; flex: 1.15; height: min(420px, 60vh); align-self: flex-start; border-radius: 20px; background: radial-gradient(ellipse at 50% 70%, rgba(150,110,255,.35), rgba(20,16,50,.6) 70%); border: 2px solid rgba(255,255,255,.12); overflow: hidden; }
   #tallCanvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
   .tallArrow { position: absolute; top: 50%; transform: translateY(-50%); width: 46px; height: 46px; border-radius: 50%; border: 2px solid rgba(255,255,255,.5); background: rgba(10,16,40,.55); color: #fff; font-size: 20px; cursor: pointer; z-index: 2; }
   #tallPrev { left: 10px; } #tallNext { right: 10px; }
@@ -501,7 +501,24 @@
   body.touch #tallSub .long { display: none; }
   body.touch #tallTabs { margin-bottom: 6px; } body.touch #tallTabs button { width: 96px; padding: 3px; } body.touch #tallTabs button b { font-size: 15px; }
   body.touch #bTallBack { margin-top: 6px !important; }
-  body.touch .tallWrap { gap: 8px; } body.touch .tallStage { min-height: 0; height: calc(100vh - 120px); flex: 1.1; } body.touch #tallBody { max-height: calc(100vh - 175px); } body.touch #tallName { font-size: 16px; top: 6px; } body.touch .tallArrow { width: 38px; height: 38px; } body.touch .kartInfo p { font-size: 12px; margin-bottom: 4px; } body.touch .kartInfo .statRow { padding: 3px 8px; margin: 3px 0; grid-template-columns: 112px 1fr 0; font-size: 13px; } body.touch .kartInfo .statRow b { font-size: 13px; white-space: nowrap; } body.touch .kartInfo .btn { padding: 7px; font-size: 15px; } body.touch .tallHint { display: none; } body.touch .swatch { width: 80px; padding: 5px 3px; } body.touch .swatch i { width: 34px; height: 34px; } body.touch .kartGrid { gap: 8px; } body.touch .kartCard small { display: none; } body.touch .statRow { grid-template-columns: 96px 1fr auto; padding: 5px 8px; margin: 4px 0; }
+  body.touch .tallWrap { gap: 8px; } body.touch .tallStage { min-height: 0; height: calc(100vh - 120px); flex: 1.1; align-self: stretch; } body.touch #tallBody { max-height: calc(100vh - 175px); } body.touch #tallName { font-size: 16px; top: 6px; } body.touch .tallArrow { width: 38px; height: 38px; } body.touch .kartInfo p { font-size: 12px; margin-bottom: 4px; } body.touch .kartInfo .statRow { padding: 3px 8px; margin: 3px 0; grid-template-columns: 112px 1fr 0; font-size: 13px; } body.touch .kartInfo .statRow b { font-size: 13px; white-space: nowrap; } body.touch .kartInfo .btn { padding: 7px; font-size: 15px; } body.touch .tallHint { display: none; } body.touch .swatch { width: 80px; padding: 5px 3px; } body.touch .swatch i { width: 34px; height: 34px; } body.touch .kartGrid { gap: 8px; } body.touch .kartCard small { display: none; } body.touch .statRow { grid-template-columns: 96px 1fr auto; padding: 5px 8px; margin: 4px 0; }
+  .partHead { font-weight: 800; margin: 8px 0 4px; font-size: 15px; }
+  .partGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .partCard { font: inherit; color: #fff; text-align: left; padding: 8px 10px; border-radius: 12px; border: 2px solid rgba(255,255,255,.14); background: rgba(255,255,255,.07); cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+  .partCard b { font-size: 14px; } .partCard small { font-size: 11.5px; opacity: .8; line-height: 1.25; } .partCard em { font-style: normal; font-size: 11.5px; color: #9fe3ff; }
+  .partCard.on { border-color: #ffd27a; background: rgba(255,210,122,.16); }
+  .partCard.locked { background: rgba(0,0,0,.45); border-style: dashed; filter: grayscale(1); opacity: .8; }
+  .partCard.villain:not(.locked) { border-color: rgba(190,120,255,.5); background: rgba(120,60,200,.18); }
+  #tallTabs { flex-wrap: nowrap; gap: 4px; } #tallTabs button { width: auto; flex: 1 1 0; min-width: 0; padding: 6px 2px; } #tallTabs button small { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  .trackRow { display: flex; gap: 8px; justify-content: center; margin: 4px 0 6px; flex-wrap: wrap; }
+  .trackCard { font: inherit; color: #fff; min-width: 130px; padding: 8px 12px; border-radius: 14px; border: 2px solid rgba(255,255,255,.18); background: rgba(255,255,255,.08); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .trackCard .ic { font-size: 26px; } .trackCard b { font-size: 14px; } .trackCard small { font-size: 11px; opacity: .8; }
+  .trackCard.sel { border-color: #ffc83a; background: rgba(255,200,58,.2); } .trackCard.locked { background: rgba(0,0,0,.45); border-style: dashed; filter: grayscale(1); }
+  .raceUnl { margin-top: 6px; color: #ffd27a; font-weight: 800; font-size: 16px; }
+  body.touch .trackCard { min-width: 0; padding: 3px 10px; flex-direction: row; gap: 6px; } body.touch .trackCard .ic { font-size: 18px; } body.touch .trackCard small { display: none; }
+  body.touch #raceTracks .raceCard { display: none; }
+  body.touch .partGrid { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 5px; } body.touch .partCard { padding: 4px 7px; } body.touch .partCard small { font-size: 10.5px; } body.touch .partHead { margin: 4px 0 2px; font-size: 13px; }
+  body.touch #tallTabs button { padding: 2px 0; } body.touch #tallTabs button small { font-size: 10px; }
 </style>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }

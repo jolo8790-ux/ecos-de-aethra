@@ -14,8 +14,8 @@ const writeSave = s => challenge ? true : writeSaveRaw(s);
 import { FX } from './fx.js';
 import { loadCharacterLibrary, createCharacter, customLook, CUSTOM, DEFAULT_CUSTOM, auraOf } from './characters.js';
 import { loadProps } from './props.js';
-import { Race, TRACKS, RACE_LAPS } from './race.js';
-import { KARTS, STATS, UP_COST, PAINTS, TRAILS, garageOf, kartById, kartPoints } from './garage.js';
+import { Race, TRACKS, RACE_LAPS, driverLook } from './race.js';
+import { KARTS, STATS, UP_COST, PAINTS, TRAILS, PARTS, DRIVERS, RETOS, retoOk, newUnlocks, garageOf, kartById, kartPoints } from './garage.js';
 import { loadPropIds } from './props.js';
 import { Showroom } from './showroom.js';
 import { newSave, loadSave, peekSave, getSlot, setSlot, SLOTS, freeSlot, listSaves, writeSlot, deleteSave, writeSave as writeSaveRaw, loadSettings, writeSettings, exportCode, importCode } from './save.js';
@@ -2955,7 +2955,7 @@ $('bHubArena').onclick = () => { audio.unlock(); openArena('title'); };
 // ---------- Carreras ----------
 const race = new Race({
   scene, camera, world, audio, music, input, player, toast,
-  charLib: () => charLib, getSave: () => save, save: () => { if (save) writeSave(save); },
+  charLib: () => charLib, getSave: () => save, save: () => { if (save) writeSave(save); }, unlocksAfter: () => save ? newUnlocks(save) : [],
   addEcos: n => { addEcos(n); if (save) writeSave(save); },
   loadRaceZone(Z) {
     if (flyover) flyover = null; document.body.classList.remove('cine');
@@ -2983,7 +2983,16 @@ function refreshRaceMenu() {
   const sv = save || {}, best = (sv.race || {})[raceUI.track + '_' + raceUI.laps];
   const T = TRACKS[raceUI.track];
   const fmt = t => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`;
-  $('raceTracks').innerHTML = `<div class="raceCard"><span class="ic">${T.icon}</span><div><b>${T.name}</b><small>${T.desc}</small>${best ? `<em>Tu récord: ${fmt(best.time)} · ${best.place}.º lugar</em>` : '<em>Aún sin récord en esta pista</em>'}</div></div>`;
+  const tb = $('raceTracks'); tb.innerHTML = '';
+  const row = document.createElement('div'); row.className = 'trackRow'; tb.appendChild(row);
+  for (const [id, TT] of Object.entries(TRACKS)) {
+    const locked = TT.lock && !retoOk(sv, TT.lock), b = document.createElement('button');
+    b.className = 'trackCard' + (raceUI.track === id ? ' sel' : '') + (locked ? ' locked' : '');
+    b.innerHTML = `<span class="ic">${locked ? '🔒' : TT.icon}</span><b>${locked ? '???' : TT.short}</b>${locked ? `<small>${RETOS[TT.lock].text}</small>` : ''}`;
+    b.onclick = () => { if (locked) { audio.play('powerFail'); toast(`🔒 ${RETOS[TT.lock].text}`); return; } raceUI.track = id; audio.play('uiMove'); refreshRaceMenu(); };
+    row.appendChild(b);
+  }
+  tb.insertAdjacentHTML('beforeend', `<div class="raceCard"><span class="ic">${T.icon}</span><div><b>${T.name}</b><small>${T.desc}</small>${best ? `<em>Tu récord: ${fmt(best.time)} · ${best.place}.º lugar</em>` : '<em>Aún sin récord en esta pista</em>'}</div></div>`);
   const opts = (box, list, key, label) => {
     box.innerHTML = '';
     for (const v of list) { const b = document.createElement('button'); b.className = 'btn alt small' + (raceUI[key] === v ? ' sel' : ''); b.textContent = label(v); b.onclick = () => { raceUI[key] = v; audio.play('uiMove'); refreshRaceMenu(); }; box.appendChild(b); }
@@ -3007,34 +3016,45 @@ function openTaller(from = 'raceMenu') {
   loadKarts().then(() => { if (!$('taller').classList.contains('hidden')) { if (showroom) showroom.key = ''; buildTaller(); } });
 }
 const colorOf = list => id => { const it = list.find(x => x.id === id) || list[0]; return it.color; };
+const driverOk = (sv, D) => D.lock ? retoOk(sv, D.lock) : D.hero ? heroUnlocked(HEROES.find(h => h.id === D.id) || {}, pieceCount(sv)) : true;
 function buildTaller() {
   const sv = save, G = garageOf(sv), ecos = sv.ecos || 0;
   if (tallUI.tab !== 'karts') tallUI.view = G.kart;
   const V = kartById(tallUI.view || G.kart), own = G.owned.includes(V.id), mine = V.id === G.kart;
+  const secretLocked = V.secret && !retoOk(sv, V.secret);
   $('tallSub').innerHTML = `Tienes <b class="ecoTag">✧ ${ecos} Ecos</b><span class="long">. Ganas Ecos subiendo al podio en las Carreras (el doble a 5 vueltas) y en todo el juego.</span>`;
   const idx = KARTS.indexOf(V);
-  $('tallName').innerHTML = `${V.name}<small>${idx + 1} de ${KARTS.length} · ${mine ? '✔ En uso' : own ? 'Tuyo' : `✧ ${V.cost} Ecos`}</small>`;
+  $('tallName').innerHTML = secretLocked ? `??? <small>${idx + 1} de ${KARTS.length} · 🔒 Kart secreto</small>` : `${V.secret ? '★ ' : ''}${V.name}<small>${idx + 1} de ${KARTS.length} · ${mine ? '✔ En uso' : own ? 'Tuyo' : `✧ ${V.cost} Ecos`}</small>`;
   $('tallPrev').style.visibility = $('tallNext').style.visibility = tallUI.tab === 'karts' ? 'visible' : 'hidden';
-  if (showroom) showroom.show(V.id, mine ? colorOf(PAINTS)(G.paint) : null, mine ? colorOf(TRAILS)(G.trail) : 0xffa040);
-  const tabs = [['karts', '🏎', 'Karts'], ['mejoras', '⚙', 'Mejoras'], ['pintura', '🎨', 'Pintura'], ['estela', '🔥', 'Estela']];
+  // piloto en la vitrina: el elegido (o el que se está mirando en la pestaña Pilotos)
+  const dId = tallUI.tab === 'pilotos' && tallUI.driverView ? tallUI.driverView : (G.driver || 'hero');
+  const D = DRIVERS.find(d => d.id === dId) || DRIVERS[0];
+  if (showroom) showroom.show(V.id, mine ? colorOf(PAINTS)(G.paint) : null, mine ? colorOf(TRAILS)(G.trail) : 0xffa040,
+    { locked: secretLocked, lib: charLib, look: driverLook(sv, D.id), lookKey: D.id, lockedDriver: !driverOk(sv, D) });
+  const tabs = [['karts', '🏎', 'Karts'], ['mejoras', '⚙', 'Mejoras'], ['piezas', '🛞', 'Piezas'], ['pintura', '🎨', 'Pintura'], ['estela', '🔥', 'Estela'], ['pilotos', '🧑‍✈️', 'Pilotos']];
   $('tallTabs').innerHTML = tabs.map(([id, ic, n]) => `<button class="${tallUI.tab === id ? 'sel' : ''}" data-t="${id}"><b>${ic}</b><small>${n}</small></button>`).join('');
-  $('tallTabs').querySelectorAll('button').forEach(b => b.onclick = () => { tallUI.tab = b.dataset.t; audio.play('uiMove'); buildTaller(); });
+  $('tallTabs').querySelectorAll('button').forEach(b => b.onclick = () => { tallUI.tab = b.dataset.t; tallUI.driverView = null; audio.play('uiMove'); buildTaller(); });
   const body = $('tallBody'); body.innerHTML = '';
-  const bars = (base, up) => { let h = ''; for (let i = 0; i < 7; i++) { const v = i + 1; h += `<i class="${base < 0 && i < -base ? 'neg' : v <= Math.max(0, base) ? 'base' : v <= Math.max(0, base) + up ? 'up' : ''}"></i>`; } return `<div class="bars">${h}</div>`; };
+  const bars = (base, up) => { let h = ''; for (let i = 0; i < 9; i++) { const v = i + 1; h += `<i class="${base < 0 && i < -base ? 'neg' : v <= Math.max(0, base) ? 'base' : v <= Math.max(0, base) + up ? 'up' : ''}"></i>`; } return `<div class="bars">${h}</div>`; };
   const save2 = (fx) => { writeSave(save); buildTaller(); refreshRaceMenu(); if (fx && showroom) showroom.celebrate(); };
+  const buy = (cost, then) => { if (ecos < cost) { audio.play('powerFail'); toast(`Te faltan ${cost - ecos} Ecos`); return false; } sv.ecos = ecos - cost; audio.play('unlock'); then(); return true; };
   if (tallUI.tab === 'karts') {
     const u = G.up[V.id], box = document.createElement('div'); box.className = 'kartInfo';
-    box.innerHTML = `<p>${V.desc}</p>` + STATS.map(S => `<div class="statRow"><div><b>${S.icon} ${S.name}</b></div>${bars(V.stats[S.id], u[S.id] || 0)}<span></span></div>`).join('');
-    const b = document.createElement('button'), can = ecos >= V.cost;
-    b.className = 'btn' + (mine ? ' alt' : !own && !can ? ' alt' : '');
-    b.textContent = mine ? '✔ Es tu kart' : own ? 'Usar este kart' : can ? `Comprar · ✧ ${V.cost} Ecos` : `✧ ${V.cost} Ecos (te faltan ${V.cost - ecos})`;
-    b.onclick = () => {
-      if (mine) return;
-      if (!own) { if (!can) { audio.play('powerFail'); return; } sv.ecos = ecos - V.cost; G.owned.push(V.id); audio.play('unlock'); music.stinger('hallazgo'); }
-      else audio.play('open');
-      G.kart = V.id; save2(true);
-    };
-    box.querySelector('p').after(b); body.appendChild(box);
+    if (secretLocked) {
+      box.innerHTML = `<p>🔒 <b>Kart secreto.</b> Para descubrirlo: <b>${RETOS[V.secret].text}</b>.</p>` + STATS.map(S => `<div class="statRow"><div><b>${S.icon} ${S.name}</b></div><div class="bars">${'<i></i>'.repeat(9)}</div><span>?</span></div>`).join('');
+      body.appendChild(box);
+    } else {
+      box.innerHTML = `<p>${V.secret ? '★ <b>¡Kart secreto desbloqueado!</b> ' : ''}${V.desc}</p>` + STATS.map(S => `<div class="statRow"><div><b>${S.icon} ${S.name}</b></div>${bars(V.stats[S.id], u[S.id] || 0)}<span></span></div>`).join('');
+      const b = document.createElement('button'), can = ecos >= V.cost;
+      b.className = 'btn' + (mine ? ' alt' : !own && !can ? ' alt' : '');
+      b.textContent = mine ? '✔ Es tu kart' : own ? 'Usar este kart' : can ? `Comprar · ✧ ${V.cost} Ecos` : `✧ ${V.cost} Ecos (te faltan ${V.cost - ecos})`;
+      b.onclick = () => {
+        if (mine) return;
+        if (!own) { if (!buy(V.cost, () => G.owned.push(V.id))) return; music.stinger('hallazgo'); } else audio.play('open');
+        G.kart = V.id; save2(true);
+      };
+      box.querySelector('p').after(b); body.appendChild(box);
+    }
   } else if (tallUI.tab === 'mejoras') {
     const u = G.up[V.id];
     body.insertAdjacentHTML('beforeend', `<div class="sub" style="font-size:13px;margin:0 0 4px">Mejoras del <b>${V.name}</b> (cada kart guarda las suyas)</div>`);
@@ -3043,21 +3063,52 @@ function buildTaller() {
       row.innerHTML = `<div><b>${S.icon} ${S.name}</b><small>${S.desc}</small></div>${bars(V.stats[S.id], lv)}`;
       const b = document.createElement('button'); b.className = 'btn small' + (cost != null && ecos >= cost ? '' : ' alt');
       b.textContent = cost == null ? 'Al máximo' : `✧ ${cost}`; b.disabled = cost == null;
-      b.onclick = () => { if (ecos < cost) { audio.play('powerFail'); toast(`Te faltan ${cost - ecos} Ecos`); return; } sv.ecos = ecos - cost; u[S.id] = lv + 1; audio.play('unlock'); save2(true); };
+      b.onclick = () => buy(cost, () => { u[S.id] = lv + 1; save2(true); });
       row.appendChild(b); body.appendChild(row);
+    }
+  } else if (tallUI.tab === 'piezas') {
+    body.insertAdjacentHTML('beforeend', `<div class="sub" style="font-size:13px;margin:0 0 4px">Las piezas sirven en todos tus karts. Las de 🔒 se ganan con retos de carrera.</div>`);
+    for (const [cat, C] of Object.entries(PARTS)) {
+      body.insertAdjacentHTML('beforeend', `<div class="partHead">${C.icon} ${C.name}</div>`);
+      const box = document.createElement('div'); box.className = 'partGrid'; body.appendChild(box);
+      for (const P of C.list) {
+        const key = cat + ':' + P.id, own = G.ownParts.includes(key), on = G.parts[cat] === P.id, locked = P.lock && !retoOk(sv, P.lock), b = document.createElement('button');
+        b.className = 'partCard' + (on ? ' on' : '') + (locked ? ' locked' : '');
+        b.innerHTML = locked ? `<b>🔒 ???</b><small>${RETOS[P.lock].text}</small>` : `<b>${P.name}</b><small>${P.desc}</small><em>${on ? '✔ Puesta' : own ? 'Tuya · ponérsela' : `✧ ${P.cost}`}</em>`;
+        b.onclick = () => {
+          if (locked) { audio.play('powerFail'); toast(`🔒 ${RETOS[P.lock].text}`); return; }
+          if (!own) { if (!buy(P.cost, () => G.ownParts.push(key))) return; } else audio.play('open');
+          G.parts[cat] = P.id; save2(true);
+        };
+        box.appendChild(b);
+      }
+    }
+  } else if (tallUI.tab === 'pilotos') {
+    body.insertAdjacentHTML('beforeend', `<div class="sub" style="font-size:13px;margin:0 0 4px">Elige quién maneja tu kart. Los villanos se ganan corriendo.</div>`);
+    const box = document.createElement('div'); box.className = 'partGrid'; body.appendChild(box);
+    for (const Dr of DRIVERS) {
+      const ok = driverOk(sv, Dr), on = (G.driver || 'hero') === Dr.id, b = document.createElement('button');
+      const why = Dr.lock ? RETOS[Dr.lock].text : 'Reúne más Piezas especiales en la aventura';
+      b.className = 'partCard' + (on ? ' on' : '') + (ok ? '' : ' locked') + (Dr.villain ? ' villain' : '');
+      b.innerHTML = ok ? `<b>${Dr.villain ? '😈 ' : ''}${Dr.id === 'hero' ? (sv.name || Dr.name) : Dr.name}</b><small>${Dr.desc}</small><em>${on ? '✔ Al volante' : 'Elegir'}</em>` : `<b>🔒 ${Dr.villain ? 'Villano' : 'Héroe'} secreto</b><small>${why}</small>`;
+      b.onclick = () => {
+        tallUI.driverView = Dr.id;
+        if (!ok) { audio.play('powerFail'); toast(`🔒 ${why}`); buildTaller(); return; }
+        G.driver = Dr.id; audio.play('open'); save2(true);
+      };
+      box.appendChild(b);
     }
   } else {
     const list = tallUI.tab === 'pintura' ? PAINTS : TRAILS, ownKey = tallUI.tab === 'pintura' ? 'paints' : 'trails', curKey = tallUI.tab === 'pintura' ? 'paint' : 'trail';
     body.insertAdjacentHTML('beforeend', `<div class="sub" style="font-size:13px;margin:0 0 6px">${tallUI.tab === 'estela' ? 'El color del fuego que sale del escape con el turbo.' : 'Se pinta la carrocería; lo demás conserva su material.'}</div>`);
     const box = document.createElement('div'); box.className = 'swatches'; body.appendChild(box);
     for (const it of list) {
-      const own = G[ownKey].includes(it.id), on = G[curKey] === it.id, can = ecos >= it.cost, b = document.createElement('button');
+      const own = G[ownKey].includes(it.id), on = G[curKey] === it.id, b = document.createElement('button');
       const col = it.color === 'rainbow' ? 'conic-gradient(#f44,#fc4,#4f6,#4cf,#a6f,#f44)' : it.color == null ? 'linear-gradient(135deg,#2a4fa8 50%,#c8862a 50%)' : '#' + it.color.toString(16).padStart(6, '0');
       b.className = 'swatch' + (on ? ' on' : '');
       b.innerHTML = `<i style="background:${col}"></i><b>${it.name}</b><small>${on ? '✔ Puesta' : own ? 'Tuya' : `✧ ${it.cost}`}</small>`;
       b.onclick = () => {
-        if (!own) { if (!can) { audio.play('powerFail'); toast(`Te faltan ${it.cost - ecos} Ecos`); return; } sv.ecos = ecos - it.cost; G[ownKey].push(it.id); audio.play('unlock'); }
-        else audio.play('open');
+        if (!own) { if (!buy(it.cost, () => G[ownKey].push(it.id))) return; } else audio.play('open');
         G[curKey] = it.id; save2(tallUI.tab === 'estela');
       };
       box.appendChild(b);

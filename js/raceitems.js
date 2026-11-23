@@ -189,7 +189,7 @@ export class RaceItems {
     if (R.shieldT > 0) { R.shieldT = 0; R.inv = 0.8; this._pop(R.pos.clone().setY(R.pos.y + 1), 0x9fe3ff, 2.4); if (R.you) race.ctx.audio.play('reflect'); return; }
     R.spin = 1.1; R.inv = 2.2; R.v *= 0.25; R.drift = 0; R.charge = 0; R.boostT = 0;
     if (R.you) { race.ctx.audio.play('hurt'); race.ctx.input.rumble(260, 0.9); race._flash('¡Te dieron!', '#ff8a7a'); }
-    else if (by && by.you) race._flash(`¡Le diste a ${R.name}!`, '#7affa0');
+    else if (by && by.you) { race._flash(`¡Le diste a ${R.name}!`, '#7affa0'); const sv = race.ctx.getSave(); if (sv) { sv.race = sv.race || {}; sv.race.hits = (sv.race.hits || 0) + 1; } }
   }
   _smoke(pos, color) {
     const m = new THREE.Mesh(this._puffGeo || (this._puffGeo = new THREE.IcosahedronGeometry(0.22, 1)), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.5, depthWrite: false }));

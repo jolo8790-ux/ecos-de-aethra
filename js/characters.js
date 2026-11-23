@@ -80,6 +80,10 @@ export const LOOKS = {
   brasa: { model: 'marta', scale: 1.02, recolor: [{ from: [230, 320], to: 14, sat: 1, light: 0.95 }], recolorHD: [{ from: [195, 240], minSat: 0.35, to: 8, sat: 1, light: 1.0 }] },
   // el eco del abuelo Ilan: figura azul pálida
   ilan: { model: 'tomas', scale: 0.98, recolor: [{ from: [0, 360], minSat: 0, to: 200, setSat: 0.35, light: 1.25 }] },
+  // villanos de las Carreras
+  brumanegra: { model: 'marta', scale: 1.06, hat: 'captain', recolor: [{ from: [230, 320], to: 350, sat: 0.9, light: 0.55 }], recolorHD: [{ from: [195, 240], minSat: 0.35, to: 350, sat: 0.9, light: 0.5 }] },
+  escarcha: { model: 'marta', scale: 1.04, recolor: [{ from: [230, 320], to: 195, sat: 0.55, light: 1.45 }], recolorHD: [{ from: [195, 240], minSat: 0.35, to: 190, sat: 0.5, light: 1.5 }] },
+  sombra: { model: 'kael', scale: 1.04, recolor: [{ from: [0, 360], minSat: 0.2, to: 270, sat: 0.7, light: 0.45 }], recolorHD: [{ from: [0, 360], minSat: 0.25, maxLight: 0.8, to: 270, sat: 0.7, light: 0.45 }] },
   // Vaelor: armadura gris oscura con reflejos morados, capa granate y pelo oscuro; la piel no se toca
   vaelor: { model: 'tomas', scale: 1.3, recolor: [
     { from: [0, 360], minSat: 0, maxSat: 0.12, to: 265, setSat: 0.16, light: 0.62 },   // metal gris
