@@ -38,6 +38,7 @@ export const RETOS = {
   five: { text: 'Gana una carrera a 5 vueltas', ok: r => (r.won5 || 0) >= 1 },
   bosque: { text: 'Sube al podio en el Bosque Colgante', ok: r => !!(r.podiumAt || {}).bosque },
   glaciar: { text: 'Gana en el Glaciar del Eco', ok: r => !!(r.wonAt || {}).glaciar },
+  canon: { text: 'Gana en el Cañón del Ocaso', ok: r => !!(r.wonAt || {}).canon },
   alltracks: { text: 'Gana en las tres pistas', ok: r => ['puerto', 'bosque', 'glaciar'].every(t => (r.wonAt || {})[t]) },
   hits10: { text: 'Acierta 10 objetos a tus rivales', ok: r => (r.hits || 0) >= 10 },
 };
@@ -137,6 +138,7 @@ export function unlockables() {
   for (const d of DRIVERS) if (d.lock) out.push({ key: 'd:' + d.id, name: `el piloto ${d.name}`, reto: d.lock });
   out.push({ key: 't:glaciar', name: 'la pista del Glaciar del Eco', reto: 'bosque' });
   out.push({ key: 't:canon', name: 'la pista del Cañón del Ocaso', reto: 'glaciar' });
+  out.push({ key: 't:cloaca', name: 'las Cloacas de Bruma', reto: 'canon' });
   return out;
 }
 export function newUnlocks(sv) {

@@ -27,6 +27,18 @@ function roll(place, n) {
   return 'nitro';
 }
 
+function rollGold() { // cajas doradas del carril colgante: solo objetos buenos
+  const w = { nitro3: 3, guiado: 3, escudo: 2, cohete: 2 }; let r = Math.random() * 10;
+  for (const [id, v] of Object.entries(w)) { r -= v; if (r <= 0) return id; } return 'nitro3';
+}
+function goldTex() {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128; const c = cv.getContext('2d');
+  const g = c.createLinearGradient(0, 0, 128, 128); g.addColorStop(0, '#fff3a0'); g.addColorStop(0.5, '#ffb020'); g.addColorStop(1, '#c06a00');
+  c.fillStyle = g; c.fillRect(0, 0, 128, 128); c.strokeStyle = '#fff8d0'; c.lineWidth = 10; c.strokeRect(5, 5, 118, 118);
+  c.font = 'bold 80px system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#fff'; c.strokeStyle = 'rgba(120,50,0,.8)'; c.lineWidth = 6;
+  c.strokeText('★', 64, 68); c.fillText('★', 64, 68);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
 function qTex() {
   const cv = document.createElement('canvas'); cv.width = cv.height = 128; const c = cv.getContext('2d');
   const g = c.createLinearGradient(0, 0, 128, 128); g.addColorStop(0, '#ff7ab8'); g.addColorStop(0.5, '#ffd24a'); g.addColorStop(1, '#4cbcff');
@@ -54,6 +66,13 @@ export class RaceItems {
         this.boxes.push({ m, i, lat, t: 0, ph: k * 0.7 });
       }
     }
+    if (T.sky) { // cajas doradas arriba, en el carril colgante
+      const S = T.sky, gm = new THREE.MeshStandardMaterial({ map: goldTex(), roughness: 0.25, metalness: 0.5, emissive: 0x6a4000, emissiveIntensity: 0.7 });
+      const gg = new THREE.MeshBasicMaterial({ color: 0xffd24a, transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending });
+      for (const f of [0.35, 0.75]) { const i = S.s0 + Math.floor((S.s1 - S.s0) * f), c = T.c[i], r = T.r[i];
+        for (let k = 0; k < 3; k++) { const lat = (k - 1) * 2.6, m = new THREE.Mesh(geo, gm); m.add(new THREE.Mesh(new THREE.SphereGeometry(1.15, 14, 10), gg));
+          m.position.set(c.x + r.x * lat, c.y + S.H + 1.0, c.z + r.z * lat); this.root.add(m); this.boxes.push({ m, i, lat, t: 0, ph: k * 0.9, yOff: S.H, gold: true }); } }
+    }
     this.shield = new THREE.MeshBasicMaterial({ color: 0x9fe3ff, transparent: true, opacity: 0.28, depthWrite: false, blending: THREE.AdditiveBlending });
   }
 
@@ -63,15 +82,15 @@ export class RaceItems {
     for (const B of this.boxes) {
       B.t -= dt;
       const on = B.t <= 0; B.m.visible = on;
-      if (on) { B.m.rotation.set(time * 0.9 + B.ph, time * 1.3 + B.ph, 0); B.m.position.y = T.c[B.i].y + 1.0 + Math.sin(time * 2.4 + B.ph) * 0.15; B.m.scale.setScalar(Math.min(1, B.m.scale.x + dt * 3)); }
+      if (on) { B.m.rotation.set(time * 0.9 + B.ph, time * 1.3 + B.ph, 0); B.m.position.y = T.c[B.i].y + 1.0 + (B.yOff || 0) + Math.sin(time * 2.4 + B.ph) * 0.15; B.m.scale.setScalar(Math.min(1, B.m.scale.x + dt * 3)); }
       else B.m.scale.setScalar(0.01);
       if (!on) continue;
       for (const R of race.racers) {
         if (B.t > 0) break;
         if (Math.hypot(R.pos.x - B.m.position.x, R.pos.z - B.m.position.z) < 2.1 && Math.abs(R.pos.y - B.m.position.y) < 2.5) { // la caja se rompe siempre; da objeto si tienes la mano libre
-          B.t = 3; this._pop(B.m.position, 0xffd24a, 1.2); this._shards(B.m.position);
+          B.t = B.gold ? 6 : 3; this._pop(B.m.position, 0xffd24a, B.gold ? 2 : 1.2); this._shards(B.m.position);
           if (R.you) race.ctx.audio.play(R.item || R.roll > 0 ? 'crack' : 'crystal');
-          if (!R.item && !(R.roll > 0) && !R.remote) { R.roll = R.you ? 1.0 : 0.4; R.rollFor = roll(R.place, race.racers.length); }
+          if (!R.item && !(R.roll > 0) && !R.remote) { R.roll = R.you ? 1.0 : 0.4; R.rollFor = B.gold ? rollGold() : roll(R.place, race.racers.length); if (B.gold && R.you) race._flash('¡Caja dorada!', '#ffd24a'); }
         }
       }
     }
@@ -182,7 +201,8 @@ export class RaceItems {
         if ((S.puff = (S.puff || 0) - dt) <= 0) { S.puff = 0.025; this._smoke(S.g.position.clone().addScaledVector(new THREE.Vector3(Math.sin(S.yaw), 0, Math.cos(S.yaw)), -1.2), S.kind === 'guiado' ? 0xd8c0ff : 0xf0e8e0); }
       }
       let hit = null;
-      if (Math.abs(F.lat) > T.hw - 0.4) { if (S.kind === 'bomba') { const r = T.r[S.i], sg = Math.sign(F.lat); S.pos.x -= r.x * sg * 0.6; S.pos.z -= r.z * sg * 0.6; S.yaw = Math.atan2(T.t[S.i].x, T.t[S.i].z); } else hit = 'wall'; }
+      if (T.tube) { if (Math.abs(F.lat) > T.hw) { const r = T.r[S.i], sh = -Math.sign(F.lat) * 2 * T.hw; S.pos.x += r.x * sh; S.pos.z += r.z * sh; } }
+      else if (Math.abs(F.lat) > T.hw - 0.4) { if (S.kind === 'bomba') { const r = T.r[S.i], sg = Math.sign(F.lat); S.pos.x -= r.x * sg * 0.6; S.pos.z -= r.z * sg * 0.6; S.yaw = Math.atan2(T.t[S.i].x, T.t[S.i].z); } else hit = 'wall'; }
       if (!S.remote) for (const R of race.racers) {
         if (R === S.owner && S.t < 0.6) continue;
         if (Math.hypot(R.pos.x - S.pos.x, R.pos.z - S.pos.z) < (S.kind === 'bomba' ? 1.7 : 1.5)) { hit = R; break; }

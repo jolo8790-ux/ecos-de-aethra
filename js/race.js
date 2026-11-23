@@ -69,6 +69,19 @@ export const TRACKS = {
     feat: { ramps: [0.27, 0.83], tunnels: [[0.5, 0.58]], bridges: [[0.62, 0.72]] },
     theme: { tunnel: 0x9a4a32, cable: 0x5a3020, road: 'sand', curb: ['#ffe2a8', '#d0603a'], side: 0x9a5a3a, rail: 0xc08a5a, post: 0x7a4a2a, pile: 0xa06a4a, banner: '☀  CAÑÓN DEL OCASO  ☀', decor: 'ruinas', palette: { top: 0xe0a060, side: 0xb0603a } },
   },
+  cloaca: {
+    name: 'Cloacas de Bruma', short: 'Cloacas de Bruma', icon: '🌀', lock: 'canon', tube: 6,
+    desc: 'Dentro de un tubo cerrado: corre por el suelo, las paredes o el techo. Rampas, tubo de cristal bajo el mar y babosas que giran.',
+    w: 2 * Math.PI * 6,
+    p: [[0, 0, 0], [70, 0, 2], [130, -15, 6], [165, -65, 8], [150, -125, 4], [95, -150, 0], [35, -135, -4], [-10, -100, -2], [-60, -115, 2], [-120, -95, 6], [-140, -40, 4], [-100, 5, 1], [-50, 8, 0]],
+    boosts: [0.06, 0.3, 0.52, 0.78, 0.92], items: [0.16, 0.42, 0.66, 0.86],
+    sky: { top: 0x0a2a3a, bottom: 0x2a6a7a, fog: 0x1a3a3a, fogNear: 30, fogFar: 160 },
+    light: { hemiSky: 0xd0fff0, hemiGround: 0x8ab0a0, sun: 0xc0ffe0 },
+    water: { y: -22, color: 0x2a7a8a },
+    reward: [110, 60, 34, 18],
+    feat: { ramps: [0.22, 0.47, 0.71] },
+    theme: { tube: true, sections: [[0, 'concreto'], [0.28, 'ladrillo'], [0.5, 'cristal'], [0.62, 'oxido'], [0.84, 'concreto']], road: 'planks', curb: ['#ffd24a', '#2a2a2a'], side: 0x5a6a60, rail: 0x7a8a80, post: 0x4a5a50, pile: 0x4a5a50, banner: '◎  CLOACAS DE BRUMA  ◎', decor: 'cloaca', palette: { top: 0x4a6a5a, side: 0x3a4a40 } },
+  },
 };
 export const RACE_LAPS = [3, 5];
 const LEVEL = { facil: 0.83, normal: 0.92, dificil: 0.99, auto: 0.9 };
@@ -126,6 +139,25 @@ const sandRoad = () => tex(256, 256, (c, w, h) => {
   for (let i = 0; i < 300; i++) { c.fillStyle = `rgba(${150 + Math.random() * 80},${90 + Math.random() * 50},${50},.25)`; c.beginPath(); c.arc(Math.random() * w, Math.random() * h, 1 + Math.random() * 5, 0, 7); c.fill(); }
   for (let i = 0; i < 8; i++) { c.strokeStyle = 'rgba(140,80,40,.35)'; c.lineWidth = 2; c.beginPath(); const y = Math.random() * h; c.moveTo(0, y); c.bezierCurveTo(w * 0.3, y + 12, w * 0.7, y - 12, w, y); c.stroke(); }
 });
+// interior del tubo: u da la vuelta al tubo (0 = suelo), v avanza por la pista
+const TUBE_LOOK = {
+  concreto: { base: '#7a8078', joint: 'rgba(40,50,45,.6)', lamp: '#bff8ff', tint: 0xffffff },
+  ladrillo: { base: '#8a4a32', joint: 'rgba(230,200,170,.45)', lamp: '#ffd27a', tint: 0xffffff, bricks: true },
+  cristal: { base: '#6ad0e0', joint: 'rgba(255,255,255,.5)', lamp: '#bff8ff', tint: 0xffffff },
+  oxido: { base: '#5a6a3a', joint: 'rgba(30,20,10,.6)', lamp: '#9aff6a', tint: 0xffffff, rust: true },
+};
+const tubeTex = (kind) => { const L = TUBE_LOOK[kind]; return [tex(256, 256, (c, w, h) => {
+  c.fillStyle = L.base; c.fillRect(0, 0, w, h);
+  for (let i = 0; i < 260; i++) { c.fillStyle = `rgba(${Math.random() < 0.5 ? '0,0,0' : '255,255,255'},${Math.random() * 0.07})`; c.fillRect(Math.random() * w, Math.random() * h, 3 + Math.random() * 10, 3 + Math.random() * 10); }
+  c.strokeStyle = L.joint; c.lineWidth = 2;
+  if (L.bricks) for (let y = 0; y < h; y += 16) { c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke(); for (let x = (y / 16) % 2 ? 0 : 16; x < w; x += 32) { c.beginPath(); c.moveTo(x, y); c.lineTo(x, y + 16); c.stroke(); } }
+  else for (let y = 0; y < h; y += 64) { c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke(); }
+  if (L.rust) for (let i = 0; i < 30; i++) { c.fillStyle = 'rgba(160,80,30,.35)'; c.beginPath(); c.arc(Math.random() * w, Math.random() * h, 4 + Math.random() * 14, 0, 7); c.fill(); }
+  // línea central del suelo (u = 0) y franjas de luz en paredes y techo
+  c.fillStyle = '#ffd24a'; for (let y = 0; y < h; y += 64) { c.fillRect(0, y, 3, 36); c.fillRect(w - 3, y, 3, 36); }
+  c.fillStyle = 'rgba(80,255,150,.25)'; c.fillRect(0, 0, 14, h); c.fillRect(w - 14, 0, 14, h);
+  c.fillStyle = L.lamp; for (const u of [0.25, 0.5, 0.75]) c.fillRect(u * w - 3, 0, 6, h);
+}), tex(256, 256, (c, w, h) => { c.fillStyle = '#000'; c.fillRect(0, 0, w, h); c.fillStyle = L.lamp; for (const u of [0.25, 0.5, 0.75]) c.fillRect(u * w - 3, 0, 6, h); c.fillStyle = 'rgba(255,210,74,.6)'; for (let y = 0; y < h; y += 64) { c.fillRect(0, y, 3, 36); c.fillRect(w - 3, y, 3, 36); } })]; };
 const curbTex = (a = '#f4f2ee', b = '#e8483c') => tex(32, 64, (c, w, h) => { c.fillStyle = a; c.fillRect(0, 0, w, h); c.fillStyle = b; c.fillRect(0, 0, w, h / 2); });
 const checker = () => tex(128, 32, (c, w, h) => { for (let x = 0; x < 16; x++) for (let y = 0; y < 4; y++) { c.fillStyle = (x + y) % 2 ? '#111' : '#fafafa'; c.fillRect(x * 8, y * 8, 8, 8); } });
 const chevron = () => tex(128, 128, (c, w, h) => {
@@ -238,9 +270,91 @@ class Track {
     this.tunnels = (F.tunnels || []).map(([a, b]) => [idx(a), idx(b)]);
     this.bridges = (F.bridges || []).map(([a, b]) => [idx(a), idx(b)]);
     this.inRange = (i, list) => list.some(([a, b]) => i >= a && i <= b);
-    this.sky = null; this._findShortcut();
-    this._findSky();
+    this.sky = null; this.alt = null; this.tube = def.tube || 0;
+    if (this.tube) { // marco del tubo: «arriba» perpendicular a la pista en cada muestra
+      this.U = this.t.map((t, i) => new THREE.Vector3().crossVectors(this.r[i], t).normalize());
+      this._q = new THREE.Quaternion(); this._v = new THREE.Vector3();
+    } else { this._findShortcut(); this._findSky(); }
     this._build();
+  }
+  // ---- tubo: la carrera se calcula en una pista plana «desenrollada» y se dibuja enrollada en el cilindro
+  // p plano → posición en el tubo (out); devuelve la muestra y el ángulo alrededor del tubo
+  tmap(p, hint, out) {
+    const i = this.near(p, hint), F = this.frame(p, i), R = this.tube, th = F.lat / R, h = p.y - F.y;
+    const c = this.c[i], t = this.t[i], r = this.r[i], U = this.U[i], sn = Math.sin(th), co = Math.cos(th), rad = R - h;
+    out.set(c.x + t.x * F.along + U.x * R + (r.x * sn - U.x * co) * rad, c.y + t.y * F.along + U.y * R + (r.y * sn - U.y * co) * rad, c.z + t.z * F.along + U.z * R + (r.z * sn - U.z * co) * rad);
+    return { i, th };
+  }
+  tquat(i, th, q) { return q.setFromAxisAngle(this.t[i], -th); }
+  // normal del suelo del tubo (hacia el centro)
+  tnorm(i, th, out) { const r = this.r[i], U = this.U[i], sn = Math.sin(th), co = Math.cos(th); return out.set(U.x * co - r.x * sn, U.y * co - r.y * sn, U.z * co - r.z * sn); }
+  // dobla una malla construida en plano para que se pegue a la pared del tubo
+  bend(mesh) {
+    mesh.updateMatrixWorld(true); const g = mesh.geometry.clone(), P = g.attributes.position, v = new THREE.Vector3(), o = new THREE.Vector3();
+    let hint = this.near(new THREE.Vector3().setFromMatrixPosition(mesh.matrixWorld));
+    for (let k = 0; k < P.count; k++) { v.fromBufferAttribute(P, k).applyMatrix4(mesh.matrixWorld); hint = this.tmap(v, hint, o).i; P.setXYZ(k, o.x, o.y, o.z); }
+    g.computeVertexNormals(); mesh.geometry = g; mesh.position.set(0, 0, 0); mesh.rotation.set(0, 0, 0); mesh.scale.set(1, 1, 1); mesh.updateMatrix();
+    return mesh;
+  }
+  // objeto rígido: se coloca en su sitio del tubo y se gira con la pared
+  place(obj, hint = -1) {
+    const lp = obj.position.clone(), { i, th } = this.tmap(lp, hint, obj.position);
+    obj.quaternion.premultiply(this.tquat(i, th, this._q)); return i;
+  }
+  _buildTube() {
+    const N = this.N, R = this.tube, root = this.root, TH = this.def.theme, S = 40;
+    const secs = TH.sections.map(([f, k]) => [Math.floor(f * N), k]);
+    const kindAt = i => { let k = secs[0][1]; for (const [a, kk] of secs) if (i >= a) k = kk; return k; };
+    // un tramo de tubo por sección (cada una con su material)
+    for (let si = 0; si < secs.length; si++) {
+      const a = secs[si][0], b = si + 1 < secs.length ? secs[si + 1][0] : N, kind = secs[si][1];
+      const pos = [], uv = [], idx = [];
+      for (let i = a; i <= b; i++) { const k = i % N, c = this.c[k], r = this.r[k], U = this.U[k], v = (i === N ? this.L : this.d[k]) / 8;
+        for (let j = 0; j <= S; j++) { const th = (j / S) * Math.PI * 2, sn = Math.sin(th), co = Math.cos(th), rr = R + 0.02;
+          pos.push(c.x + U.x * R + (r.x * sn - U.x * co) * rr, c.y + U.y * R + (r.y * sn - U.y * co) * rr, c.z + U.z * R + (r.z * sn - U.z * co) * rr); uv.push(j / S, v); }
+        if (i < b) { const q = (i - a) * (S + 1); for (let j = 0; j < S; j++) idx.push(q + j, q + j + S + 1, q + j + 1, q + j + 1, q + j + S + 1, q + j + S + 2); } }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+      const [map, em] = tubeTex(kind), glass = kind === 'cristal';
+      const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map, emissiveMap: em, emissive: 0xffffff, emissiveIntensity: glass ? 0.5 : 0.65, roughness: glass ? 0.1 : 0.85, metalness: kind === 'oxido' ? 0.3 : 0, side: THREE.DoubleSide, transparent: glass, opacity: glass ? 0.6 : 1, depthWrite: !glass, color: glass ? 0x9adfff : 0xffffff }));
+      m.renderOrder = glass ? 2 : 0; root.add(m);
+      if (glass) { // tubo de cristal bajo el agua: peces y burbujas por fuera
+        for (let n = 0; n < 40; n++) { const i = a + Math.floor(Math.random() * (b - a)), c = this.c[i], th = Math.random() * 6.28, rr = R + 2 + Math.random() * 6;
+          const f = new THREE.Mesh(new THREE.ConeGeometry(0.25 + Math.random() * 0.3, 0.9, 5), new THREE.MeshStandardMaterial({ color: [0xff8a3a, 0xffd24a, 0x4af0ff, 0xff5aa0][n % 4], emissive: 0x332200, roughness: 0.5 }));
+          f.position.set(c.x + this.U[i].x * R + (this.r[i].x * Math.sin(th) - this.U[i].x * Math.cos(th)) * rr, c.y + R - Math.cos(th) * rr, c.z + this.U[i].z * R + (this.r[i].z * Math.sin(th) - this.U[i].z * Math.cos(th)) * rr);
+          f.rotation.set(Math.PI / 2, 0, Math.random() * 6); root.add(f); }
+      }
+      // compuerta de cambio de tubo, con cartel
+      const c = this.c[a % N], t = this.t[a % N], ctr = c.clone().addScaledVector(this.U[a % N], R);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(R + 0.1, 0.55, 8, 40), new THREE.MeshStandardMaterial({ color: 0xffc83a, emissive: 0x6a4a00, emissiveIntensity: 0.6, roughness: 0.4, metalness: 0.4 }));
+      ring.position.copy(ctr); ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), t); root.add(ring);
+      if (si > 0) { const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 1.1), new THREE.MeshBasicMaterial({ map: banner({ concreto: 'TUBO PRINCIPAL', ladrillo: 'TUBO VIEJO', cristal: 'TUBO DE CRISTAL', oxido: 'TUBO OXIDADO' }[kind]), side: THREE.DoubleSide }));
+        sign.position.copy(ctr).addScaledVector(this.U[a % N], R - 1.2); sign.lookAt(sign.position.clone().sub(t)); root.add(sign); }
+    }
+    // costillas cada pocos metros
+    const ribM = new THREE.MeshStandardMaterial({ color: 0x3a4a44, roughness: 0.6, metalness: 0.5 }), ribG = new THREE.TorusGeometry(R + 0.05, 0.16, 5, 36);
+    for (let i = 4; i < N; i += 14) { if (kindAt(i) === 'cristal' && i % 28) continue; const m = new THREE.Mesh(ribG, ribM); m.position.copy(this.c[i]).addScaledVector(this.U[i], R); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), this.t[i]); root.add(m); }
+    // rampas pegadas al suelo del tubo
+    const rampM = new THREE.MeshStandardMaterial({ color: 0xffb030, roughness: 0.5, emissive: 0x6a3a00, emissiveIntensity: 0.5 });
+    for (const i of this.ramps) { const c = this.c[i], t = this.t[i], shape = new THREE.Shape(); shape.moveTo(-3, 0); shape.lineTo(1.2, 0); shape.lineTo(1.2, 0.9); shape.lineTo(-3, 0);
+      const g = new THREE.ExtrudeGeometry(shape, { depth: 9, bevelEnabled: false, steps: 12 }); g.translate(0, 0, -4.5);
+      const m = new THREE.Mesh(g, rampM); m.position.set(c.x, c.y, c.z); m.rotation.y = Math.atan2(t.x, t.z) - Math.PI / 2; root.add(m); this.bend(m); }
+    // meta: anillo a cuadros que da toda la vuelta
+    const fin = new THREE.Mesh(new THREE.PlaneGeometry(this.def.w, 2.2, 48, 1), new THREE.MeshStandardMaterial({ map: checker(), roughness: 0.6, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }));
+    const yaw = Math.atan2(this.t[0].x, this.t[0].z); fin.rotation.set(-Math.PI / 2, 0, yaw); fin.position.set(this.c[0].x, this.c[0].y + 0.04, this.c[0].z); root.add(fin); this.bend(fin);
+    // semáforo colgado del techo
+    const box = new THREE.Group(), panel = new THREE.Mesh(new THREE.BoxGeometry(5.6, 1.5, 0.35), new THREE.MeshStandardMaterial({ color: 0x15151c, roughness: 0.5, metalness: 0.4 })); box.add(panel);
+    this.lights = []; const lg = new THREE.SphereGeometry(0.22, 16, 12);
+    for (let k = 0; k < 5; k++) { const pair = []; for (const y of [0.35, -0.3]) { const m = new THREE.MeshStandardMaterial({ color: 0x2a0606, emissive: 0xff1a10, emissiveIntensity: 0, roughness: 0.3 }); for (const z of [-0.25, 0.25]) { const l = new THREE.Mesh(lg, m); l.position.set(-2.2 + k * 1.1, y, z); box.add(l); } pair.push(m); } this.lights.push(pair); }
+    box.position.set(this.c[2].x, this.c[2].y + 4.1, this.c[2].z); box.rotation.y = yaw; root.add(box); this.place(box, 2);
+    this.setLights = n => this.lights.forEach((pair, k) => pair.forEach(m => { m.emissiveIntensity = k < n ? 3.2 : 0; m.color.setHex(k < n ? 0xff3020 : 0x2a0606); }));
+    // placas de impulso (en suelo y paredes)
+    this.boosts = []; const cv = chevron();
+    for (const f of this.def.boosts) { const i = Math.floor(f * N), c = this.c[i], t = this.t[i];
+      const mat = new THREE.MeshBasicMaterial({ map: cv.clone(), color: 0xffb030, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6 });
+      mat.map.needsUpdate = true; mat.map.repeat.set(1, 2);
+      const lat = ((i * 7) % 3 - 1) * this.hw * 0.4, m = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 6, 4, 4), mat);
+      m.rotation.set(-Math.PI / 2, 0, Math.atan2(t.x, t.z) + Math.PI); m.position.set(c.x + this.r[i].x * lat, c.y + 0.05, c.z + this.r[i].z * lat); root.add(m); this.bend(m);
+      this.boosts.push({ i, lat, mat, d: this.d[i] }); }
   }
   // carril colgante: tramo casi recto sin otros elementos; se llega con la rampa de nitro que hay antes
   _findSky() {
@@ -306,6 +420,7 @@ class Track {
     return { y, lat, along, dist: (this.d[i] + along + this.L) % this.L };
   }
   _build() {
+    if (this.tube) return this._buildTube();
     const N = this.N, hw = this.hw, root = this.root;
     const AL = this.alt, gap = (k, sg) => AL && sg === AL.side && ((k >= AL.a - 4 && k <= AL.a + 12) || (k >= AL.b - 12 && k <= AL.b + 4)); // entradas del atajo
     this.gap = gap;
@@ -495,6 +610,7 @@ class Track {
       else if (k === 1) lights.push({ x, z, y: top });
       else { trees.push({ x: x - w * 0.2, z: z - d * 0.15, y: top, s: 0.9 + rnd() * 0.4 }); props.push({ kind: 'barril', x: x + w * 0.2, z: z + d * 0.1, y: top }, { kind: 'caja', x: x + w * 0.25, z: z - d * 0.2, y: top, rot: rnd() * 3 }); }
     }
+    if (theme === 'cloaca') return { islands: [], houses: [], trees: [], lighthouses: [], props: [], pines: [], bigTrees: [], mushrooms: [], snow: 0 };
     if (theme === 'ruinas') { // mesetas rojas a franjas y columnas rotas
       const cols = [0xc8603a, 0xe08a50, 0xa84a32, 0xf0b070];
       this._mesas = 0; this._cols = 0;
@@ -601,10 +717,12 @@ export class Race {
       R.pos.set(c.x + r.x * col * 2.6, c.y, c.z + r.z * col * 2.6); R.yaw = Math.atan2(t.x, t.z); R.i = i; R.lap = -1; R.half = true; R.dist = T.d[i];
       // caja de salida pintada en la pista, con su número
       const box = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 3.6), new THREE.MeshBasicMaterial({ map: gridTex(k + 1), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6 }));
-      box.rotation.set(-Math.PI / 2, 0, R.yaw + Math.PI); box.position.set(R.pos.x - Math.sin(R.yaw) * 0.2, c.y + 0.03, R.pos.z - Math.cos(R.yaw) * 0.2); this.root.add(box);
+      box.rotation.set(-Math.PI / 2, 0, R.yaw + Math.PI); box.position.set(R.pos.x - Math.sin(R.yaw) * 0.2, c.y + 0.03, R.pos.z - Math.cos(R.yaw) * 0.2); box.userData.grid = true; this.root.add(box);
     });
     this.gridMid = T.c[(T.N - 6 - Math.floor((grid.length - 1) / 2) * 13) % T.N].clone();
     this.items = new RaceItems(this);
+    if (T.tube) for (const o of this.root.children) if (o.userData.grid) T.bend(o);
+    this._buildObstacles(level);
     // salida: presentación de la parrilla, semáforo de cinco luces y ¡fuera! (en línea, la misma espera para todos)
     this.phase = 'count'; this.st = 0; this.t = 1; this.track.setLights(0);
     this.hold = 0.5 + ((opts.ep || Math.floor(Math.random() * 1e6)) % 700) / 1000; this._pairT = {}; this.clock = 0; this.results = []; this._lastCount = null; this._altSeen = false; this._skySeen = false; this._skyHint = false;
@@ -647,7 +765,12 @@ export class Race {
     if (this.me.done && this.phase !== 'end' && !this.shown) safe('meta', () => this._finish());
     if (this.phase === 'end' && (this.endT -= dt) <= 0 && !this.shown) safe('final', () => this._showEnd());
     if (this.phase === 'end' && this.endT < -1.5 && $('raceEnd').classList.contains('hidden')) { try { this._endList(); $('raceEndTitle').textContent = `${this.me.place}.º lugar`; } catch (e) {} $('raceEnd').classList.remove('hidden'); document.body.classList.add('raceover'); this.shown = true; }
-    safe('objetos', () => this.items.update(dt, this.clock + this.t));
+    safe('objetos', () => {
+      const T = this.track, kids = this.items.root.children;
+      if (T.tube) for (const o of kids) if (o.userData.lp) { o.position.copy(o.userData.lp); o.quaternion.copy(o.userData.lq); }
+      this._obstacles(dt); this.items.update(dt, this.clock + this.t);
+      if (T.tube) for (const o of kids) { const u = o.userData; (u.lp || (u.lp = new THREE.Vector3())).copy(o.position); (u.lq || (u.lq = new THREE.Quaternion())).copy(o.quaternion); u.hi = T.place(o, u.hi ?? -1); }
+    });
     safe('choques', () => this._collide(dt));
     safe('puestos', () => this.place());
     safe('dibujo', () => this._sync(dt));
@@ -657,6 +780,40 @@ export class Race {
     if (this.shown && this.net && (this._listT = (this._listT || 0) - dt) <= 0) { this._listT = 0.5; this._endList(); } // en línea: la tabla se completa a medida que llegan
   }
 
+  // obstáculos que esquivar: bajo el carril colgante (según la isla) y babosas que giran dentro del tubo
+  _buildObstacles(level = 0.92) {
+    const T = this.track, N = T.N, kind = T.tube ? 'baba' : ({ puerto: 'barril', bosque: 'seta', glaciar: 'bola', ruinas: 'roca' }[this.def.theme.decor] || 'barril');
+    this.obst = []; const list = [];
+    if (T.tube) for (let k = 0; k < 7; k++) list.push({ i: Math.floor(N * (0.08 + k * 0.13)) % N, mode: 'orbit', lat0: k * 9, sp: (k % 2 ? 1 : -1) * (6 + k) * level });
+    else if (T.sky) { const S = T.sky; [0.15, 0.38, 0.6, 0.85].forEach((f, k) => list.push({ i: S.s0 + Math.floor((S.s1 - S.s0) * f), mode: 'swing', amp: T.hw - 2.2, sp: (1.3 + k * 0.25) * level, ph: k * 1.9 })); }
+    const look = {
+      barril: () => { const g = new THREE.Group(), b = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 1.7, 14), new THREE.MeshStandardMaterial({ color: 0x8a5a2a, roughness: 0.8 })); b.rotation.x = Math.PI / 2; g.add(b);
+        for (const z of [-0.55, 0.55]) { const h = new THREE.Mesh(new THREE.TorusGeometry(0.87, 0.07, 6, 18), new THREE.MeshStandardMaterial({ color: 0x3a3a40, metalness: 0.6 })); h.position.z = z; g.add(h); } return [g, 0.9]; },
+      seta: () => { const g = new THREE.Group(), st = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 1.2, 10), new THREE.MeshStandardMaterial({ color: 0xf4ecd8 })); st.position.y = -0.3; g.add(st);
+        const cap = new THREE.Mesh(new THREE.SphereGeometry(1.1, 16, 10, 0, 6.3, 0, 1.7), new THREE.MeshStandardMaterial({ color: 0xe0303a, roughness: 0.5 })); cap.position.y = 0.2; g.add(cap); return [g, 1.0]; },
+      bola: () => [new THREE.Mesh(new THREE.IcosahedronGeometry(1.15, 2), new THREE.MeshStandardMaterial({ color: 0xf4faff, roughness: 0.7, flatShading: true })), 1.15],
+      roca: () => [new THREE.Mesh(new THREE.DodecahedronGeometry(1.15, 0), new THREE.MeshStandardMaterial({ color: 0xa0583a, roughness: 1, flatShading: true })), 1.15],
+      baba: () => { const m = new THREE.Mesh(new THREE.SphereGeometry(1.1, 18, 12), new THREE.MeshStandardMaterial({ color: 0x6aff5a, emissive: 0x2a8a1a, emissiveIntensity: 0.8, roughness: 0.2, transparent: true, opacity: 0.85 })); m.scale.set(1.2, 0.75, 1.2); return [m, 1.15]; },
+    };
+    for (const o of list) { const [m, rad] = look[kind](); m.castShadow = true; this.items.root.add(m); this.obst.push({ ...o, m, rad, kind, lat: 0 }); }
+  }
+  _obstacles(dt) {
+    if (!this.obst || !this.obst.length) return;
+    const T = this.track, time = this.clock + this.t;
+    for (const O of this.obst) {
+      if (O.mode === 'orbit') { let l = O.lat0 + O.sp * time; l = ((l + T.hw) % (2 * T.hw) + 2 * T.hw) % (2 * T.hw) - T.hw; O.lat = l; }
+      else O.lat = O.amp * Math.sin(O.sp * time + O.ph);
+      const c = T.c[O.i], r = T.r[O.i], t = T.t[O.i], bounce = O.kind === 'seta' ? Math.abs(Math.sin(time * 4 + O.i)) * 0.8 : 0;
+      O.m.position.set(c.x + r.x * O.lat, c.y + O.rad * (O.kind === 'baba' ? 0.7 : 0.9) + bounce, c.z + r.z * O.lat);
+      const yaw = Math.atan2(t.x, t.z); O.m.rotation.set(0, yaw, 0);
+      if (O.kind !== 'seta') O.m.rotateZ(-O.lat / O.rad); // rueda mientras se mueve
+      if (O.kind === 'baba') O.m.scale.set(1.2 + Math.sin(time * 6) * 0.1, 0.75 - Math.sin(time * 6) * 0.08, 1.2);
+      for (const R of this.racers) {
+        if (R.remote || R.onSky || R.inv > 0 || R.done) continue;
+        if (Math.hypot(R.pos.x - O.m.position.x, R.pos.z - O.m.position.z) < O.rad + 0.85 && Math.abs(R.pos.y - c.y) < 2.2) { this.items.hit(R, null); if (R.you) this._flash(O.kind === 'baba' ? '¡Babosa!' : '¡Cuidado!', '#ff8a7a'); }
+      }
+    }
+  }
   _myControls() {
     const I = this.ctx.input, k = I.keys, touch = I.isTouch && !I.usingGamepad;
     const steer = -clamp(I.move.x, -1, 1); // el giro positivo del kart va hacia la izquierda de la cámara
@@ -749,14 +906,16 @@ export class Race {
     }
     if (!onAlt) {
       R.lat = F.lat; R.dist = F.dist;
-      if (Math.abs(F.lat) > lim && !(AL && T.gap(R.i, Math.sign(F.lat)))) { // choca con la barandilla: rebota hacia dentro
+      if (T.tube) { // dentro del tubo: al pasar por el techo se sigue por el otro lado
+        if (Math.abs(F.lat) > T.hw) { const sh = -Math.sign(F.lat) * 2 * T.hw, r = T.r[R.i]; R.pos.x += r.x * sh; R.pos.z += r.z * sh; F.lat += sh; R.lat = F.lat; if (R.you && this.camPos) { this.camPos.x += r.x * sh; this.camPos.z += r.z * sh; } }
+      } else if (Math.abs(F.lat) > lim && !(AL && T.gap(R.i, Math.sign(F.lat)))) { // choca con la barandilla: rebota hacia dentro
         const sg = Math.sign(F.lat), r = T.r[R.i], push = Math.abs(F.lat) - lim;
         R.pos.x -= r.x * sg * push; R.pos.z -= r.z * sg * push;
         const ty = Math.atan2(T.t[R.i].x, T.t[R.i].z), d = angD(R.yaw, ty);
         if (Math.abs(d) > 0.12) R.yaw -= d * 0.35;
         if (R.v > 10 && (R.wallT || 0) <= 0) { R.v *= 0.72; R.wallT = 0.4; if (R.you) { this.ctx.audio.play('block'); this.ctx.input.rumble(90, 0.4); } }
         R.lat = sg * lim;
-      } else if (Math.abs(F.lat) > T.hw + 0.4) { R.pos.x -= T.r[R.i].x * Math.sign(F.lat) * (Math.abs(F.lat) - T.hw - 0.4); R.pos.z -= T.r[R.i].z * Math.sign(F.lat) * (Math.abs(F.lat) - T.hw - 0.4); }
+      } else if (!T.tube && Math.abs(F.lat) > T.hw + 0.4) { R.pos.x -= T.r[R.i].x * Math.sign(F.lat) * (Math.abs(F.lat) - T.hw - 0.4); R.pos.z -= T.r[R.i].z * Math.sign(F.lat) * (Math.abs(F.lat) - T.hw - 0.4); }
       // rampa de nitro: solo con el nitro encendido se sube al carril colgante
       const S = T.sky;
       if (S && !R.onSky) {
@@ -771,7 +930,7 @@ export class Race {
       // rampas: la cuña levanta el kart y al final sale volando
       for (const ri of T.ramps) {
         let dd = T.d[R.i] + F.along - T.d[ri]; if (dd > T.L / 2) dd -= T.L; if (dd < -T.L / 2) dd += T.L;
-        if (Math.abs(F.lat) < this.def.w * 0.46 && dd > -3 && dd < 2.5) {
+        if (Math.abs(F.lat) < (T.tube ? 4.5 : this.def.w * 0.46) && dd > -3 && dd < 2.5) {
           if (dd < 1.2) gy += 0.9 * (dd + 3) / 4.2;
           const pd = R.rampDD && R.rampDD[ri]; (R.rampDD = R.rampDD || {})[ri] = dd;
           if (pd != null && pd < 0.6 && dd >= 0.6 && !R.air && R.v > 6) { R.air = true; R.vy = 4 + R.v * 0.16; R.y = gy; if (R.you) { this.ctx.audio.play('jump'); this.ctx.input.rumble(80, 0.3); } }
@@ -972,8 +1131,9 @@ export class Race {
     for (const R of this.racers) {
       R.root.position.copy(R.pos);
       R.root.rotation.set(0, R.yaw, 0);
+      if (T.tube) { const m = T.tmap(R.pos, R.i, R.root.position); R.ti = m.i; R.th = m.th; R.root.quaternion.premultiply(T.tquat(m.i, m.th, T._q)); }
       R.body.rotation.set(-R.pitch, 0, 0); R.body.position.y = R.spin > 0 ? Math.abs(Math.sin(R.spin * 5)) * 0.5 : 0;
-      const cp = this.ctx.camera.position, near = !R.you && Math.hypot(cp.x - R.pos.x, cp.z - R.pos.z) < 4.2 && cp.y > R.pos.y; // no tapar la cámara con el kart que viene pegado detrás
+      const cp = this.ctx.camera.position, near = !T.tube && !R.you && Math.hypot(cp.x - R.pos.x, cp.z - R.pos.z) < 4.2 && cp.y > R.pos.y; // no tapar la cámara con el kart que viene pegado detrás
       R.root.visible = !near && !(R.inv > 0 && R.spin <= 0 && Math.sin(this.clock * 30) > 0.3);
       R.wob += dt * (8 + R.v * 0.6);
       R.kart.rotation.set(Math.sin(R.wob) * 0.008 * clamp(R.v / 10, 0, 1), R.slip * 0.9 + R.spinA, -R.slip * 0.25 - (R.drift ? R.drift * 0.08 : 0));
@@ -985,7 +1145,7 @@ export class Race {
         R.ch.root.rotation.set(0, Math.PI + R.slip * 0.4 + R.spinA, -(R.steerVis || 0) * 0.18);
         const b = R.ch.bones; if (b.head) b.head.rotation.y = -(R.steerVis || 0) * 0.25;
       }
-      R.shadow.position.set(R.pos.x, R.pos.y + 0.05, R.pos.z); R.shadow.rotation.z = -R.yaw;
+      R.shadow.position.set(R.pos.x, R.pos.y + 0.05, R.pos.z); R.shadow.rotation.z = -R.yaw; R.shadow.visible = !T.tube;
       if (R.rainbow) R.flameMat.color.setHSL((this.clock * 1.5) % 1, 1, 0.6);
       const fl = R.boostT > 0 ? 0.9 : 0; R.flameMat.opacity += (fl - R.flameMat.opacity) * damp(12, dt);
       const fs = (R.parts && R.parts.flame) || 1; for (const f of R.flames) f.scale.set(fs * 0.9 + 0.1, (0.7 + Math.random() * 0.6 + fl) * fs, fs * 0.9 + 0.1);
@@ -997,6 +1157,13 @@ export class Race {
     for (const B of T.boosts) B.mat.map.offset.y -= dt * 2.2;
     // la heroína (invisible) sigue al kart: así la sombra y el sonido van con la cámara
     const P = this.ctx.player; P.pos.copy(this.me.pos);
+  }
+  _camSet(p, tgt, R) {
+    const cam = this.ctx.camera, T = this.track;
+    if (!T.tube) { cam.position.copy(p); cam.lookAt(tgt); return; }
+    const hi = R.ti ?? R.i; T.tmap(p, hi, cam.position); const tg = T.tmap(tgt, hi, this._tv || (this._tv = new THREE.Vector3()));
+    const n = T.tnorm(R.ti ?? R.i, R.th || 0, this._tn || (this._tn = new THREE.Vector3()));
+    this._camUp = (this._camUp || n.clone()).lerp(n, 0.25).normalize(); cam.up.copy(this._camUp); cam.lookAt(this._tv);
   }
   _camera(dt) {
     const C = this.ctx, cam = C.camera, R = this.me;
@@ -1013,21 +1180,20 @@ export class Race {
       const front = new THREE.Vector3(c.x + r.x * T.hw * sw, c.y + 2.0 + Math.sin(u * Math.PI) * 0.8, c.z + r.z * T.hw * sw);
       const mid = T.c[li].clone().setY(T.c[li].y + 0.7);
       const k = clamp((this.st - (INTRO - 1.2)) / 1.6, 0, 1), e = k * k * (3 - 2 * k);
-      cam.position.copy(front.lerp(want, e)); cam.lookAt(mid.lerp(look, e));
-      this.camPos = cam.position.clone();
+      const fp = front.lerp(want, e); this._camSet(fp, mid.lerp(look, e), R);
+      this.camPos = fp.clone();
     } else if (this.phase === 'end') {
       // al llegar: cámara de frente que acompaña a tu kart por la pista mientras se ven los resultados
       const T = this.track, t = T.t[R.i], r = T.r[R.i], side = Math.sin(this.clock * 0.35) * 2.2;
       const front = new THREE.Vector3(R.pos.x + t.x * 7.5 + r.x * side, R.pos.y + 2.0, R.pos.z + t.z * 7.5 + r.z * side);
       if (!this.camPos) this.camPos = front.clone();
       this._endCamT = (this._endCamT || 0) + dt; this.camPos.lerp(front, this._endCamT > 1.5 ? 1 : damp(2.5, dt));
-      cam.position.copy(this.camPos); cam.lookAt(R.pos.x, R.pos.y + 0.9, R.pos.z);
+      this._camSet(this.camPos, new THREE.Vector3(R.pos.x, R.pos.y + 0.9, R.pos.z), R);
       if (this.shown) { const w = innerWidth, h = innerHeight; cam.setViewOffset(w, h, -w * 0.24, 0, w, h); this._offset = true; } // el kart a la derecha, los resultados a la izquierda
     } else {
       if (!this.camPos) this.camPos = want.clone();
       this.camPos.lerp(want, damp(this.lookBack ? 30 : 7, dt));
-      cam.position.copy(this.camPos);
-      cam.lookAt(look);
+      this._camSet(this.camPos, look, R);
     }
     const fov = 64 + clamp(R.v / MAXV, 0, 1.4) * 10 + (R.boostT > 0 ? 6 : 0);
     cam.fov += (fov - cam.fov) * damp(4, dt); cam.updateProjectionMatrix();
@@ -1113,6 +1279,7 @@ export class Race {
     this.racers = [];
     if (this.root) { C.scene.remove(this.root); this.root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); this.root = null; }
     if (this._offset) { C.camera.clearViewOffset(); this._offset = false; }
+    C.camera.up.set(0, 1, 0); this._camUp = null;
     if (!keep) this._hud(false); this._hudLights(-1); document.body.classList.remove('raceover');
     document.body.classList.remove('netrace'); this._chatClose();
     if (this.net) $('chatBtn').classList.add('hidden');
