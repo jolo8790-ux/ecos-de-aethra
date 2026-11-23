@@ -437,14 +437,14 @@
   @keyframes raceMsg { 0% { opacity: 0; transform: scale(1.6); } 15% { opacity: 1; transform: scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: scale(.95); } }
   #raceTip { position: absolute; left: 50%; top: 52px; transform: translateX(-50%); background: rgba(10,16,40,.55); padding: 5px 14px; border-radius: 12px; font-size: 14px; transition: opacity 1s; white-space: nowrap; }
   #raceTip.fade { opacity: 0; }
-  #raceBtnPause { position: absolute; right: 14px; top: 12px; pointer-events: auto; }
+  #raceBtnPause { pointer-events: auto; padding: 4px 14px; margin: 0; }
   .rtb { position: absolute; display: none; pointer-events: auto; border-radius: 50%; border: 3px solid rgba(255,255,255,.75); color: #fff; font-weight: 900; align-items: center; justify-content: center; text-align: center; user-select: none; -webkit-user-select: none; touch-action: none; }
   body.touch .rtb { display: flex; }
   .rtb.on { transform: scale(.92); filter: brightness(1.3); }
-  #rtDrift { right: calc(24px + env(safe-area-inset-right)); bottom: 96px; width: 104px; height: 104px; font-size: 15px; background: rgba(60,140,255,.5); }
-  #rtBrake { right: calc(140px + env(safe-area-inset-right)); bottom: 34px; width: 78px; height: 78px; font-size: 13px; background: rgba(255,80,70,.45); }
+  #rtDrift { right: calc(40px + env(safe-area-inset-right)); bottom: 96px; width: 104px; height: 104px; font-size: 15px; background: rgba(60,140,255,.5); }
+  #rtBrake { right: calc(156px + env(safe-area-inset-right)); bottom: 34px; width: 78px; height: 78px; font-size: 13px; background: rgba(255,80,70,.45); }
   body.touch #racePlace { right: auto; left: 50%; transform: translateX(-50%); bottom: 8px; font-size: 48px; }
-  body.touch #raceSpeed { left: auto; right: 100px; bottom: auto; top: 12px; font-size: 22px; }
+  body.touch #raceSpeed { left: auto; right: calc(40px + env(safe-area-inset-right)); bottom: auto; top: 12px; font-size: 22px; }
   body.touch #raceTurbo { bottom: 64px; }
   body.touch #raceTip { white-space: normal; max-width: 60vw; text-align: center; font-size: 12px; }
   body.touch #raceBoard { font-size: 11px; }
@@ -466,7 +466,7 @@
   #raceItem { position: absolute; right: 96px; top: 8px; width: 74px; height: 74px; border-radius: 16px; background: rgba(10,16,40,.6); border: 3px solid rgba(255,255,255,.35); display: flex; flex-direction: column; align-items: center; justify-content: center; }
   #raceItem span { font-size: 30px; line-height: 1; } #raceItem small { font-size: 10px; opacity: .85; text-align: center; line-height: 1.1; }
   #raceItem.full { border-color: #ffc83a; box-shadow: 0 0 14px rgba(255,200,58,.6); }
-  #rtUse { right: calc(130px + env(safe-area-inset-right)); bottom: 128px; width: 70px; height: 70px; font-size: 13px; background: rgba(255,200,58,.5); }
+  #rtUse { right: calc(146px + env(safe-area-inset-right)); bottom: 128px; width: 70px; height: 70px; font-size: 13px; background: rgba(255,200,58,.5); }
   body.touch #raceItem { right: auto; left: 50%; transform: translateX(-50%); top: 48px; width: 58px; height: 58px; } body.touch #raceItem span { font-size: 24px; }
   body.touch #raceTip { top: 112px; }
   .raceSoon { opacity: .6; font-size: 13px; margin: 4px 0 10px; }
@@ -577,14 +577,13 @@
 </div>
 <div id="raceHud" class="hidden">
   <div id="raceBoard"></div>
-  <div id="raceTop"><div id="raceLap">Vuelta 1/3</div><div id="raceTime">0:00.0</div></div>
+  <div id="raceTop"><div id="raceLap">Vuelta 1/3</div><div id="raceTime">0:00.0</div><button class="btn alt small" id="raceBtnPause">❚❚</button></div>
   <div id="raceTip"></div>
   <div id="raceMsg"></div>
   <div id="raceLights" class="hidden"><i></i><i></i><i></i><i></i><i></i></div>
   <div id="raceTurbo"></div>
   <div id="raceSpeed">0<small> km/h</small></div>
   <div id="racePlace">1<small>.º</small></div>
-  <button class="btn alt small" id="raceBtnPause">❚❚</button>
   <div class="rtb" id="rtDrift">DERRAPE<br>↯</div>
   <div class="rtb" id="rtBrake">FRENO</div>
   <div id="raceItem"><small>Caja ?</small></div><div class="rtb" id="rtUse">USAR</div>

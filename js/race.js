@@ -455,7 +455,8 @@ export class Race {
     this._camera(dt);
     this._hudTick(dt);
     this._engineTick(dt);
-    if (this.phase === 'end' && (this.endT -= dt) <= 0 && !this.shown) this._showEnd();
+    if (this.phase === 'end' && (this.endT -= dt) <= 0 && !this.shown) { try { this._showEnd(); } catch (e) { console.warn('final', e); $('raceEnd').classList.remove('hidden'); } }
+    if (this.me.done && this.phase !== 'end' && !this.shown) this._finish(); // terminó pero no se cambió de fase
     if (this.shown && this.net && (this._listT = (this._listT || 0) - dt) <= 0) { this._listT = 0.5; this._endList(); } // en línea: la tabla se completa a medida que llegan
   }
 
@@ -574,7 +575,7 @@ export class Race {
         this.ctx.audio.play('checkpoint');
       }
     }
-    if (R.prevF != null && R.prevF < 0.15 && f > 0.85 && R.lap >= 0 && this.phase === 'race') { R.lap--; R.half = true; } // marcha atrás por la meta
+    if (R.prevF != null && R.prevF < 0.15 && f > 0.85 && R.lap >= 0 && this.phase === 'race' && R.v < -0.5) { R.lap--; R.half = true; } // marcha atrás por la meta
     R.prevF = f;
   }
   place() {
@@ -598,28 +599,29 @@ export class Race {
     if (!this.net) for (const R of this.order) if (!R.done) { R.done = true; R.time = this.clock + (this.laps * this.track.L - R.progress) / Math.max(10, MAXV * (R.skill || 0.9)); this.results.push(R); }
     this.place();
     const p = this.me.place, rew = (this.def.reward[p - 1] || 5) * (this.laps === 5 ? 2 : 1);
-    C.addEcos(rew);
-    const sv = C.getSave();
-    if (sv) {
-      sv.race = sv.race || {}; const key = this.opts.track + '_' + this.laps;
-      const prev = sv.race[key];
-      if (!prev || this.me.time < prev.time) sv.race[key] = { time: this.me.time, place: p };
-      const r = sv.race, t = this.opts.track;
-      r.races = (r.races || 0) + 1;
-      if (p <= 3) { r.podiums = (r.podiums || 0) + 1; (r.podiumAt = r.podiumAt || {})[t] = true; }
-      if (p === 1) { r.wins = (r.wins || 0) + 1; (r.wonAt = r.wonAt || {})[t] = true; if (this.laps === 5) r.won5 = (r.won5 || 0) + 1; }
-      this.newUnlocks = this.ctx.unlocksAfter ? this.ctx.unlocksAfter() : [];
-      C.save && C.save();
-    }
-    const fmt = t => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`;
+    // primero la pantalla final (pase lo que pase con el guardado, siempre se puede salir)
     $('raceEndTitle').textContent = p === 1 ? '🏆 ¡Primer lugar!' : p <= 3 ? `🏅 ¡Podio! ${p}.º lugar` : `${p}.º lugar`;
-    $('raceEndSub').innerHTML = `${this.def.name} · ${this.laps} vueltas · +${rew} Ecos` + ((this.newUnlocks || []).length ? `<div class="raceUnl">🔓 ¡Desbloqueaste ${this.newUnlocks.map(u => u.name).join(', ')}!</div>` : '');
-    if ((this.newUnlocks || []).length) this.ctx.audio.play('unlock');
-    this._endList();
+    $('raceEndSub').textContent = `${this.def.name} · ${this.laps} vueltas · +${rew} Ecos`;
+    try { this._endList(); } catch (e) { console.warn('tabla final', e); }
     $('bRaceAgain').textContent = this.net ? '🌐 Volver a la sala' : '🔁 Repetir carrera';
-    $('raceEnd').classList.remove('hidden');
+    $('raceEnd').classList.remove('hidden'); $('racePause').classList.add('hidden');
+    try {
+      C.addEcos(rew);
+      const sv = C.getSave();
+      if (sv) {
+        sv.race = sv.race || {}; const key = this.opts.track + '_' + this.laps;
+        const prev = sv.race[key];
+        if (!prev || this.me.time < prev.time) sv.race[key] = { time: this.me.time, place: p };
+        const r = sv.race, t = this.opts.track;
+        r.races = (r.races || 0) + 1;
+        if (p <= 3) { r.podiums = (r.podiums || 0) + 1; (r.podiumAt = r.podiumAt || {})[t] = true; }
+        if (p === 1) { r.wins = (r.wins || 0) + 1; (r.wonAt = r.wonAt || {})[t] = true; if (this.laps === 5) r.won5 = (r.won5 || 0) + 1; }
+        this.newUnlocks = this.ctx.unlocksAfter ? this.ctx.unlocksAfter() : [];
+        if (this.newUnlocks.length) { $('raceEndSub').innerHTML += `<div class="raceUnl">🔓 ¡Desbloqueaste ${this.newUnlocks.map(u => u.name).join(', ')}!</div>`; C.audio.play('unlock'); }
+        C.save && C.save();
+      }
+    } catch (e) { console.warn('No se pudo guardar el resultado de la carrera', e); }
   }
-
   _endList() {
     const fmt = t => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`;
     this.place();
