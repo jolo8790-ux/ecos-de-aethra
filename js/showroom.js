@@ -11,7 +11,7 @@ export class Showroom {
     this.r.setPixelRatio(Math.min(2, devicePixelRatio || 1)); this.r.outputColorSpace = THREE.SRGBColorSpace;
     this.r.toneMapping = THREE.ACESFilmicToneMapping; this.r.toneMappingExposure = 1.15;
     const S = this.scene = new THREE.Scene();
-    this.cam = new THREE.PerspectiveCamera(32, 16 / 9, 0.1, 50);
+    this.cam = new THREE.PerspectiveCamera(36, 16 / 9, 0.1, 50);
     S.add(new THREE.HemisphereLight(0xfff4ff, 0x4a3a6a, 1.6));
     const key = new THREE.DirectionalLight(0xfff0dd, 2.2); key.position.set(3, 5, 4); S.add(key);
     const rim = new THREE.DirectionalLight(0x9fd8ff, 1.4); rim.position.set(-4, 3, -4); S.add(rim);
@@ -65,8 +65,10 @@ export class Showroom {
   _resize() {
     const w = this.canvas.clientWidth || 480, h = this.canvas.clientHeight || 270;
     if (w !== this._w || h !== this._h) { this._w = w; this._h = h; this.r.setSize(w, h, false); this.cam.aspect = w / h; this.cam.updateProjectionMatrix(); }
-    const far = Math.max(5.4, 2.9 / (Math.tan(THREE.MathUtils.degToRad(16)) * this.cam.aspect)); // que el kart entre siempre a lo ancho
-    this.cam.position.set(0, 1.75, far); this.cam.lookAt(0, 0.75, 0);
+    // que entren el kart a lo ancho y el piloto entero a lo alto (cabeza incluida, aunque flote)
+    const t = Math.tan(THREE.MathUtils.degToRad(this.cam.fov / 2));
+    const far = Math.max(5.4, 2.9 / (t * this.cam.aspect), 2.15 / t);
+    this.cam.position.set(0, 1.9, far); this.cam.lookAt(0, 1.05, 0);
   }
   _loop(now) {
     if (!this.on) return; requestAnimationFrame(this._loop);

@@ -57,6 +57,17 @@ export const TRACKS = {
 export const RACE_LAPS = [3, 5];
 const LEVEL = { facil: 0.83, normal: 0.92, dificil: 0.99, auto: 0.9 };
 const COLORS = [0x3aa0ff, 0xff6a4a, 0x6ad04a, 0xffc83a, 0xb070ff, 0xff7ab8, 0x3ad6c6, 0xf0f0f0];
+const ICO = {
+  rep: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 21v-5h5"/></svg>',
+  map: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V4"/><path d="M4 4h13l-2 4 2 4H4"/></svg>',
+  home: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>',
+  exit: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h4v16h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>',
+  play: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16l13-8z" fill="currentColor"/></svg>',
+  globe: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18"/></svg>',
+  cup: '<svg class="rankIco" viewBox="0 0 24 24" fill="#ffd27a" stroke="#c8862a" stroke-width="1.4" stroke-linejoin="round"><path d="M7 3h10v5a5 5 0 0 1-10 0z"/><path d="M7 5H4a3 3 0 0 0 3 4M17 5h3a3 3 0 0 1-3 4" fill="none"/><path d="M12 13v4M8 21h8l-1-4H9z"/></svg>',
+  medal: '<svg class="rankIco" viewBox="0 0 24 24" stroke-width="1.4" stroke-linejoin="round"><path d="M8 2h3l2 6H10zM16 2h-3l-2 6h3z" fill="#7ad7ff" stroke="#3a8ac0"/><circle cx="12" cy="15" r="6" fill="#ffd27a" stroke="#c8862a"/></svg>',
+  unlock: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>',
+};
 const INTRO = 4.2; // segundos de presentación de la parrilla
 const BADW = /\b(put[ao]s?|mierda|pendej[oa]s?|idiota|est[uú]pid[oa]|imb[eé]cil|boludo|pelotudo|cabr[oó]n|co[nñ]o|joder|verga|culiao|maric[oó]n|forro|hdp|fuck|shit|bitch)\b/gi;
 const MAXV = 27, ACC = 17, BRAKE = 34, TURN = 2.05;
@@ -603,10 +614,10 @@ export class Race {
     this.place();
     const p = this.me.place, rew = (this.def.reward[p - 1] || 5) * (this.laps === 5 ? 2 : 1);
     // primero la pantalla final (pase lo que pase con el guardado, siempre se puede salir)
-    $('raceEndTitle').textContent = p === 1 ? '🏆 ¡Primer lugar!' : p <= 3 ? `🏅 ¡Podio! ${p}.º lugar` : `${p}.º lugar`;
+    $('raceEndTitle').innerHTML = p === 1 ? ICO.cup + '¡Primer lugar!' : p <= 3 ? ICO.medal + `¡Podio! ${p}.º lugar` : `${p}.º lugar`;
     $('raceEndSub').textContent = `${this.def.name} · ${this.laps} vueltas · +${rew} Ecos`;
     try { this._endList(); } catch (e) { console.warn('tabla final', e); }
-    $('bRaceAgain').textContent = this.net ? '🌐 Volver a la sala' : '🔁 Repetir carrera';
+    $('bRaceAgain').innerHTML = this.net ? ICO.globe + ' Volver a la sala' : ICO.rep + ' Repetir carrera';
     $('raceEnd').classList.remove('hidden'); $('racePause').classList.add('hidden'); document.body.classList.add('raceover');
     try {
       C.addEcos(rew);
@@ -620,7 +631,7 @@ export class Race {
         if (p <= 3) { r.podiums = (r.podiums || 0) + 1; (r.podiumAt = r.podiumAt || {})[t] = true; }
         if (p === 1) { r.wins = (r.wins || 0) + 1; (r.wonAt = r.wonAt || {})[t] = true; if (this.laps === 5) r.won5 = (r.won5 || 0) + 1; }
         this.newUnlocks = this.ctx.unlocksAfter ? this.ctx.unlocksAfter() : [];
-        if (this.newUnlocks.length) { $('raceEndSub').innerHTML += `<div class="raceUnl">🔓 ¡Desbloqueaste ${this.newUnlocks.map(u => u.name).join(', ')}!</div>`; C.audio.play('unlock'); }
+        if (this.newUnlocks.length) { $('raceEndSub').innerHTML += `<div class="raceUnl">${ICO.unlock}¡Desbloqueaste ${this.newUnlocks.map(u => u.name).join(', ')}!</div>`; C.audio.play('unlock'); }
         C.save && C.save();
       }
     } catch (e) { console.warn('No se pudo guardar el resultado de la carrera', e); }
@@ -628,7 +639,7 @@ export class Race {
   _endList() {
     const fmt = t => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`;
     this.place();
-    $('raceEndList').innerHTML = this.order.map(R => `<li class="${R.you ? 'me' : ''}"><b>${R.place}.º</b> <span>${R.human ? '🌐 ' : ''}${R.name.replace(/[<>&]/g, '')}</span> <em>${R.done ? fmt(R.time) : R.gone ? 'se fue' : 'en carrera…'}</em></li>`).join('');
+    $('raceEndList').innerHTML = this.order.map(R => `<li class="${R.you ? 'me' : ''}"><b>${R.place}.º</b> <span>${R.human ? ICO.globe : ''}${R.name.replace(/[<>&]/g, '')}</span> <em>${R.done ? fmt(R.time) : R.gone ? 'se fue' : 'en carrera…'}</em></li>`).join('');
   }
 
   // ---------- en línea ----------
