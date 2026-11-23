@@ -22,7 +22,7 @@ export class Showroom {
     const glow = new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
     const ring = new THREE.Mesh(new THREE.TorusGeometry(1.86, 0.035, 8, 64), glow); ring.rotation.x = Math.PI / 2; ring.position.y = 0.01; ped.add(ring);
     this.beam = new THREE.Mesh(new THREE.CylinderGeometry(1.7, 1.7, 2.6, 40, 1, true), new THREE.MeshBasicMaterial({ color: 0x9fd8ff, transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-    this.beam.position.y = 1.3; ped.add(this.beam);
+    this.beam.position.y = 1.3; // sin columna de luz: el kart flota libre
     this.shadow = new THREE.Mesh(new THREE.CircleGeometry(1.2, 32), new THREE.MeshBasicMaterial({ color: 0, transparent: true, opacity: 0.35, depthWrite: false }));
     this.shadow.rotation.x = -Math.PI / 2; this.shadow.position.y = 0.012; this.shadow.scale.set(0.8, 1.2, 1); ped.add(this.shadow);
     // destellos que suben

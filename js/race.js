@@ -352,7 +352,7 @@ class Racer {
     this.sparks = [-0.85, 0.85].map(x => { const s = new THREE.Mesh(new THREE.IcosahedronGeometry(0.22, 0), sm); s.position.set(x, 0.2, -1.05); this.body.add(s); return s; });
     this.sparkMat = sm;
   }
-  get progress() { return this.lap * this.race.track.L + this.dist; }
+  get progress() { return this.prog != null && !this.remote ? this.prog : this.lap * this.race.track.L + this.dist; }
   remove() { this.race.root.remove(this.root); this.race.root.remove(this.shadow); }
 }
 
@@ -417,7 +417,7 @@ export class Race {
     this.phase = 'count'; this.st = 0; this.t = 1; this.track.setLights(0);
     this.hold = 0.5 + ((opts.ep || Math.floor(Math.random() * 1e6)) % 700) / 1000; this._pairT = {}; this.clock = 0; this.results = []; this._lastCount = null;
     this.camPos = null; this.lookBack = false;
-    this._hud(true); this._engine(true);
+    this._hud(true); this._engine(true); document.body.classList.remove('raceover');
     document.body.classList.toggle('netrace', !!this.net); this._chatClose();
     if (this.net) { $('chatLog').innerHTML = ''; $('chatBtn').classList.remove('hidden'); $('chatBtn').textContent = this.ctx.input.isTouch ? '💬' : '💬 Chat (T)'; }
     C.music.play('arena', { fade: 1.2 });
@@ -500,7 +500,7 @@ export class Race {
       R.spin -= dt; R.spinA += dt * 14 * clamp(R.spin, 0.2, 1); ctl = { steer: 0, throttle: 0, brake: 0, drift: false };
       R.v -= R.v * damp(3, dt); R.drift = 0;
     } else R.spinA = 0;
-    const M = R.mods; const top = MAXV * M.vel * (R.you ? 1 : R.skillNow || R.skill) * (R.boostT > 0 ? 1.42 : 1) * (R.bump > 0 ? 0.7 : 1);
+    const M = R.mods; const top = MAXV * M.vel * (R.you && !R.done ? 1 : R.done ? 0.5 : R.skillNow || R.skill) * (R.boostT > 0 ? 1.42 : 1) * (R.bump > 0 ? 0.7 : 1);
     if (ctl.brake && R.v > 0.5) R.v -= BRAKE * dt;
     else if (ctl.brake) R.v = Math.max(-8, R.v - ACC * 0.6 * dt); // marcha atrás
     else if (ctl.throttle) R.v += (R.v < top ? ACC * M.acc * (R.boostT > 0 ? 1.8 : 1) * (1 - R.v / (top * 1.15)) * 1.6 : -ACC * 0.8) * dt * ctl.throttle;
@@ -559,24 +559,27 @@ export class Race {
       }
     }
   }
+  // vueltas por «cuentakilómetros»: se suma lo que el kart avanza a lo largo de la pista, así ningún golpe,
+  // trompo o empujón en la meta puede hacer que una vuelta no cuente
   _laps(R) {
-    const T = this.track, f = R.dist / T.L;
-    if (f > 0.4 && f < 0.6) R.half = true;
-    if (R.prevF != null && R.prevF > 0.85 && f < 0.15 && R.half) { // cruzó la meta
-      R.lap++; R.half = false;
-      if (R.lap >= 1 && this.phase !== 'count') {
-        const lt = this.clock - (R.lapStart || 0); R.lapStart = this.clock; if (!R.best || lt < R.best) R.best = lt;
-      } else R.lapStart = this.clock;
+    const T = this.track, L = T.L;
+    if (R.prog == null) { R.prog = R.dist > L / 2 ? R.dist - L : R.dist; R.prevD = R.dist; }
+    let dd = R.dist - R.prevD; if (dd > L / 2) dd -= L; if (dd < -L / 2) dd += L; R.prevD = R.dist;
+    if (Math.abs(dd) < 25) R.prog += dd; // un salto enorme sería un error de cálculo: se ignora
+    const lap = Math.floor(R.prog / L);
+    while (lap > R.lap) {
+      R.lap++;
+      if (R.lap >= 1 && this.phase !== 'count') { const lt = this.clock - (R.lapStart || 0); R.lapStart = this.clock; if (!R.best || lt < R.best) R.best = lt; }
+      else R.lapStart = this.clock;
       if (R.lap >= this.laps && !R.done) {
         R.done = true; R.time = this.clock; this.results.push(R);
         if (R.you) this._finish();
-      } else if (R.you && R.lap >= 1) {
+      } else if (R.you && R.lap >= 1 && R.lap < this.laps) {
         this._flash(R.lap === this.laps - 1 ? '¡ÚLTIMA VUELTA!' : `Vuelta ${R.lap + 1} / ${this.laps}`, '#ffffff');
         this.ctx.audio.play('checkpoint');
       }
     }
-    if (R.prevF != null && R.prevF < 0.15 && f > 0.85 && R.lap >= 0 && this.phase === 'race' && R.v < -0.5) { R.lap--; R.half = true; } // marcha atrás por la meta
-    R.prevF = f;
+    if (lap < R.lap && !R.done) R.lap = lap; // marcha atrás por la meta
   }
   place() {
     const order = [...this.racers].sort((a, b) => {
@@ -588,7 +591,7 @@ export class Race {
   }
   _finish() {
     const C = this.ctx;
-    this.phase = 'end'; this.endT = 3.2; this._hudLights(-1); this.track.setLights(0);
+    this.phase = 'end'; this.endT = 2.2; this._endCamT = 0; this._hudLights(-1); this.track.setLights(0);
     const p = this.me.place;
     this._flash(p === 1 ? '¡GANASTE!' : `¡Meta! Llegaste ${p}.º`, p === 1 ? '#ffd27a' : '#ffffff');
     C.audio.play(p <= 3 ? 'unlock' : 'checkpoint');
@@ -604,7 +607,7 @@ export class Race {
     $('raceEndSub').textContent = `${this.def.name} · ${this.laps} vueltas · +${rew} Ecos`;
     try { this._endList(); } catch (e) { console.warn('tabla final', e); }
     $('bRaceAgain').textContent = this.net ? '🌐 Volver a la sala' : '🔁 Repetir carrera';
-    $('raceEnd').classList.remove('hidden'); $('racePause').classList.add('hidden');
+    $('raceEnd').classList.remove('hidden'); $('racePause').classList.add('hidden'); document.body.classList.add('raceover');
     try {
       C.addEcos(rew);
       const sv = C.getSave();
@@ -752,6 +755,14 @@ export class Race {
       const k = clamp((this.st - (INTRO - 1.2)) / 1.6, 0, 1), e = k * k * (3 - 2 * k);
       cam.position.copy(front.lerp(want, e)); cam.lookAt(mid.lerp(look, e));
       this.camPos = cam.position.clone();
+    } else if (this.phase === 'end') {
+      // al llegar: cámara de frente que acompaña a tu kart por la pista mientras se ven los resultados
+      const T = this.track, t = T.t[R.i], r = T.r[R.i], side = Math.sin(this.clock * 0.35) * 2.2;
+      const front = new THREE.Vector3(R.pos.x + t.x * 7.5 + r.x * side, R.pos.y + 2.0, R.pos.z + t.z * 7.5 + r.z * side);
+      if (!this.camPos) this.camPos = front.clone();
+      this._endCamT = (this._endCamT || 0) + dt; this.camPos.lerp(front, this._endCamT > 1.5 ? 1 : damp(2.5, dt));
+      cam.position.copy(this.camPos); cam.lookAt(R.pos.x, R.pos.y + 0.9, R.pos.z);
+      if (this.shown) { const w = innerWidth, h = innerHeight; cam.setViewOffset(w, h, -w * 0.24, 0, w, h); this._offset = true; } // el kart a la derecha, los resultados a la izquierda
     } else {
       if (!this.camPos) this.camPos = want.clone();
       this.camPos.lerp(want, damp(this.lookBack ? 30 : 7, dt));
@@ -841,7 +852,8 @@ export class Race {
     for (const R of this.racers) R.remove();
     this.racers = [];
     if (this.root) { C.scene.remove(this.root); this.root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); this.root = null; }
-    if (!keep) this._hud(false); this._hudLights(-1);
+    if (this._offset) { C.camera.clearViewOffset(); this._offset = false; }
+    if (!keep) this._hud(false); this._hudLights(-1); document.body.classList.remove('raceover');
     document.body.classList.remove('netrace'); this._chatClose();
     if (this.net) $('chatBtn').classList.add('hidden');
     this.net = null;

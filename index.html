@@ -546,9 +546,71 @@
   .kartInfo .btn { position: sticky; top: 0; z-index: 2; }
   body.touch .tallFoot { margin-top: 4px; gap: 8px; } body.touch #tallSum { font-size: 11px; } body.touch #bTallBack { padding: 5px 18px; font-size: 15px; }
   body.touch .tallStage { height: calc(100vh - 140px); } body.touch #tallBody { max-height: calc(100vh - 195px); }
+  /* resultados al costado para ver el kart de frente */
+  #raceEnd { background: linear-gradient(90deg, rgba(5,10,25,.86) 0%, rgba(5,10,25,.72) 40%, rgba(5,10,25,0) 62%); align-items: flex-start; justify-content: center; padding-left: max(3vw, env(safe-area-inset-left)); text-align: left; }
+  #raceEnd > * { max-width: min(560px, 52vw); } #raceEnd #raceEndList { min-width: 0; width: min(520px, 50vw); }
+  #raceEnd .raceBtns { justify-content: flex-start; }
+  body.touch #raceEnd { padding-left: 14px; } body.touch #raceEnd > * { max-width: 56vw; } body.touch #raceEnd #raceEndList { width: 54vw; }
+  /* vitrina sin ventana: el kart flota sobre el fondo */
+  .tallStage { background: none !important; border: none !important; overflow: visible !important; }
+  body.raceover .rtb, body.raceover #touch, body.raceover #raceItem, body.raceover #raceTip, body.raceover #raceBoard { display: none !important; }
 </style>
 <script type="importmap">
-{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+  "./js/arena.js": "./js/arena.js?v=2611230835",
+  "./js/audio.js": "./js/audio.js?v=2611230835",
+  "./js/autonav.js": "./js/autonav.js?v=2611230835",
+  "./js/camera.js": "./js/camera.js?v=2611230835",
+  "./js/characters.js": "./js/characters.js?v=2611230835",
+  "./js/combat.js": "./js/combat.js?v=2611230835",
+  "./js/credits.js": "./js/credits.js?v=2611230835",
+  "./js/endless.js": "./js/endless.js?v=2611230835",
+  "./js/fx.js": "./js/fx.js?v=2611230835",
+  "./js/garage.js": "./js/garage.js?v=2611230835",
+  "./js/gear.js": "./js/gear.js?v=2611230835",
+  "./js/glbload.js": "./js/glbload.js?v=2611230835",
+  "./js/hazards.js": "./js/hazards.js?v=2611230835",
+  "./js/hd.js": "./js/hd.js?v=2611230835",
+  "./js/heroes.js": "./js/heroes.js?v=2611230835",
+  "./js/input.js": "./js/input.js?v=2611230835",
+  "./js/intro.js": "./js/intro.js?v=2611230835",
+  "./js/logros.js": "./js/logros.js?v=2611230835",
+  "./js/main.js": "./js/main.js?v=2611230835",
+  "./js/music.js": "./js/music.js?v=2611230835",
+  "./js/net.js": "./js/net.js?v=2611230835",
+  "./js/physics.js": "./js/physics.js?v=2611230835",
+  "./js/piezas.js": "./js/piezas.js?v=2611230835",
+  "./js/player.js": "./js/player.js?v=2611230835",
+  "./js/powers.js": "./js/powers.js?v=2611230835",
+  "./js/props.js": "./js/props.js?v=2611230835",
+  "./js/race.js": "./js/race.js?v=2611230835",
+  "./js/raceitems.js": "./js/raceitems.js?v=2611230835",
+  "./js/reef.js": "./js/reef.js?v=2611230835",
+  "./js/rig.js": "./js/rig.js?v=2611230835",
+  "./js/save.js": "./js/save.js?v=2611230835",
+  "./js/sea.js": "./js/sea.js?v=2611230835",
+  "./js/seafoes.js": "./js/seafoes.js?v=2611230835",
+  "./js/showroom.js": "./js/showroom.js?v=2611230835",
+  "./js/songs.js": "./js/songs.js?v=2611230835",
+  "./js/traps.js": "./js/traps.js?v=2611230835",
+  "./js/vfx.js": "./js/vfx.js?v=2611230835",
+  "./js/world.js": "./js/world.js?v=2611230835",
+  "./js/worldnet.js": "./js/worldnet.js?v=2611230835",
+  "./js/zones/abismo_mareth.js": "./js/zones/abismo_mareth.js?v=2611230835",
+  "./js/zones/bosque_colgante.js": "./js/zones/bosque_colgante.js?v=2611230835",
+  "./js/zones/ciudad_engranajes.js": "./js/zones/ciudad_engranajes.js?v=2611230835",
+  "./js/zones/ciudadela_orden.js": "./js/zones/ciudadela_orden.js?v=2611230835",
+  "./js/zones/desafios.js": "./js/zones/desafios.js?v=2611230835",
+  "./js/zones/eco_olvidado.js": "./js/zones/eco_olvidado.js?v=2611230835",
+  "./js/zones/forja_ignis.js": "./js/zones/forja_ignis.js?v=2611230835",
+  "./js/zones/glaciar_eco.js": "./js/zones/glaciar_eco.js?v=2611230835",
+  "./js/zones/puerto_bruma.js": "./js/zones/puerto_bruma.js?v=2611230835",
+  "./js/zones/routegen.js": "./js/zones/routegen.js?v=2611230835",
+  "./js/zones/ruinas_vidrio.js": "./js/zones/ruinas_vidrio.js?v=2611230835",
+  "./js/zones/senderos.js": "./js/zones/senderos.js?v=2611230835"
+} }
 </script>
 </head>
 <body>
@@ -901,6 +963,6 @@
   </div>
 </div>
 
-<script type="module" src="js/main.js"></script>
+<script type="module" src="js/main.js?v=2611230835"></script>
 </body>
 </html>
