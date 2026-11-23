@@ -25,18 +25,25 @@ export class WorldNet {
     const want = zoneId && this.enabled ? zoneId : null;
     if (want === this.zone) return;
     this._close(); this.zone = want; if (!want) return;
+    this._open(want);
+  }
+  // el botón de chat se ve siempre que el modo en línea está encendido (aunque aún esté conectando)
+  _showBtn() { const b = $('chatBtn'); b.classList.remove('hidden'); b.textContent = this.ctx.input.isTouch ? '💬 Chat' : '💬 Chat (T)'; }
+  _open(want) {
+    this._showBtn(); this._badge();
     const token = this.opening = Symbol();
+    const retry = () => { clearTimeout(this._retryT); this._retryT = setTimeout(() => { if (this.zone === want && !this.net && this.opening === token) this._open(want); }, 6000); };
     Net.open(want, 'mundo-').then(n => {
       if (window.__wnDbg) console.log('wn abierto', n.kind, this.opening === token, this.zone, want);
       if (this.opening !== token || this.zone !== want) { n.close(); return; }
-      if (n.kind === 'local') { n.close(); return; } // sin servidor: no tiene sentido «compartir» con uno mismo
+      if (n.kind === 'local') { n.close(); retry(); return; } // sin servidor todavía: se vuelve a intentar
       this.net = n; this.active = true;
       n.onChat((from, text) => { const R = this.remotes.get(from); this._chatAdd(R ? R.name : 'Alguien', R ? R.color : '#ccc', text); });
-      $('chatBtn').classList.remove('hidden'); $('chatBtn').textContent = this.ctx.input.isTouch ? '💬 Chat' : '💬 Chat (T)'; this._badge();
-    }).catch(e => console.warn('Mundo compartido sin conexión', e));
+      this._showBtn(); this._badge();
+    }).catch(e => { console.warn('Mundo compartido sin conexión', e); retry(); });
   }
   _close() {
-    this.opening = null;
+    this.opening = null; clearTimeout(this._retryT);
     if (this.net) { try { this.net.close(); } catch (e) {} }
     this.net = null; this.active = false; this._chatClose();
     for (const R of this.remotes.values()) this._drop(R);
@@ -48,8 +55,8 @@ export class WorldNet {
     let b = $('onlineBadge');
     if (!b) { b = document.createElement('div'); b.id = 'onlineBadge'; document.body.appendChild(b); }
     const n = this.remotes.size;
-    b.style.display = this.active ? '' : 'none';
-    b.textContent = n ? `🌐 ${n} ${n === 1 ? 'jugador' : 'jugadores'} más en esta isla` : '🌐 En línea · nadie más en esta isla';
+    b.style.display = this.zone ? '' : 'none';
+    b.textContent = !this.active ? '🌐 Conectando…' : n ? `🌐 ${n} ${n === 1 ? 'jugador' : 'jugadores'} más en esta isla` : '🌐 En línea · nadie más en esta isla';
   }
   update(dt, show) {
     const C = this.ctx;
@@ -112,7 +119,7 @@ export class WorldNet {
     if (m) { this._chatT = now; const sv = this.ctx.getSave(); this._chatAdd((sv && sv.name) || 'Yo', this.color, m); }
   }
   _chatOpen() {
-    if (!this.net) return;
+    if (!this.net) { this.ctx.toast('🌐 Conectando al chat… prueba en unos segundos'); return; }
     const box = $('chatBox'); box.classList.add('open'); this.chatOpenNow = true;
     this.ctx.input.keys = {}; const inp = $('chatInput'); inp.value = ''; setTimeout(() => inp.focus(), 10);
     const q = $('chatQuick'); q.innerHTML = ''; for (const t of QUICK) { const b = document.createElement('button'); b.textContent = t; b.onclick = () => { this.sendChat(t); this._chatClose(); }; q.appendChild(b); }
