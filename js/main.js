@@ -2664,8 +2664,8 @@ const arena = new Arena({
   pulseFx: (pos, r) => { const sph = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshBasicMaterial({ color: 0xfff2a8, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending })); sph.position.copy(pos).setY(pos.y + 0.9); scene.add(sph); pulseFx.push({ m: sph, t: 0, r }); },
 });
 // mundo compartido: en cada isla se ve a los demás jugadores y se chatea en vivo (Opciones › Jugar en línea)
-const worldNet = new WorldNet({ scene, physics, audio, fx, input, toast, charLib: () => charLib, getSave: () => save, player: () => player, settings: () => settings, arenaActive: () => arena.active });
-wireChat(arena, worldNet, () => state === 'play');
+const worldNet = new WorldNet({ scene, physics, audio, fx, input, toast, charLib: () => charLib, getSave: () => save, player: () => player, settings: () => settings, arenaActive: () => arena.active || (race.active && !!race.net) });
+wireChat(arena, worldNet, () => state === 'play', () => (race.active && race.net ? race : null));
 input.onPad = () => { if (!padWoke) { padWoke = true; wakeAudio(); } };
 // los navegadores no dejan encender el sonido con el mando: si sigue apagado, se avisa para tocar una vez
 let soundHintT = 0;
@@ -2971,7 +2971,7 @@ const race = new Race({
     banner(Z.subtitle, Z.title);
   },
 });
-const raceUI = { track: 'puerto', laps: 3, rivals: 5, from: 'title' };
+const raceUI = { track: 'puerto', laps: 3, rivals: 5, from: 'title', who: 'cpu', code: '' };
 function openRace(from) {
   if (endless.active && from === 'pause') stopEndless();
   const sv = from === 'title' ? loadSave() : save; if (!sv) { toast('Crea o carga una partida para correr'); return; }
@@ -2998,7 +2998,12 @@ function refreshRaceMenu() {
     for (const v of list) { const b = document.createElement('button'); b.className = 'btn alt small' + (raceUI[key] === v ? ' sel' : ''); b.textContent = label(v); b.onclick = () => { raceUI[key] = v; audio.play('uiMove'); refreshRaceMenu(); }; box.appendChild(b); }
   };
   opts($('raceLaps'), RACE_LAPS, 'laps', v => `${v} vueltas`);
-  opts($('raceRivals'), [3, 5, 7], 'rivals', v => `${v} rivales`);
+  opts($('raceWho'), ['cpu', 'online'], 'who', v => v === 'cpu' ? '🤖 Contra la CPU' : '🌐 En línea');
+  $('raceOnline').classList.toggle('hidden', raceUI.who !== 'online');
+  if (!raceUI.code) raceUI.code = randomCode(); if (document.activeElement !== $('raceCode')) $('raceCode').value = raceUI.code;
+  $('raceRivLbl').textContent = raceUI.who === 'online' ? 'Lugares libres para la CPU (si eres el anfitrión)' : 'Rivales de la CPU';
+  opts($('raceRivals'), raceUI.who === 'online' ? [0, 3, 5, 7] : [3, 5, 7], 'rivals', v => v === 0 ? 'Sin CPU' : `${v} rivales`);
+  $('bRaceGo').textContent = raceUI.who === 'online' ? '🌐 Entrar a la sala' : '¡A correr!';
   const G = garageOf(save), K = kartById(G.kart), P = PAINTS.find(p => p.id === G.paint) || PAINTS[0];
   $('raceKart').innerHTML = `Tu kart: <b>${K.name}</b>${P.color != null ? ` · pintura ${P.name.toLowerCase()}` : ''} · estela ${(TRAILS.find(t => t.id === G.trail) || TRAILS[0]).name.toLowerCase()}`;
 }
@@ -3121,8 +3126,12 @@ $('tallNext').onclick = () => tallStep(1);
 $('bTallBack').onclick = () => { if (showroom) showroom.stop(); $('taller').classList.add('hidden'); $(tallUI.from).classList.remove('hidden'); refreshRaceMenu(); };
 $('bRaceTaller').onclick = () => { $('raceMenu').classList.add('hidden'); openTaller('raceMenu'); };
 $('bRaceBack').onclick = () => { $('raceMenu').classList.add('hidden'); $(raceUI.from).classList.remove('hidden'); };
+$('raceCode').onkeydown = e => e.stopPropagation();
+$('raceCode').oninput = e => { raceUI.code = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8); };
+$('bRaceNewCode').onclick = () => { raceUI.code = randomCode(); $('raceCode').value = raceUI.code; };
 $('bRaceGo').onclick = async () => {
   audio.unlock(); music.init(); goFull();
+  if (raceUI.who === 'online') { openLobby(); return; }
   $('bRaceGo').textContent = 'Cargando karts…'; await loadKarts(); $('bRaceGo').textContent = '¡A correr!';
   if (state === 'pause') writeSave(save);
   $('raceMenu').classList.add('hidden'); showOverlay(null);
@@ -3131,8 +3140,98 @@ $('bRaceGo').onclick = async () => {
   state = 'race';
   race.start({ track: raceUI.track, laps: raceUI.laps, rivals: raceUI.rivals, from: raceUI.from });
 };
-function leaveRace() {
+// ---------- Carreras en línea: sala de espera ----------
+// El anfitrión (el primero de la sala por orden de llegada) elige pista, vueltas y CPU, y da la salida.
+const lobby = { net: null, timer: null, log: [] };
+const lobbyHostId = () => { const ps = lobby.net.peers().filter(p => p.me || (p.pres && (p.pres.s === 'lobby' || p.pres.s === 'race'))); return ps.map(p => p.id).sort()[0]; };
+async function openLobby() {
+  const code = (raceUI.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+  if (code.length < 3) { $('raceNetMsg').textContent = 'Escribe un código de al menos 3 letras o números.'; return; }
+  raceUI.code = code; $('raceNetMsg').textContent = 'Conectando…'; $('bRaceGo').disabled = true;
+  let net = null; try { net = await Net.open(code, 'carrera-'); } catch (e) { net = null; }
+  $('bRaceGo').disabled = false; $('raceNetMsg').textContent = '';
+  if (!net) { $('raceNetMsg').textContent = 'No se pudo abrir la sala. Prueba otra vez.'; return; }
+  if (net.kind === 'local') toast('Sin conexión al servidor: sala local entre pestañas de este navegador.');
+  lobby.net = net; lobby.log = []; $('lobbyLog').innerHTML = '';
+  net.onEvent((from, ev) => { if (ev && ev.t === 'go') lobbyGo(from, ev); else if (race.active) race.onNet(from, ev); });
+  net.onChat((from, text) => { const p = net.peers().find(x => x.id === from); const nm = (p && p.pres && p.pres.n) || 'Alguien'; if (race.active && race.net) race._chatAdd(nm, '#9fe3ff', text); else lobbyChat(nm, text); });
+  showLobby();
+  loadKarts();
+}
+function showLobby() {
+  $('raceMenu').classList.add('hidden'); $('pause').classList.add('hidden'); $('title').classList.add('hidden'); $('raceLobby').classList.remove('hidden');
+  $('lobbyCode').textContent = '· ' + raceUI.code;
+  const q = $('lobbyQuick'); q.innerHTML = '';
+  for (const t of ['¡Hola! 👋', '¡Listo!', '¡Vamos!', '¿Una más?', '😂', '🔥']) { const b = document.createElement('button'); b.textContent = t; b.onclick = () => lobbySay(t); q.appendChild(b); }
+  clearInterval(lobby.timer); lobby.timer = setInterval(lobbyTick, 100); lobbyTick();
+}
+function lobbyChat(name, text, sys = false) {
+  const el = document.createElement('div'); if (sys) { el.className = 'sys'; el.textContent = text; } else { const b = document.createElement('b'); b.textContent = name + ': '; el.append(b, document.createTextNode(text)); }
+  $('lobbyLog').appendChild(el); while ($('lobbyLog').children.length > 40) $('lobbyLog').firstChild.remove(); $('lobbyLog').scrollTop = 1e6;
+}
+function lobbySay(t) { if (!lobby.net) return; const now = performance.now(); if (now - (lobby.chatT || 0) < 900) return; const m = lobby.net.chat(t); if (m) { lobby.chatT = now; lobbyChat(save.name || 'Yo', m); } }
+$('lobbyInput').onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') { lobbySay($('lobbyInput').value); $('lobbyInput').value = ''; } };
+$('lobbyInput').onkeyup = e => e.stopPropagation();
+$('bLobbySend').onclick = () => { lobbySay($('lobbyInput').value); $('lobbyInput').value = ''; };
+function myEntry() {
+  const G = garageOf(save), P = PAINTS.find(p => p.id === G.paint) || PAINTS[0];
+  return { n: (save.name || 'Jugador').slice(0, 16), k: G.kart, d: G.driver || 'hero', h: save.hero || 'lia', c: save.custom || {}, pa: P.color, tr: G.trail };
+}
+function lobbyTick() {
+  const N = lobby.net; if (!N || race.active) return;
+  const host = lobbyHostId(), iAmHost = host === N.me;
+  N.set({ ...myEntry(), s: 'lobby', hs: iAmHost ? { tr: raceUI.track, lp: raceUI.laps, cpu: raceUI.rivals } : null });
+  N.tick(0.1);
+  const ps = N.peers().filter(p => p.me || (p.pres && p.pres.s)).sort((a, b) => a.id < b.id ? -1 : 1);
+  const known = lobby.known || (lobby.known = new Set());
+  for (const p of ps) if (!p.me && !known.has(p.id)) { known.add(p.id); lobbyChat('', `${(p.pres && p.pres.n) || 'Alguien'} entró a la sala`, true); }
+  $('lobbyList').innerHTML = ps.slice(0, 8).map(p => { const P = p.me ? myEntry() : p.pres || {}; const K = kartById(P.k); const D = DRIVERS.find(d => d.id === P.d) || DRIVERS[0];
+    return `<li class="${p.me ? 'me' : ''}">${p.id === host ? '👑' : '🏎'} <b>${String(P.n || 'Jugador').replace(/[<>&]/g, '')}</b><small>${K.name} · ${D.id === 'hero' ? 'su héroe' : D.name}${p.pres && p.pres.s === 'race' ? ' · corriendo' : ''}</small></li>`; }).join('')
+    + (ps.length > 8 ? `<li><small>+${ps.length - 8} esperando (máximo 8 por carrera)</small></li>` : '');
+  const hp = ps.find(p => p.id === host), hs = iAmHost ? { tr: raceUI.track, lp: raceUI.laps, cpu: raceUI.rivals } : (hp && hp.pres && hp.pres.hs) || null;
+  const TT = hs && TRACKS[hs.tr];
+  $('lobbyInfo').innerHTML = (TT ? `${TT.icon} <b>${TT.name}</b> · ${hs.lp} vueltas · ${hs.cpu ? `hasta ${hs.cpu} de la CPU` : 'sin CPU'}` : 'Esperando al anfitrión…') + `<br>${ps.length} ${ps.length === 1 ? 'jugador' : 'jugadores'} en la sala · ${iAmHost ? 'eres el anfitrión 👑: elige la pista en el menú y da la salida' : 'el anfitrión 👑 da la salida'}`;
+  $('bLobbyGo').classList.toggle('hidden', !iAmHost);
+}
+$('bLobbyGo').onclick = () => { // el anfitrión arma la parrilla y da la salida
+  const N = lobby.net; if (!N || lobbyHostId() !== N.me) return;
+  const ps = N.peers().filter(p => p.me || (p.pres && p.pres.s === 'lobby')).sort((a, b) => a.id < b.id ? -1 : 1).slice(0, 8);
+  const grid = ps.map(p => ({ id: p.id, ...(p.me ? myEntry() : { n: p.pres.n, k: p.pres.k, d: p.pres.d, h: p.pres.h, c: p.pres.c, pa: p.pres.pa, tr: p.pres.tr }) }));
+  const used = new Set(grid.map(g => g.k)), usedD = new Set(grid.map(g => g.d));
+  const kartsLeft = KARTS.filter(k => !k.secret && !used.has(k.id)), drv = DRIVERS.filter(d => d.id !== 'hero' && !usedD.has(d.id)).sort(() => Math.random() - 0.5);
+  const lvl = { facil: 0.83, normal: 0.92, dificil: 0.99 }[save.difficulty] || 0.92;
+  const nCpu = Math.min(raceUI.rivals, 8 - grid.length);
+  for (let k = 0; k < nCpu; k++) { const D = drv[k % drv.length]; grid.push({ id: 'cpu' + k, cpu: 1, n: D.name, d: D.id, k: (kartsLeft[k % kartsLeft.length] || KARTS[k % 8]).id, pa: null, tr: ['fuego', 'hielo', 'veneno', 'dorada'][k % 4], sk: lvl / 0.92 * (0.94 + 0.08 * k / Math.max(1, nCpu - 1)), ln: ((k % 3) - 1) * 0.45 }); }
+  // mezcla: jugadores repartidos por la parrilla
+  for (let i = grid.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [grid[i], grid[j]] = [grid[j], grid[i]]; }
+  const ev = { t: 'go', tr: raceUI.track, lp: raceUI.laps, ep: Math.floor(Math.random() * 1e9), g: grid };
+  N.event(ev); N.tick(1); // sale ya
+  lobbyGo(N.me, ev);
+};
+async function lobbyGo(from, ev) {
+  const N = lobby.net; if (!N || race.active) return;
+  if (from !== lobbyHostId() && from !== N.me) return; // solo el anfitrión da la salida
+  if (!Array.isArray(ev.g) || !ev.g.some(g => g.id === N.me)) { lobbyChat('', 'La carrera empezó sin ti (la sala estaba llena). Espera la próxima.', true); return; }
+  if (!TRACKS[ev.tr]) return;
+  clearInterval(lobby.timer); await loadKarts();
+  $('raceLobby').classList.add('hidden'); showOverlay(null);
+  if (dialog) closeDialog(false);
+  if (endless.active) { if (endless.inZone) stopEndlessInZone(true); else stopEndless(); }
+  if (state === 'pause') writeSave(save);
+  state = 'race';
+  race.start({ track: ev.tr, laps: ev.lp, from: raceUI.from, online: true, net: N, isHost: from === N.me, ep: ev.ep, grid: ev.g, myId: N.me });
+}
+function closeLobby() { clearInterval(lobby.timer); if (lobby.net) { try { lobby.net.close(); } catch (e) {} } lobby.net = null; lobby.known = null; $('raceLobby').classList.add('hidden'); }
+$('bLobbyLeave').onclick = () => { closeLobby(); $('raceMenu').classList.remove('hidden'); refreshRaceMenu(); };
+function backToLobby() { // después de una carrera en línea
+  const keep = lobby.net; leaveRace(true);
+  if (!keep) return;
+  if (raceUI.from === 'pause') { pause(); }
+  showLobby();
+}
+function leaveRace(keepNet) {
   if (!race.active) return;
+  if (keepNet !== true && race.net) closeLobby();
   race.exit(); player.mesh.visible = true; player.shadow.visible = true;
   applyPartida(); applyHero();
   if (raceUI.from === 'title') { state = 'title'; zone = null; music.play('title'); showOverlay('title'); openHub(); }
@@ -3141,9 +3240,9 @@ function leaveRace() {
 $('raceBtnPause').onclick = () => race.togglePause();
 $('bRaceResume').onclick = () => race.togglePause();
 $('bRaceRestart').onclick = () => { race.paused = false; race.again(); };
-$('bRaceLeave').onclick = leaveRace;
-$('bRaceEndLeave').onclick = leaveRace;
-$('bRaceAgain').onclick = () => race.again();
+$('bRaceLeave').onclick = () => leaveRace();
+$('bRaceEndLeave').onclick = () => leaveRace();
+$('bRaceAgain').onclick = () => { if (race.net) backToLobby(); else race.again(); };
 $('bRacePauseMenu').onclick = () => { if (challenge) { toast('Termina o sal del desafío antes de ir a las Carreras'); return; } openRace('pause'); };
 $('bHubRace').onclick = () => { audio.unlock(); openRace('title'); };
 
@@ -3165,7 +3264,7 @@ window.__aethra = {
   testNewGame(name = 'Prueba', difficulty = settings.difficulty, opts = {}) { nueva.name = name; nueva.diff = DIFF[difficulty] ? difficulty : 'normal'; nueva.slot = freeSlot() || getSlot() || 1; createPartida(settings.custom || {}); if (opts.sellos !== false) for (const id of Object.keys(SENDEROS)) save.flags['sello_' + id] = true; }, // las pruebas de capítulos saltan los Senderos
   openChallenges() { if (!loadSave()) { nueva.name = 'Prueba'; nueva.diff = DIFF[settings.difficulty] ? settings.difficulty : 'normal'; nueva.slot = freeSlot() || 1; const sv = newSave({ name: 'Prueba', difficulty: nueva.diff, custom: settings.custom || {} }); setSlot(nueva.slot); writeSlot(nueva.slot, sv); } $('bHubCh').click(); },
   playCredits: (then) => playCredits(save, then || (() => {})), showChapterEnd, startEnding, openTrophies, offerLowerDifficulty, get lossStreak() { return lossStreak; },
-  showIntro, get introRun() { return introRun; }, arena, openArena, race, openRace, leaveRace, get raceUI() { return raceUI; }, openTaller, loadKarts, openArmeria, openHeroes, openMisiones, openPoderes, powers, audio, leaveArena, checkMissions, get arenaUI() { return arenaUI; }, Net,
+  showIntro, get introRun() { return introRun; }, arena, openArena, race, openRace, leaveRace, get raceUI() { return raceUI; }, get lobby() { return lobby; }, openLobby, openTaller, loadKarts, openArmeria, openHeroes, openMisiones, openPoderes, powers, audio, leaveArena, checkMissions, get arenaUI() { return arenaUI; }, Net,
   endless, startEndless, stopEndless, startChallenge,
   hold(on) { paused4test = on; }, S, combat, enterZone, choose, get zone() { return zone; }, get dialog() { return dialog; },
   step(n, press) {

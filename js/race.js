@@ -57,6 +57,7 @@ export const TRACKS = {
 export const RACE_LAPS = [3, 5];
 const LEVEL = { facil: 0.83, normal: 0.92, dificil: 0.99, auto: 0.9 };
 const COLORS = [0x3aa0ff, 0xff6a4a, 0x6ad04a, 0xffc83a, 0xb070ff, 0xff7ab8, 0x3ad6c6, 0xf0f0f0];
+const BADW = /\b(put[ao]s?|mierda|pendej[oa]s?|idiota|est[uú]pid[oa]|imb[eé]cil|boludo|pelotudo|cabr[oó]n|co[nñ]o|joder|verga|culiao|maric[oó]n|forro|hdp|fuck|shit|bitch)\b/gi;
 const MAXV = 27, ACC = 17, BRAKE = 34, TURN = 2.05;
 
 // ---------- texturas hechas a mano (canvas) ----------
@@ -358,14 +359,26 @@ export class Race {
     const level = LEVEL[sv.difficulty || 'normal'] || LEVEL.normal;
     const n = clamp(opts.rivals ?? 5, 1, 7);
     this.racers = [];
+    this.net = opts.net || null; this.isHost = !!opts.isHost; this.ep = opts.ep || 0; this.netSeen = {};
     const G = garageOf(sv), P = PAINTS.find(p => p.id === G.paint) || PAINTS[0];
     const PT = { spark: partOf(sv, 'llantas').spark, sound: partOf(sv, 'motor').sound, flame: partOf(sv, 'turbo').flame };
     const me = new Racer(this, { id: 'me', name: sv.name || 'Tú', you: true, color: COLORS[0], paint: P.color, kartId: G.kart, trail: G.trail, mods: kartMods(kartPoints(sv)), look: driverLook(sv, myDriver), skill: 1, parts: PT });
-    const grid = [];
+    let grid = [];
+    if (opts.online) { // carrera en línea: la parrilla la decide el anfitrión (jugadores por orden y luego la CPU)
+      me.id = opts.myId;
+      grid = opts.grid.map((g, k) => {
+        if (g.id === opts.myId) return me;
+        const R = new Racer(this, { id: g.id, name: String(g.n || 'Jugador').slice(0, 16), color: COLORS[(k + 1) % COLORS.length], kartId: g.k, paint: g.pa ?? null, trail: g.tr || 'fuego',
+          look: driverLook({ hero: g.h || 'lia', custom: g.c || {} }, g.d || 'hero'), skill: level * (g.sk || 0.95), lane: g.ln || 0 });
+        R.cpu = !!g.cpu; R.remote = !(R.cpu && this.isHost); R.human = !g.cpu;
+        if (R.human) R.plate = this._plate(R);
+        return R;
+      });
+    }
     const others = KARTS.filter(k => k.id !== G.kart && !k.secret); // cada rival en un kart distinto (y distinto del tuyo)
-    for (let k = 0; k < n; k++) { const h = pool[k % pool.length], D = DRIVERS.find(d => d.id === h); grid.push(new Racer(this, { id: 'cpu' + k, name: D.name, color: COLORS[(k + 1) % COLORS.length], kartId: others[k % others.length].id, paint: null, trail: ['fuego', 'hielo', 'veneno', 'dorada'][k % 4], look: driverLook(sv, h), skill: level * (0.94 + 0.08 * (k / Math.max(1, n - 1))), lane: ((k % 3) - 1) * 0.45 })); }
+    if (!opts.online) for (let k = 0; k < n; k++) { const h = pool[k % pool.length], D = DRIVERS.find(d => d.id === h); grid.push(new Racer(this, { id: 'cpu' + k, name: D.name, color: COLORS[(k + 1) % COLORS.length], kartId: others[k % others.length].id, paint: null, trail: ['fuego', 'hielo', 'veneno', 'dorada'][k % 4], look: driverLook(sv, h), skill: level * (0.94 + 0.08 * (k / Math.max(1, n - 1))), lane: ((k % 3) - 1) * 0.45 })); }
     // la jugadora sale desde el medio de la parrilla
-    grid.splice(Math.min(grid.length, Math.floor(n * 0.6)), 0, me);
+    if (!opts.online) grid.splice(Math.min(grid.length, Math.floor(n * 0.6)), 0, me);
     this.racers = grid; this.me = me;
     const T = this.track;
     grid.forEach((R, k) => {
@@ -377,13 +390,15 @@ export class Race {
     this.phase = 'count'; this.t = 3.6; this._pairT = {}; this.clock = 0; this.results = []; this._lastCount = null;
     this.camPos = null; this.lookBack = false;
     this._hud(true); this._engine(true);
+    document.body.classList.toggle('netrace', !!this.net); this._chatClose();
+    if (this.net) { $('chatLog').innerHTML = ''; $('chatBtn').classList.remove('hidden'); $('chatBtn').textContent = this.ctx.input.isTouch ? '💬' : '💬 Chat (T)'; }
     C.music.play('arena', { fade: 1.2 });
     this.place(); this._sync(0.016);
   }
 
   // ---------- un paso ----------
   update(dt) {
-    if (!this.active || this.paused) return;
+    if (!this.active || (this.paused && !this.net)) return; // en línea la carrera sigue aunque abras la pausa
     const C = this.ctx;
     if (this.phase === 'count') {
       this.t -= dt; const n = Math.ceil(this.t - 0.6);
@@ -391,7 +406,9 @@ export class Race {
       if (this.t <= 0.6) this.phase = 'race';
     } else this.clock += dt;
     const go = this.phase === 'race' || this.phase === 'end';
+    if (this.net) this._netTick(dt);
     for (const R of this.racers) {
+      if (R.remote) { this._remoteTick(R, dt); continue; }
       const ctl = R.you && !R.done ? this._myControls() : this._cpu(R, dt);
       if (!go) { ctl.throttle = 0; ctl.brake = 1; ctl.drift = false; if (R.you) this._revs = this._myControls().throttle; }
       if (R.you && ctl.use && this.phase === 'race') this.items.use(R, ctl.back);
@@ -399,13 +416,14 @@ export class Race {
     }
     this.items.update(dt, this.clock + this.t);
     this._collide(dt);
-    for (const R of this.racers) this._laps(R);
+    for (const R of this.racers) if (!R.remote) this._laps(R);
     this.place();
     this._sync(dt);
     this._camera(dt);
     this._hudTick(dt);
     this._engineTick(dt);
     if (this.phase === 'end' && (this.endT -= dt) <= 0 && !this.shown) this._showEnd();
+    if (this.shown && this.net && (this._listT = (this._listT || 0) - dt) <= 0) { this._listT = 0.5; this._endList(); } // en línea: la tabla se completa a medida que llegan
   }
 
   _myControls() {
@@ -494,8 +512,9 @@ export class Race {
     for (let a = 0; a < L.length; a++) for (let b = a + 1; b < L.length; b++) {
       const A = L[a], B = L[b], dx = B.pos.x - A.pos.x, dz = B.pos.z - A.pos.z, d = Math.hypot(dx, dz);
       if (d > 0 && d < 2.1 && Math.abs(A.pos.y - B.pos.y) < 1.5) {
-        const push = (2.1 - d) / 2, nx = dx / d, nz = dz / d;
-        A.pos.x -= nx * push; A.pos.z -= nz * push; B.pos.x += nx * push; B.pos.z += nz * push;
+        if (A.remote && B.remote) continue;
+        const nx = dx / d, nz = dz / d, pa = A.remote ? 0 : B.remote ? (2.1 - d) : (2.1 - d) / 2, pb = B.remote ? 0 : A.remote ? (2.1 - d) : (2.1 - d) / 2;
+        A.pos.x -= nx * pa; A.pos.z -= nz * pa; B.pos.x += nx * pb; B.pos.z += nz * pb;
         const key = A.id + B.id, now = this.clock;
         if (!this._pairT[key] || now - this._pairT[key] > 0.6) { // golpe: el de atrás pierde un poco, el de adelante recibe un empujón
           const back = (A.progress < B.progress) ? A : B, front = back === A ? B : A;
@@ -543,7 +562,7 @@ export class Race {
   _showEnd() {
     const C = this.ctx; this.shown = true;
     // los que faltan llegan con el tiempo estimado
-    for (const R of this.order) if (!R.done) { R.done = true; R.time = this.clock + (this.laps * this.track.L - R.progress) / Math.max(10, MAXV * (R.skill || 0.9)); this.results.push(R); }
+    if (!this.net) for (const R of this.order) if (!R.done) { R.done = true; R.time = this.clock + (this.laps * this.track.L - R.progress) / Math.max(10, MAXV * (R.skill || 0.9)); this.results.push(R); }
     this.place();
     const p = this.me.place, rew = (this.def.reward[p - 1] || 5) * (this.laps === 5 ? 2 : 1);
     C.addEcos(rew);
@@ -563,9 +582,91 @@ export class Race {
     $('raceEndTitle').textContent = p === 1 ? '🏆 ¡Primer lugar!' : p <= 3 ? `🏅 ¡Podio! ${p}.º lugar` : `${p}.º lugar`;
     $('raceEndSub').innerHTML = `${this.def.name} · ${this.laps} vueltas · +${rew} Ecos` + ((this.newUnlocks || []).length ? `<div class="raceUnl">🔓 ¡Desbloqueaste ${this.newUnlocks.map(u => u.name).join(', ')}!</div>` : '');
     if ((this.newUnlocks || []).length) this.ctx.audio.play('unlock');
-    $('raceEndList').innerHTML = this.order.map(R => `<li class="${R.you ? 'me' : ''}"><b>${R.place}.º</b> <span>${R.name.replace(/[<>&]/g, '')}</span> <em>${fmt(R.time)}</em></li>`).join('');
+    this._endList();
+    $('bRaceAgain').textContent = this.net ? 'Volver a la sala' : 'Otra carrera';
     $('raceEnd').classList.remove('hidden');
   }
+
+  _endList() {
+    const fmt = t => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`;
+    this.place();
+    $('raceEndList').innerHTML = this.order.map(R => `<li class="${R.you ? 'me' : ''}"><b>${R.place}.º</b> <span>${R.human ? '🌐 ' : ''}${R.name.replace(/[<>&]/g, '')}</span> <em>${R.done ? fmt(R.time) : R.gone ? 'se fue' : 'en carrera…'}</em></li>`).join('');
+  }
+
+  // ---------- en línea ----------
+  // estado de un kart en una lista corta: posición, giro, velocidad, vuelta, distancia, banderas y tiempo
+  _pack(R) {
+    const f = (R.drift > 0 ? 1 : 0) | (R.drift < 0 ? 2 : 0) | (R.boostT > 0 ? 4 : 0) | (R.spin > 0 ? 8 : 0) | (R.shieldT > 0 ? 16 : 0) | (R.done ? 32 : 0);
+    const r2 = v => Math.round(v * 100) / 100;
+    return [r2(R.pos.x), r2(R.pos.y), r2(R.pos.z), r2(R.yaw), r2(R.v), R.lap, r2(R.dist), f, R.done ? r2(R.time) : 0];
+  }
+  _unpack(R, a) {
+    if (!Array.isArray(a) || a.length < 9) return;
+    R.net = { x: +a[0], y: +a[1], z: +a[2], yaw: +a[3] }; R.v = +a[4] || 0; R.lap = a[5] | 0; R.dist = +a[6] || 0;
+    const f = a[7] | 0; R.drift = f & 1 ? 1 : f & 2 ? -1 : 0; R.boostT = f & 4 ? 0.3 : 0; R.spin = f & 8 ? 0.5 : 0; R.shieldT = f & 16 ? 1 : 0;
+    if (f & 32 && !R.done) { R.done = true; R.time = +a[8] || this.clock; this.results.push(R); }
+    R.seenT = this.clock;
+  }
+  _netTick(dt) {
+    const N = this.net, sv = this.ctx.getSave() || {};
+    const pres = { n: (sv.name || 'Jugador').slice(0, 16), s: 'race', ep: this.ep, r: this._pack(this.me) };
+    if (this.isHost) pres.c = this.racers.filter(R => R.cpu).map(R => [R.id, ...this._pack(R)]);
+    N.set(pres); N.tick(dt);
+    const peers = N.others(), byId = new Map(peers.map(p => [p.id, p.pres || {}]));
+    for (const R of this.racers) {
+      if (!R.remote) continue;
+      if (R.human) { const P = byId.get(R.id); if (P && P.s === 'race' && P.ep === this.ep) this._unpack(R, P.r); else if (!P && !R.gone && this.clock - (R.seenT || 0) > 4) this._gone(R); }
+    }
+    // la CPU la mueve el anfitrión
+    const host = peers.find(p => p.pres && p.pres.ep === this.ep && Array.isArray(p.pres.c));
+    if (host) for (const c of host.pres.c) { const R = this.racers.find(x => x.id === c[0] && x.cpu && x.remote); if (R) this._unpack(R, c.slice(1)); }
+  }
+  _gone(R) { R.gone = true; R.root.visible = false; R.shadow.visible = false; this._chatAdd('', '', `${R.name} se fue de la carrera`, true); }
+  _remoteTick(R, dt) {
+    if (R.gone) return;
+    if (!R.net) return;
+    const T = this.track, t = R.net, k = 1 - Math.exp(-12 * dt);
+    if (Math.hypot(t.x - R.pos.x, t.z - R.pos.z) > 9) R.pos.set(t.x, t.y, t.z);
+    else { R.pos.x += (t.x - R.pos.x) * k + Math.sin(R.yaw) * R.v * dt * 0.5; R.pos.z += (t.z - R.pos.z) * k + Math.cos(R.yaw) * R.v * dt * 0.5; R.pos.y += (t.y - R.pos.y) * k; }
+    R.yaw += angD(t.yaw, R.yaw) * k;
+    R.i = T.near(R.pos, R.i); R.pitch = Math.atan2(T.t[R.i].y, Math.hypot(T.t[R.i].x, T.t[R.i].z));
+    R.slip += ((R.drift ? R.drift * 0.38 : 0) - R.slip) * damp(6, dt);
+    R.charge = R.drift ? (R.charge || 0) + dt : 0;
+    R.spinA = R.spin > 0 ? R.spinA + dt * 12 : 0;
+  }
+  // sucesos de la red: disparos, explosiones y golpes (quien dispara decide si acierta)
+  onNet(from, ev) {
+    if (!this.active || !ev || ev.ep !== this.ep) return;
+    const owner = id => this.racers.find(R => R.id === id);
+    if (ev.t === 'shot') this.items.remoteShot(ev, owner(ev.o));
+    else if (ev.t === 'boom') this.items.remoteBoom(ev);
+    else if (ev.t === 'hit') { const V = owner(ev.v); if (V && !V.remote) this.items.hit(V, owner(ev.o), true); }
+  }
+  _plate(R) {
+    const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64; const c = cv.getContext('2d');
+    c.font = 'bold 30px system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    const w = Math.min(250, c.measureText(R.name).width + 30); c.fillStyle = 'rgba(10,16,40,.65)'; c.beginPath(); c.roundRect((256 - w) / 2, 8, w, 46, 23); c.fill();
+    c.fillStyle = '#9fe3ff'; c.fillText(R.name, 128, 32);
+    const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, depthTest: false, transparent: true })); sp.scale.set(2.2, 0.55, 1); sp.position.y = 2.4; sp.renderOrder = 10;
+    R.root.add(sp); return sp;
+  }
+  // ---------- chat (el mismo cuadro que la Arena y el mundo) ----------
+  _chatAdd(name, color, text, sys = false) {
+    const box = $('chatLog'); if (!box) return; const el = document.createElement('div');
+    if (sys) { el.className = 'sys'; el.textContent = text; } else { const b = document.createElement('b'); b.textContent = name + ':'; b.style.color = color; el.append(b, document.createTextNode(String(text).replace(BADW, w => '*'.repeat(w.length)))); }
+    box.appendChild(el); while (box.children.length > 30) box.firstChild.remove(); setTimeout(() => el.classList.add('old'), 9000);
+  }
+  sendChat(text) {
+    if (!this.net) return; const now = performance.now(); if (now - (this._chatT || 0) < 900) return;
+    const m = this.net.chat(String(text).replace(BADW, w => '*'.repeat(w.length))); if (m) { this._chatT = now; this._chatAdd(this.me.name, '#ffd27a', m); }
+  }
+  _chatOpen() {
+    if (!this.net) return; $('chatBox').classList.add('open'); this.chatOpenNow = true; this.ctx.input.keys = {};
+    const inp = $('chatInput'); inp.value = ''; setTimeout(() => inp.focus(), 10);
+    const q = $('chatQuick'); q.innerHTML = ''; for (const t of ['¡Suerte! 🍀', '¡Allá voy! 🏎', '¡GG!', '¡Revancha!', '😂', '🔥']) { const b = document.createElement('button'); b.textContent = t; b.onclick = () => { this.sendChat(t); this._chatClose(); }; q.appendChild(b); }
+  }
+  _chatClose() { const box = $('chatBox'); if (box) box.classList.remove('open'); this.chatOpenNow = false; const inp = $('chatInput'); if (inp) inp.blur(); }
 
   // ---------- dibujo ----------
   _sync(dt) {
@@ -678,7 +779,7 @@ export class Race {
 
   togglePause() {
     if (!this.active || this.phase === 'end' && this.shown) return;
-    this.paused = !this.paused; $('racePause').classList.toggle('hidden', !this.paused); this._engineTick();
+    this.paused = !this.paused; $('racePause').classList.toggle('hidden', !this.paused); $('bRaceRestart').classList.toggle('hidden', !!this.net); this._engineTick();
   }
   again() { const o = this.opts; this.exit(true); this.start(o); }
   exit(keep) {
@@ -688,5 +789,8 @@ export class Race {
     this.racers = [];
     if (this.root) { C.scene.remove(this.root); this.root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); this.root = null; }
     if (!keep) this._hud(false);
+    document.body.classList.remove('netrace'); this._chatClose();
+    if (this.net) $('chatBtn').classList.add('hidden');
+    this.net = null;
   }
 }

@@ -675,8 +675,8 @@ Object.assign(Arena.prototype, {
   _chatClose() { const box = $('chatBox'); if (box) box.classList.remove('open'); this.chatOpenNow = false; const inp = $('chatInput'); if (inp) inp.blur(); },
 });
 // el chat lo usa la Arena online o, fuera de ella, el mundo compartido
-export function wireChat(arena, world, canWorld = () => true) {
-  const T = () => (arena.active ? arena : world);
+export function wireChat(arena, world, canWorld = () => true, raceNet = () => null) {
+  const T = () => raceNet() || (arena.active ? arena : world);
   $('chatInput').addEventListener('keydown', e => {
     e.stopPropagation();
     if (e.key === 'Enter') { T().sendChat($('chatInput').value); T()._chatClose(); e.preventDefault(); }
@@ -687,7 +687,8 @@ export function wireChat(arena, world, canWorld = () => true) {
   $('chatBtn').onclick = () => T()._chatOpen();
   addEventListener('keydown', e => {
     const t = T(); if (!t || !t.net || t.chatOpenNow) return;
-    if (t === arena) { if (arena.active && (e.key === 'Enter' || e.code === 'KeyT')) { e.preventDefault(); arena._chatOpen(); } }
+    if (t === raceNet()) { if (e.code === 'KeyT') { e.preventDefault(); e.stopPropagation(); t._chatOpen(); } }
+    else if (t === arena) { if (arena.active && (e.key === 'Enter' || e.code === 'KeyT')) { e.preventDefault(); arena._chatOpen(); } }
     else if (e.code === 'KeyT' && canWorld()) { e.preventDefault(); e.stopPropagation(); t._chatOpen(); } // en el mundo, Enter sigue siendo «hablar»
   }, true);
 }

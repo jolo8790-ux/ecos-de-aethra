@@ -37,6 +37,7 @@ function qTex() {
 }
 
 export class RaceItems {
+  local(R) { return !R.remote; } // este equipo decide por R (yo, o la CPU si soy el anfitrión)
   constructor(race) {
     this.race = race; this.root = new THREE.Group(); race.root.add(this.root);
     this.boxes = []; this.shots = []; this.booms = [];
@@ -66,7 +67,7 @@ export class RaceItems {
       else B.m.scale.setScalar(0.01);
       if (!on) continue;
       for (const R of race.racers) {
-        if (R.item || R.roll > 0) continue;
+        if (R.item || R.roll > 0 || R.remote) continue;
         if (Math.hypot(R.pos.x - B.m.position.x, R.pos.z - B.m.position.z) < 1.7) {
           B.t = 3; R.roll = R.you ? 1.0 : 0.4; R.rollFor = roll(R.place, race.racers.length);
           if (R.you) race.ctx.audio.play('crystal');
@@ -79,7 +80,7 @@ export class RaceItems {
       R.inv = Math.max(0, (R.inv || 0) - dt);
       if (R.shieldT > 0) { R.shieldT -= dt; if (!R.bubble) { R.bubble = new THREE.Mesh(new THREE.SphereGeometry(1.9, 20, 14), this.shield); R.bubble.position.y = 0.9; R.root.add(R.bubble); } R.bubble.scale.setScalar(1 + Math.sin(time * 6) * 0.04); }
       else if (R.bubble) { R.root.remove(R.bubble); R.bubble = null; }
-      if (!R.you && R.item && race.phase === 'race') this._cpuThink(R, dt);
+      if (!R.you && !R.remote && R.item && race.phase === 'race') this._cpuThink(R, dt);
     }
     this._shots(dt, time);
     for (let k = this.booms.length - 1; k >= 0; k--) {
@@ -120,7 +121,7 @@ export class RaceItems {
   }
 
   // ---------- proyectiles ----------
-  _fire(R, kind, back) {
+  _fire(R, kind, back, spec = null) {
     const race = this.race, A = race.ctx.audio, dir = R.yaw + (back ? Math.PI : 0);
     const g = new THREE.Group(); this.root.add(g);
     if (kind === 'bomba') {
@@ -142,7 +143,18 @@ export class RaceItems {
     else if (kind === 'cohete') { S.speed = 64; S.life = 2.6; }
     else { S.speed = 52; S.life = 6; const ahead = race.racers.filter(o => o !== R && o.progress > R.progress).sort((a, b) => a.progress - b.progress); S.target = ahead[0] || null; }
     if (R.you) A.play(kind === 'bomba' ? 'swing' : 'shoot');
+    if (spec) { // copia de un disparo de otro jugador: solo se ve (quien disparó decide si acierta)
+      S.remote = true; S.id = spec.id; S.pos.set(+spec.x, R.pos.y, +spec.z); S.yaw = +spec.yw; S.target = spec.tg ? race.racers.find(o => o.id === spec.tg) || null : S.target;
+    } else if (race.net) {
+      S.id = race.me.id + ':' + (this.sid = (this.sid || 0) + 1);
+      race.net.event({ t: 'shot', ep: race.ep, id: S.id, k: kind, b: back ? 1 : 0, o: R.id, x: Math.round(S.pos.x * 100) / 100, z: Math.round(S.pos.z * 100) / 100, yw: Math.round(S.yaw * 1000) / 1000, tg: S.target ? S.target.id : null });
+    }
     this.shots.push(S);
+  }
+  remoteShot(ev, R) { if (R && ITEMS[ev.k === 'guiado' ? 'guiado' : ev.k]) this._fire(R, ev.k, !!ev.b, ev); }
+  remoteBoom(ev) {
+    const k = this.shots.findIndex(S => S.id === ev.id);
+    if (k >= 0) { const S = this.shots[k]; S.g.position.x = +ev.x; S.g.position.z = +ev.z; this._explode(S, null, true); this.root.remove(S.g); this.shots.splice(k, 1); }
   }
   _shots(dt, time) {
     const race = this.race, T = race.track;
@@ -165,25 +177,36 @@ export class RaceItems {
       }
       let hit = null;
       if (Math.abs(F.lat) > T.hw - 0.4) { if (S.kind === 'bomba') { const r = T.r[S.i], sg = Math.sign(F.lat); S.pos.x -= r.x * sg * 0.6; S.pos.z -= r.z * sg * 0.6; S.yaw = Math.atan2(T.t[S.i].x, T.t[S.i].z); } else hit = 'wall'; }
-      for (const R of race.racers) {
+      if (!S.remote) for (const R of race.racers) {
         if (R === S.owner && S.t < 0.6) continue;
         if (Math.hypot(R.pos.x - S.pos.x, R.pos.z - S.pos.z) < (S.kind === 'bomba' ? 1.7 : 1.5)) { hit = R; break; }
       }
-      if (hit || S.t > S.life) { this._explode(S, hit && hit !== 'wall' ? hit : null); this.root.remove(S.g); this.shots.splice(k, 1); }
+      if (S.remote && S.t > S.life + 1.5) { this.root.remove(S.g); this.shots.splice(k, 1); continue; } // el aviso de explosión no llegó
+      if (S.remote) continue;
+      if (hit || S.t > S.life) {
+        this._explode(S, hit && hit !== 'wall' ? hit : null);
+        if (race.net && S.id) race.net.event({ t: 'boom', ep: race.ep, id: S.id, x: Math.round(S.g.position.x * 100) / 100, z: Math.round(S.g.position.z * 100) / 100 });
+        this.root.remove(S.g); this.shots.splice(k, 1);
+      }
     }
   }
-  _explode(S, direct) {
+  _explode(S, direct, visual = false) {
     const race = this.race, A = race.ctx.audio, p = S.g.position.clone();
     const r = S.kind === 'bomba' ? 4 : 2.2;
     this._pop(p, S.kind === 'guiado' ? 0xc08aff : 0xffa040, r);
     const me = race.me, d = me.pos.distanceTo(p);
     if (d < 40) { A.play(S.kind === 'bomba' ? 'slam' : 'fire'); }
+    if (visual) return;
     for (const R of race.racers) {
       const dd = Math.hypot(R.pos.x - p.x, R.pos.z - p.z);
-      if (R === direct || dd < r) this.hit(R, S.owner);
+      if (R === direct || dd < r) {
+        if (R.remote) { if (race.net && !R.gone) race.net.event({ t: 'hit', ep: race.ep, v: R.id, o: S.owner.id }); if (S.owner.you) this._hitFx(R); }
+        else this.hit(R, S.owner);
+      }
     }
   }
-  hit(R, by) {
+  _hitFx(R) { const race = this.race; race._flash(`¡Le diste a ${R.name}!`, '#7affa0'); const sv = race.ctx.getSave(); if (sv) { sv.race = sv.race || {}; sv.race.hits = (sv.race.hits || 0) + 1; } }
+  hit(R, by, fromNet = false) {
     const race = this.race;
     if (R.inv > 0) return;
     if (R.shieldT > 0) { R.shieldT = 0; R.inv = 0.8; this._pop(R.pos.clone().setY(R.pos.y + 1), 0x9fe3ff, 2.4); if (R.you) race.ctx.audio.play('reflect'); return; }
