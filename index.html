@@ -561,62 +561,64 @@
   body.raceover #raceTop, body.raceover #raceSpeed, body.raceover #racePlace { display: none !important; }
   body.touch.raceover #chatBtn { top: 8px; bottom: auto; left: auto; right: calc(12px + env(safe-area-inset-right)); }
   body.touch #raceEnd h2 { font-size: 22px; } body.touch .raceUnl { font-size: 12px; margin-top: 2px; } body.touch #raceEndList li { font-size: 12px; padding: 0 10px; }
+  #raceErr { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 30; pointer-events: auto; display: flex; gap: 8px; align-items: center; background: rgba(10,16,30,.9); border: 2px solid #ff9a7a; border-radius: 14px; padding: 6px 10px; font-size: 13px; max-width: 92vw; }
+  #raceErr.hidden { display: none; } #raceErr .btn { margin: 0; padding: 4px 10px; font-size: 13px; }
 </style>
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-  "./js/arena.js": "./js/arena.js?v=2611231641",
-  "./js/audio.js": "./js/audio.js?v=2611231641",
-  "./js/autonav.js": "./js/autonav.js?v=2611231641",
-  "./js/camera.js": "./js/camera.js?v=2611231641",
-  "./js/characters.js": "./js/characters.js?v=2611231641",
-  "./js/combat.js": "./js/combat.js?v=2611231641",
-  "./js/credits.js": "./js/credits.js?v=2611231641",
-  "./js/endless.js": "./js/endless.js?v=2611231641",
-  "./js/fx.js": "./js/fx.js?v=2611231641",
-  "./js/garage.js": "./js/garage.js?v=2611231641",
-  "./js/gear.js": "./js/gear.js?v=2611231641",
-  "./js/glbload.js": "./js/glbload.js?v=2611231641",
-  "./js/hazards.js": "./js/hazards.js?v=2611231641",
-  "./js/hd.js": "./js/hd.js?v=2611231641",
-  "./js/heroes.js": "./js/heroes.js?v=2611231641",
-  "./js/input.js": "./js/input.js?v=2611231641",
-  "./js/intro.js": "./js/intro.js?v=2611231641",
-  "./js/logros.js": "./js/logros.js?v=2611231641",
-  "./js/main.js": "./js/main.js?v=2611231641",
-  "./js/music.js": "./js/music.js?v=2611231641",
-  "./js/net.js": "./js/net.js?v=2611231641",
-  "./js/physics.js": "./js/physics.js?v=2611231641",
-  "./js/piezas.js": "./js/piezas.js?v=2611231641",
-  "./js/player.js": "./js/player.js?v=2611231641",
-  "./js/powers.js": "./js/powers.js?v=2611231641",
-  "./js/props.js": "./js/props.js?v=2611231641",
-  "./js/race.js": "./js/race.js?v=2611231641",
-  "./js/raceitems.js": "./js/raceitems.js?v=2611231641",
-  "./js/reef.js": "./js/reef.js?v=2611231641",
-  "./js/rig.js": "./js/rig.js?v=2611231641",
-  "./js/save.js": "./js/save.js?v=2611231641",
-  "./js/sea.js": "./js/sea.js?v=2611231641",
-  "./js/seafoes.js": "./js/seafoes.js?v=2611231641",
-  "./js/showroom.js": "./js/showroom.js?v=2611231641",
-  "./js/songs.js": "./js/songs.js?v=2611231641",
-  "./js/traps.js": "./js/traps.js?v=2611231641",
-  "./js/vfx.js": "./js/vfx.js?v=2611231641",
-  "./js/world.js": "./js/world.js?v=2611231641",
-  "./js/worldnet.js": "./js/worldnet.js?v=2611231641",
-  "./js/zones/abismo_mareth.js": "./js/zones/abismo_mareth.js?v=2611231641",
-  "./js/zones/bosque_colgante.js": "./js/zones/bosque_colgante.js?v=2611231641",
-  "./js/zones/ciudad_engranajes.js": "./js/zones/ciudad_engranajes.js?v=2611231641",
-  "./js/zones/ciudadela_orden.js": "./js/zones/ciudadela_orden.js?v=2611231641",
-  "./js/zones/desafios.js": "./js/zones/desafios.js?v=2611231641",
-  "./js/zones/eco_olvidado.js": "./js/zones/eco_olvidado.js?v=2611231641",
-  "./js/zones/forja_ignis.js": "./js/zones/forja_ignis.js?v=2611231641",
-  "./js/zones/glaciar_eco.js": "./js/zones/glaciar_eco.js?v=2611231641",
-  "./js/zones/puerto_bruma.js": "./js/zones/puerto_bruma.js?v=2611231641",
-  "./js/zones/routegen.js": "./js/zones/routegen.js?v=2611231641",
-  "./js/zones/ruinas_vidrio.js": "./js/zones/ruinas_vidrio.js?v=2611231641",
-  "./js/zones/senderos.js": "./js/zones/senderos.js?v=2611231641"
+  "./js/arena.js": "./js/arena.js?v=2611231710",
+  "./js/audio.js": "./js/audio.js?v=2611231710",
+  "./js/autonav.js": "./js/autonav.js?v=2611231710",
+  "./js/camera.js": "./js/camera.js?v=2611231710",
+  "./js/characters.js": "./js/characters.js?v=2611231710",
+  "./js/combat.js": "./js/combat.js?v=2611231710",
+  "./js/credits.js": "./js/credits.js?v=2611231710",
+  "./js/endless.js": "./js/endless.js?v=2611231710",
+  "./js/fx.js": "./js/fx.js?v=2611231710",
+  "./js/garage.js": "./js/garage.js?v=2611231710",
+  "./js/gear.js": "./js/gear.js?v=2611231710",
+  "./js/glbload.js": "./js/glbload.js?v=2611231710",
+  "./js/hazards.js": "./js/hazards.js?v=2611231710",
+  "./js/hd.js": "./js/hd.js?v=2611231710",
+  "./js/heroes.js": "./js/heroes.js?v=2611231710",
+  "./js/input.js": "./js/input.js?v=2611231710",
+  "./js/intro.js": "./js/intro.js?v=2611231710",
+  "./js/logros.js": "./js/logros.js?v=2611231710",
+  "./js/main.js": "./js/main.js?v=2611231710",
+  "./js/music.js": "./js/music.js?v=2611231710",
+  "./js/net.js": "./js/net.js?v=2611231710",
+  "./js/physics.js": "./js/physics.js?v=2611231710",
+  "./js/piezas.js": "./js/piezas.js?v=2611231710",
+  "./js/player.js": "./js/player.js?v=2611231710",
+  "./js/powers.js": "./js/powers.js?v=2611231710",
+  "./js/props.js": "./js/props.js?v=2611231710",
+  "./js/race.js": "./js/race.js?v=2611231710",
+  "./js/raceitems.js": "./js/raceitems.js?v=2611231710",
+  "./js/reef.js": "./js/reef.js?v=2611231710",
+  "./js/rig.js": "./js/rig.js?v=2611231710",
+  "./js/save.js": "./js/save.js?v=2611231710",
+  "./js/sea.js": "./js/sea.js?v=2611231710",
+  "./js/seafoes.js": "./js/seafoes.js?v=2611231710",
+  "./js/showroom.js": "./js/showroom.js?v=2611231710",
+  "./js/songs.js": "./js/songs.js?v=2611231710",
+  "./js/traps.js": "./js/traps.js?v=2611231710",
+  "./js/vfx.js": "./js/vfx.js?v=2611231710",
+  "./js/world.js": "./js/world.js?v=2611231710",
+  "./js/worldnet.js": "./js/worldnet.js?v=2611231710",
+  "./js/zones/abismo_mareth.js": "./js/zones/abismo_mareth.js?v=2611231710",
+  "./js/zones/bosque_colgante.js": "./js/zones/bosque_colgante.js?v=2611231710",
+  "./js/zones/ciudad_engranajes.js": "./js/zones/ciudad_engranajes.js?v=2611231710",
+  "./js/zones/ciudadela_orden.js": "./js/zones/ciudadela_orden.js?v=2611231710",
+  "./js/zones/desafios.js": "./js/zones/desafios.js?v=2611231710",
+  "./js/zones/eco_olvidado.js": "./js/zones/eco_olvidado.js?v=2611231710",
+  "./js/zones/forja_ignis.js": "./js/zones/forja_ignis.js?v=2611231710",
+  "./js/zones/glaciar_eco.js": "./js/zones/glaciar_eco.js?v=2611231710",
+  "./js/zones/puerto_bruma.js": "./js/zones/puerto_bruma.js?v=2611231710",
+  "./js/zones/routegen.js": "./js/zones/routegen.js?v=2611231710",
+  "./js/zones/ruinas_vidrio.js": "./js/zones/ruinas_vidrio.js?v=2611231710",
+  "./js/zones/senderos.js": "./js/zones/senderos.js?v=2611231710"
 } }
 </script>
 </head>
@@ -654,6 +656,7 @@
   <div id="raceTop"><div id="raceLap">Vuelta 1/3</div><div id="raceTime">0:00.0</div><button class="btn alt small" id="raceBtnPause">❚❚</button></div>
   <div id="raceTip"></div>
   <div id="raceMsg"></div>
+  <div id="raceErr" class="hidden"><span id="raceErrMsg"></span><button class="btn small" id="bRaceErrExit">Salir de la carrera</button><button class="btn alt small" id="bRaceErrHide">Seguir</button></div>
   <div id="raceLights" class="hidden"><i></i><i></i><i></i><i></i><i></i></div>
   <div id="raceTurbo"></div>
   <div id="raceSpeed">0<small> km/h</small></div>
@@ -970,6 +973,6 @@
   </div>
 </div>
 
-<script type="module" src="js/main.js?v=2611231641"></script>
+<script type="module" src="js/main.js?v=2611231710"></script>
 </body>
 </html>

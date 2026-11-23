@@ -2347,6 +2347,7 @@ function frame() {
     if (state !== 'credits') renderScene();
   } catch (e) { // un error en un fotograma no debe congelar el juego
     if (frameErrors++ < 5) console.error('Error en el fotograma', e);
+    if (state === 'race' && $('raceErr').classList.contains('hidden')) { $('raceErrMsg').textContent = `Algo falló (${String(e && e.message || e).slice(0, 80)}).`; $('raceErr').classList.remove('hidden'); }
     if (frameErrors === 3) toast('Algo falló; si se queda quieto, pulsa Esc y carga la partida');
   }
   input.endFrame();
@@ -2956,6 +2957,7 @@ $('bHubArena').onclick = () => { audio.unlock(); openArena('title'); };
 const race = new Race({
   scene, camera, world, audio, music, input, player, toast,
   charLib: () => charLib, getSave: () => save, save: () => { if (save) writeSave(save); }, unlocksAfter: () => save ? newUnlocks(save) : [],
+  onError: (where, e) => { const el = $('raceErr'); if (!el) return; $('raceErrMsg').textContent = `Algo falló (${where}: ${String(e && e.message || e).slice(0, 80)}).`; el.classList.remove('hidden'); },
   addEcos: n => { addEcos(n); if (save) writeSave(save); },
   loadRaceZone(Z) {
     if (flyover) flyover = null; document.body.classList.remove('cine');
@@ -3247,6 +3249,8 @@ $('raceBtnPause').onclick = () => race.togglePause();
 $('bRaceResume').onclick = () => race.togglePause();
 $('bRaceLeave').onclick = () => leaveRace();
 $('bRaceEndLeave').onclick = () => leaveRace();
+$('bRaceErrExit').onclick = () => { $('raceErr').classList.add('hidden'); try { leaveRace(); } catch (e) { location.reload(); } };
+$('bRaceErrHide').onclick = () => $('raceErr').classList.add('hidden');
 $('bRaceAgain').onclick = () => { if (race.net) backToLobby(); else race.again(); };
 $('bRaceRestart').onclick = () => { race.paused = false; race.again(); };
 // cambiar de pista: vuelve al menú de Carreras (en línea, a la sala: allí el anfitrión elige)

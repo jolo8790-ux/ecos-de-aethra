@@ -458,16 +458,20 @@ export class Race {
       if (R.you && ctl.use && this.phase === 'race') this.items.use(R, ctl.back);
       this._drive(R, ctl, dt);
     }
-    this.items.update(dt, this.clock + this.t);
-    this._collide(dt);
-    for (const R of this.racers) if (!R.remote) this._laps(R);
-    this.place();
-    this._sync(dt);
-    this._camera(dt);
-    this._hudTick(dt);
-    this._engineTick(dt);
-    if (this.phase === 'end' && (this.endT -= dt) <= 0 && !this.shown) { try { this._showEnd(); } catch (e) { console.warn('final', e); $('raceEnd').classList.remove('hidden'); } }
-    if (this.me.done && this.phase !== 'end' && !this.shown) this._finish(); // terminó pero no se cambió de fase
+    this._dt = dt;
+    const safe = (name, fn) => { try { fn(); } catch (e) { this._err(name, e); } };
+    safe('vueltas', () => { for (const R of this.racers) if (!R.remote) this._laps(R); });
+    // el final va primero: nada de lo que viene después puede impedir que aparezca
+    if (this.me.done && this.phase !== 'end' && !this.shown) safe('meta', () => this._finish());
+    if (this.phase === 'end' && (this.endT -= dt) <= 0 && !this.shown) safe('final', () => this._showEnd());
+    if (this.phase === 'end' && this.endT < -1.5 && $('raceEnd').classList.contains('hidden')) { $('raceEnd').classList.remove('hidden'); document.body.classList.add('raceover'); this.shown = true; }
+    safe('objetos', () => this.items.update(dt, this.clock + this.t));
+    safe('choques', () => this._collide(dt));
+    safe('puestos', () => this.place());
+    safe('dibujo', () => this._sync(dt));
+    safe('cámara', () => this._camera(dt));
+    safe('pantalla', () => this._hudTick(dt));
+    safe('motor', () => this._engineTick(dt));
     if (this.shown && this.net && (this._listT = (this._listT || 0) - dt) <= 0) { this._listT = 0.5; this._endList(); } // en línea: la tabla se completa a medida que llegan
   }
 
@@ -576,7 +580,7 @@ export class Race {
     const T = this.track, L = T.L;
     if (R.prog == null) { R.prog = R.dist > L / 2 ? R.dist - L : R.dist; R.prevD = R.dist; }
     let dd = R.dist - R.prevD; if (dd > L / 2) dd -= L; if (dd < -L / 2) dd += L; R.prevD = R.dist;
-    if (Math.abs(dd) < 25) R.prog += dd; // un salto enorme sería un error de cálculo: se ignora
+    const lim = Math.abs(R.v) * (this._dt || 1 / 60) * 1.6 + 1.2; R.prog += clamp(dd, -lim, lim); // un salto de cálculo se recorta a lo que el kart pudo avanzar
     const lap = Math.floor(R.prog / L);
     while (lap > R.lap) {
       R.lap++;
@@ -591,6 +595,11 @@ export class Race {
       }
     }
     if (lap < R.lap && !R.done) R.lap = lap; // marcha atrás por la meta
+    const fNow = R.dist / L;
+    if (!R.done && R.prevF2 != null && R.prevF2 > 0.9 && fNow < 0.1 && R.prog > (this.laps - 0.6) * L) { // cruzó la línea en la última vuelta
+      R.lap = this.laps; R.prog = Math.max(R.prog, this.laps * L); R.done = true; R.time = this.clock; this.results.push(R); if (R.you) this._finish();
+    }
+    R.prevF2 = fNow;
   }
   place() {
     const order = [...this.racers].sort((a, b) => {
@@ -600,9 +609,13 @@ export class Race {
     order.forEach((R, k) => { R.place = k + 1; });
     this.order = order;
   }
+  _err(where, e) {
+    this._errs = (this._errs || 0) + 1; if (this._errs <= 3) console.error('Carrera: fallo en ' + where, e);
+    if (this._errs === 1 && this.ctx.onError) this.ctx.onError(where, e);
+  }
   _finish() {
     const C = this.ctx;
-    this.phase = 'end'; this.endT = 2.2; this._endCamT = 0; this._hudLights(-1); this.track.setLights(0);
+    this.phase = 'end'; this.endT = 2.2; this._endCamT = 0; try { this._hudLights(-1); this.track.setLights(0); } catch (e) {}
     const p = this.me.place;
     this._flash(p === 1 ? '¡GANASTE!' : `¡Meta! Llegaste ${p}.º`, p === 1 ? '#ffd27a' : '#ffffff');
     C.audio.play(p <= 3 ? 'unlock' : 'checkpoint');
