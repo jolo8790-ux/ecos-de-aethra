@@ -363,7 +363,7 @@ class Racer {
     this.sparks = [-0.85, 0.85].map(x => { const s = new THREE.Mesh(new THREE.IcosahedronGeometry(0.22, 0), sm); s.position.set(x, 0.2, -1.05); this.body.add(s); return s; });
     this.sparkMat = sm;
   }
-  get progress() { return this.prog != null && !this.remote ? this.prog : this.lap * this.race.track.L + this.dist; }
+  get progress() { const L = this.race.track.L; return this.lap * L + (this.lap < 0 && this.dist < L / 2 ? this.dist + L : this.dist); }
   remove() { this.race.root.remove(this.root); this.race.root.remove(this.shadow); }
 }
 
@@ -429,6 +429,7 @@ export class Race {
     this.hold = 0.5 + ((opts.ep || Math.floor(Math.random() * 1e6)) % 700) / 1000; this._pairT = {}; this.clock = 0; this.results = []; this._lastCount = null;
     this.camPos = null; this.lookBack = false;
     this._hud(true); this._engine(true); document.body.classList.remove('raceover');
+    $('raceEndTitle').textContent = ''; $('raceEndSub').textContent = ''; $('raceEndList').innerHTML = ''; this.shown = false; this._errs = 0;
     document.body.classList.toggle('netrace', !!this.net); this._chatClose();
     if (this.net) { $('chatLog').innerHTML = ''; $('chatBtn').classList.remove('hidden'); $('chatBtn').textContent = this.ctx.input.isTouch ? '💬' : '💬 Chat (T)'; }
     C.music.play('arena', { fade: 1.2 });
@@ -464,7 +465,7 @@ export class Race {
     // el final va primero: nada de lo que viene después puede impedir que aparezca
     if (this.me.done && this.phase !== 'end' && !this.shown) safe('meta', () => this._finish());
     if (this.phase === 'end' && (this.endT -= dt) <= 0 && !this.shown) safe('final', () => this._showEnd());
-    if (this.phase === 'end' && this.endT < -1.5 && $('raceEnd').classList.contains('hidden')) { $('raceEnd').classList.remove('hidden'); document.body.classList.add('raceover'); this.shown = true; }
+    if (this.phase === 'end' && this.endT < -1.5 && $('raceEnd').classList.contains('hidden')) { try { this._endList(); $('raceEndTitle').textContent = `${this.me.place}.º lugar`; } catch (e) {} $('raceEnd').classList.remove('hidden'); document.body.classList.add('raceover'); this.shown = true; }
     safe('objetos', () => this.items.update(dt, this.clock + this.t));
     safe('choques', () => this._collide(dt));
     safe('puestos', () => this.place());
@@ -574,36 +575,32 @@ export class Race {
       }
     }
   }
-  // vueltas por «cuentakilómetros»: se suma lo que el kart avanza a lo largo de la pista, así ningún golpe,
-  // trompo o empujón en la meta puede hacer que una vuelta no cuente
+  // vueltas por puntos de control: para que una vuelta cuente hay que pasar por 1/4, 1/2 y 3/4 de la pista
+  // (en orden) y cruzar la meta; no importa cómo se tome cada curva ni si un golpe te empuja en la línea
   _laps(R) {
-    const T = this.track, L = T.L;
-    if (R.prog == null) { R.prog = R.dist > L / 2 ? R.dist - L : R.dist; R.prevD = R.dist; }
-    let dd = R.dist - R.prevD; if (dd > L / 2) dd -= L; if (dd < -L / 2) dd += L; R.prevD = R.dist;
-    const lim = Math.abs(R.v) * (this._dt || 1 / 60) * 1.6 + 1.2; R.prog += clamp(dd, -lim, lim); // un salto de cálculo se recorta a lo que el kart pudo avanzar
-    const lap = Math.floor(R.prog / L);
-    while (lap > R.lap) {
-      R.lap++;
-      if (R.lap >= 1 && this.phase !== 'count') { const lt = this.clock - (R.lapStart || 0); R.lapStart = this.clock; if (!R.best || lt < R.best) R.best = lt; }
-      else R.lapStart = this.clock;
-      if (R.lap >= this.laps && !R.done) {
-        R.done = true; R.time = this.clock; this.results.push(R);
-        if (R.you) this._finish();
-      } else if (R.you && R.lap >= 1 && R.lap < this.laps) {
-        this._flash(R.lap === this.laps - 1 ? '¡ÚLTIMA VUELTA!' : `Vuelta ${R.lap + 1} / ${this.laps}`, '#ffffff');
-        this.ctx.audio.play('checkpoint');
-      }
+    const L = this.track.L, f = R.dist / L;
+    if (R.cp == null) R.cp = 3; // en la parrilla (detrás de la meta) ya puedes cruzarla
+    const CP = [0.25, 0.5, 0.75];
+    if (R.cp < 3 && f >= CP[R.cp] && f < CP[R.cp] + 0.2) R.cp++;
+    if (R.prevF != null) {
+      if (R.prevF > 0.8 && f < 0.2 && R.cp >= 3) { // cruzó la meta hacia delante
+        R.cp = 0; R.lap++;
+        if (R.lap >= 1 && this.phase !== 'count') { const lt = this.clock - (R.lapStart || 0); R.lapStart = this.clock; if (!R.best || lt < R.best) R.best = lt; }
+        else R.lapStart = this.clock;
+        if (R.lap >= this.laps && !R.done) {
+          R.done = true; R.time = this.clock; this.results.push(R); R.finishOrder = this.results.length;
+          if (R.you) this._finish();
+        } else if (R.you && R.lap >= 1) {
+          this._flash(R.lap === this.laps - 1 ? '¡ÚLTIMA VUELTA!' : `Vuelta ${R.lap + 1} / ${this.laps}`, '#ffffff');
+          this.ctx.audio.play('checkpoint');
+        }
+      } else if (R.prevF < 0.2 && f > 0.8 && R.lap >= 0 && !R.done && R.cp === 0) { R.lap--; R.cp = 3; } // volvió hacia atrás por la meta
     }
-    if (lap < R.lap && !R.done) R.lap = lap; // marcha atrás por la meta
-    const fNow = R.dist / L;
-    if (!R.done && R.prevF2 != null && R.prevF2 > 0.9 && fNow < 0.1 && R.prog > (this.laps - 0.6) * L) { // cruzó la línea en la última vuelta
-      R.lap = this.laps; R.prog = Math.max(R.prog, this.laps * L); R.done = true; R.time = this.clock; this.results.push(R); if (R.you) this._finish();
-    }
-    R.prevF2 = fNow;
+    R.prevF = f;
   }
   place() {
     const order = [...this.racers].sort((a, b) => {
-      if (a.done && b.done) return a.time - b.time; if (a.done) return -1; if (b.done) return 1;
+      if (a.done && b.done) return (a.finishOrder || 99) - (b.finishOrder || 99) || a.time - b.time; if (a.done) return -1; if (b.done) return 1;
       return b.progress - a.progress;
     });
     order.forEach((R, k) => { R.place = k + 1; });
@@ -623,7 +620,7 @@ export class Race {
   _showEnd() {
     const C = this.ctx; this.shown = true;
     // los que faltan llegan con el tiempo estimado
-    if (!this.net) for (const R of this.order) if (!R.done) { R.done = true; R.time = this.clock + (this.laps * this.track.L - R.progress) / Math.max(10, MAXV * (R.skill || 0.9)); this.results.push(R); }
+    if (!this.net) { this.place(); for (const R of this.order) if (!R.done) { R.done = true; R.time = Math.max(this.clock + 0.1, this.clock + (this.laps * this.track.L - R.progress) / Math.max(10, MAXV * (R.skill || 0.9))); this.results.push(R); R.finishOrder = this.results.length; } }
     this.place();
     const p = this.me.place, rew = (this.def.reward[p - 1] || 5) * (this.laps === 5 ? 2 : 1);
     // primero la pantalla final (pase lo que pase con el guardado, siempre se puede salir)
@@ -666,7 +663,7 @@ export class Race {
     if (!Array.isArray(a) || a.length < 9) return;
     R.net = { x: +a[0], y: +a[1], z: +a[2], yaw: +a[3] }; R.v = +a[4] || 0; R.lap = a[5] | 0; R.dist = +a[6] || 0;
     const f = a[7] | 0; R.drift = f & 1 ? 1 : f & 2 ? -1 : 0; R.boostT = f & 4 ? 0.3 : 0; R.spin = f & 8 ? 0.5 : 0; R.shieldT = f & 16 ? 1 : 0;
-    if (f & 32 && !R.done) { R.done = true; R.time = +a[8] || this.clock; this.results.push(R); }
+    if (f & 32 && !R.done) { R.done = true; R.time = +a[8] || this.clock; this.results.push(R); R.finishOrder = 50 + R.time; }
     R.seenT = this.clock;
   }
   _netTick(dt) {
