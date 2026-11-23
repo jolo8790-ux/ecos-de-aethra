@@ -460,9 +460,15 @@
   .raceCard { display: flex; gap: 14px; align-items: center; background: rgba(255,255,255,.08); border: 2px solid #ffc83a; border-radius: 16px; padding: 12px 18px; max-width: 560px; text-align: left; margin: 6px auto 10px; }
   .raceCard .ic { font-size: 42px; } .raceCard small { display: block; opacity: .8; }
   .raceCard em { display: block; font-style: normal; color: #ffd27a; font-size: 13px; margin-top: 3px; }
-  body.touch #raceMenu h2 { font-size: 24px; margin: 4px 0; } body.touch #raceMenu > .sub { font-size: 13px; margin: 2px 0; }
+  body.touch #raceMenu h2 { font-size: 24px; margin: 4px 0; } body.touch #raceMenu > .sub:first-of-type { display: none; } body.touch #raceMenu > .sub { font-size: 13px; margin: 1px 0; } body.touch #raceMenu .raceOpts button { padding: 5px 12px; }
   body.touch .raceCard { padding: 6px 12px; margin: 4px auto; } body.touch .raceCard .ic { font-size: 30px; }
   body.touch .raceOpts { margin: 2px 0 4px; } body.touch .raceSoon { margin: 2px 0 6px; font-size: 11px; }
+  #raceItem { position: absolute; right: 96px; top: 8px; width: 74px; height: 74px; border-radius: 16px; background: rgba(10,16,40,.6); border: 3px solid rgba(255,255,255,.35); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  #raceItem span { font-size: 30px; line-height: 1; } #raceItem small { font-size: 10px; opacity: .85; text-align: center; line-height: 1.1; }
+  #raceItem.full { border-color: #ffc83a; box-shadow: 0 0 14px rgba(255,200,58,.6); }
+  #rtUse { right: calc(130px + env(safe-area-inset-right)); bottom: 128px; width: 70px; height: 70px; font-size: 13px; background: rgba(255,200,58,.5); }
+  body.touch #raceItem { right: auto; left: 50%; transform: translateX(-50%); top: 48px; width: 58px; height: 58px; } body.touch #raceItem span { font-size: 24px; }
+  body.touch #raceTip { top: 112px; }
   .raceSoon { opacity: .6; font-size: 13px; margin: 4px 0 10px; }
 </style>
 <script type="importmap">
@@ -509,6 +515,7 @@
   <button class="btn alt small" id="raceBtnPause">❚❚</button>
   <div class="rtb" id="rtDrift">DERRAPE<br>↯</div>
   <div class="rtb" id="rtBrake">FRENO</div>
+  <div id="raceItem"><small>Caja ?</small></div><div class="rtb" id="rtUse">USAR</div>
   <div id="racePause" class="hidden"><h2>Carrera en pausa</h2><button class="btn" id="bRaceResume">Seguir</button><button class="btn alt" id="bRaceRestart">Reiniciar carrera</button><button class="btn warn" id="bRaceLeave">Salir de la carrera</button></div>
   <div id="raceEnd" class="hidden"><h2 id="raceEndTitle"></h2><div class="sub" id="raceEndSub"></div><ul id="raceEndList"></ul><div class="arenaRow"><button class="btn" id="bRaceAgain">Otra carrera</button><button class="btn alt" id="bRaceEndLeave">Salir</button></div></div>
 </div>
@@ -652,7 +659,7 @@
   <div class="raceOpts" id="raceLaps"></div>
   <div class="sub" style="margin:4px 0 2px;font-size:15px">Rivales de la CPU</div>
   <div class="raceOpts" id="raceRivals"></div>
-  <div class="raceSoon">Próximamente: cajas con nitro, bombas y cohetes · taller de karts · pistas de las demás islas · carreras en línea</div>
+  <div class="raceSoon">Cajas ❓ en la pista: 🔥 nitro · 💣 bomba · 🚀 cohete · 🎯 teledirigido · 🫧 escudo<br>Próximamente: taller de karts · pistas de las demás islas · carreras en línea</div>
   <div class="arenaRow"><button class="btn" id="bRaceGo">¡A correr!</button><button class="btn alt small" id="bRaceBack">Volver</button></div>
 </div>
 <div class="overlay hidden" id="arenaMenu">

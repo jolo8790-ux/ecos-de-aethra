@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { createCharacter } from './characters.js';
 import { HEROES, heroById, heroLook, heroUnlocked } from './heroes.js';
 import { prop, hasProp } from './props.js';
+import { RaceItems, ITEMS } from './raceitems.js';
 
 const $ = id => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -20,7 +21,7 @@ export const TRACKS = {
     w: 13,
     p: [[0, 0, 0], [45, 0, 0], [80, -8, 0.5], [100, -38, 2], [96, -72, 4.5], [70, -96, 6], [32, -98, 6], [10, -80, 4.5], [-6, -56, 3], [-30, -46, 2.5],
       [-58, -60, 3], [-86, -50, 2], [-96, -20, 1], [-80, 8, 0.4], [-48, 14, 0]],
-    boosts: [0.06, 0.33, 0.58, 0.86],
+    boosts: [0.06, 0.33, 0.58, 0.86], items: [0.17, 0.45, 0.72],
     sky: { top: 0x4f8fe0, bottom: 0xffd2b0, fog: 0xf2d8e8, fogNear: 90, fogFar: 300 },
     light: { hemiSky: 0xfff0ff, hemiGround: 0x6a4a8a, sun: 0xfff0d0 },
     water: { y: -6, color: 0xf6eaff },
@@ -225,7 +226,7 @@ class Track {
 // ---------- un corredor ----------
 class Racer {
   constructor(race, o) {
-    Object.assign(this, { lap: 0, best: 0, half: false, done: false, time: 0, v: 0, yaw: 0, slip: 0, drift: 0, charge: 0, boostT: 0, bump: 0, i: 0, place: 1, wob: 0, lane: 0 }, o);
+    Object.assign(this, { item: null, roll: 0, spin: 0, spinA: 0, uses: 0, shieldT: 0, inv: 0, lap: 0, best: 0, half: false, done: false, time: 0, v: 0, yaw: 0, slip: 0, drift: 0, charge: 0, boostT: 0, bump: 0, i: 0, place: 1, wob: 0, lane: 0 }, o);
     this.pos = new THREE.Vector3(); this.vel = new THREE.Vector2(); this.race = race;
     const C = race.ctx;
     this.root = new THREE.Group(); race.root.add(this.root);
@@ -243,7 +244,7 @@ class Racer {
         const sit = ch.actions.Sit_Floor_Idle || ch.actions.Idle; sit.setEffectiveWeight(1); sit.time = ch.actions.Sit_Floor_Idle ? 0.35 : 0;
         if (ch.actions.Sit_Floor_Idle && ch.actions.Idle) { ch.actions.Idle.setEffectiveWeight(0.0); }
         ch.mixer.update(0);
-        ch.root.position.set(0, 0.36, -0.42); ch.root.scale.multiplyScalar(0.9); this.body.add(ch.root);
+        ch.root.position.set(0, 0.36, -0.42); ch.root.rotation.y = Math.PI; ch.root.scale.multiplyScalar(0.9); this.body.add(ch.root);
         ch.root.traverse(m => { if (m.isMesh) m.castShadow = true; });
       } catch (e) { console.warn('piloto', e); }
     }
@@ -299,6 +300,7 @@ export class Race {
       const i = (T.N - 6 - row * 13) % T.N, c = T.c[i], r = T.r[i], t = T.t[i];
       R.pos.set(c.x + r.x * col * 2.6, c.y, c.z + r.z * col * 2.6); R.yaw = Math.atan2(t.x, t.z); R.i = i; R.lap = -1; R.half = true; R.dist = T.d[i];
     });
+    this.items = new RaceItems(this);
     this.phase = 'count'; this.t = 3.6; this._pairT = {}; this.clock = 0; this.results = []; this._lastCount = null;
     this.camPos = null; this.lookBack = false;
     this._hud(true); this._engine(true);
@@ -319,8 +321,10 @@ export class Race {
     for (const R of this.racers) {
       const ctl = R.you && !R.done ? this._myControls() : this._cpu(R, dt);
       if (!go) { ctl.throttle = 0; ctl.brake = 1; ctl.drift = false; if (R.you) this._revs = this._myControls().throttle; }
+      if (R.you && ctl.use && this.phase === 'race') this.items.use(R, ctl.back);
       this._drive(R, ctl, dt);
     }
+    this.items.update(dt, this.clock + this.t);
     this._collide(dt);
     for (const R of this.racers) this._laps(R);
     this.place();
@@ -338,7 +342,9 @@ export class Race {
     const brake = (k.KeyS || k.ArrowDown || I._padDodge || this.tBrake || (!touch && I.move.y < -0.5)) ? 1 : 0;
     const drift = !!(k.Space || k.ShiftLeft || k.ShiftRight || I._padShield || this.tDrift);
     this.lookBack = !!(k.KeyC || k.KeyQ);
-    return { steer, throttle, brake, drift };
+    const use = I.pressed('attack') || I.pressed('interact') || I.pressed('grapple') || this.tUseP; this.tUseP = false;
+    const back = !!(k.KeyS || k.ArrowDown || I._padDodge || this.tBrake || I.move.y < -0.5);
+    return { steer, throttle, brake: use && back ? 0 : brake, drift, use, back };
   }
   // la CPU: mira un punto más adelante en su carril y gira hacia él
   _cpu(R, dt) {
@@ -365,6 +371,10 @@ export class Race {
   }
   _drive(R, ctl, dt) {
     const T = this.track;
+    if (R.spin > 0) { // le dieron: da vueltas y casi se para
+      R.spin -= dt; R.spinA += dt * 14 * clamp(R.spin, 0.2, 1); ctl = { steer: 0, throttle: 0, brake: 0, drift: false };
+      R.v -= R.v * damp(3, dt); R.drift = 0;
+    } else R.spinA = 0;
     const top = MAXV * (R.you ? 1 : R.skillNow || R.skill) * (R.boostT > 0 ? 1.42 : 1) * (R.bump > 0 ? 0.7 : 1);
     if (ctl.brake && R.v > 0.5) R.v -= BRAKE * dt;
     else if (ctl.brake) R.v = Math.max(-8, R.v - ACC * 0.6 * dt); // marcha atrás
@@ -485,15 +495,17 @@ export class Race {
     for (const R of this.racers) {
       R.root.position.copy(R.pos);
       R.root.rotation.set(0, R.yaw, 0);
-      R.body.rotation.set(-R.pitch, 0, 0);
+      R.body.rotation.set(-R.pitch, 0, 0); R.body.position.y = R.spin > 0 ? Math.abs(Math.sin(R.spin * 5)) * 0.5 : 0;
+      const cp = this.ctx.camera.position, near = !R.you && Math.hypot(cp.x - R.pos.x, cp.z - R.pos.z) < 4.2 && cp.y > R.pos.y; // no tapar la cámara con el kart que viene pegado detrás
+      R.root.visible = !near && !(R.inv > 0 && R.spin <= 0 && Math.sin(this.clock * 30) > 0.3);
       R.wob += dt * (8 + R.v * 0.6);
-      R.kart.rotation.set(Math.sin(R.wob) * 0.008 * clamp(R.v / 10, 0, 1), R.slip * 0.9, -R.slip * 0.25 - (R.drift ? R.drift * 0.08 : 0));
+      R.kart.rotation.set(Math.sin(R.wob) * 0.008 * clamp(R.v / 10, 0, 1), R.slip * 0.9 + R.spinA, -R.slip * 0.25 - (R.drift ? R.drift * 0.08 : 0));
       if (R.kart.userData.wheels) for (const w of R.kart.userData.wheels) { w.children[0].rotation.x += R.v * dt / 0.34; if (w.userData.front) w.rotation.y = (R.steerVis || 0) * 0.4; }
       R.steerVis = (R.steerVis || 0) + ((R.drift ? R.drift : clamp(R.yawRate || 0, -1, 1)) - (R.steerVis || 0)) * damp(10, dt);
       R.yawRate = angD(R.yaw, R.prevYaw ?? R.yaw) / Math.max(dt, 1e-3) / TURN; R.prevYaw = R.yaw;
       if (R.kart.userData.wheel) R.kart.userData.wheel.rotation.z = -(R.steerVis || 0) * 0.8;
       if (R.ch) { // el piloto se inclina en las curvas
-        R.ch.root.rotation.set(0, R.slip * 0.4, -(R.steerVis || 0) * 0.18);
+        R.ch.root.rotation.set(0, Math.PI + R.slip * 0.4 + R.spinA, -(R.steerVis || 0) * 0.18);
         const b = R.ch.bones; if (b.head) b.head.rotation.y = -(R.steerVis || 0) * 0.25;
       }
       R.shadow.position.set(R.pos.x, R.pos.y + 0.05, R.pos.z); R.shadow.rotation.z = -R.yaw;
@@ -510,7 +522,7 @@ export class Race {
   }
   _camera(dt) {
     const C = this.ctx, cam = C.camera, R = this.me;
-    const back = this.lookBack ? -1 : 1, dist = 7.2 + clamp(R.v / MAXV, 0, 1.4) * 1.6, h = 3.0;
+    const back = this.lookBack ? -1 : 1, dist = 7.2 + clamp(R.v / MAXV, 0, 1.4) * 1.6, h = 3.3;
     const yaw = R.yaw - R.slip * 0.5;
     const want = new THREE.Vector3(R.pos.x - Math.sin(yaw) * dist * back, R.pos.y + h, R.pos.z - Math.cos(yaw) * dist * back);
     if (!this.camPos || this.phase === 'count' && this.t > 3.3) this.camPos = want.clone();
@@ -538,10 +550,12 @@ export class Race {
         el.addEventListener('mousedown', () => { this[key] = true; }); addEventListener('mouseup', () => { this[key] = false; });
       };
       hold('rtDrift', 'tDrift'); hold('rtBrake', 'tBrake');
+      const u = $('rtUse'); const fire = e => { e.preventDefault(); this.tUseP = true; u.classList.add('on'); setTimeout(() => u.classList.remove('on'), 120); };
+      u.addEventListener('touchstart', fire, { passive: false }); u.addEventListener('mousedown', fire);
     }
     this.tDrift = this.tBrake = false;
-    const tip = this.ctx.input.isTouch ? 'Acelera solo · palanca: girar · DERRAPE en curvas y suelta para turbo' : 'W/↑ acelerar · S/↓ frenar · A/D girar · Espacio: derrape (suelta para turbo) · C: mirar atrás';
-    $('raceTip').textContent = tip;
+    const tip = this.ctx.input.isTouch ? 'Acelera solo · palanca: girar · DERRAPE en curvas · toca el objeto para usarlo (con FRENO, hacia atrás)' : 'W/↑ acelerar · S/↓ frenar · A/D girar · Espacio: derrape · E/J: usar objeto (con S, hacia atrás) · C: mirar atrás';
+    $('raceTip').textContent = tip; $('raceTip').classList.remove('fade'); this._itemKey = null;
   }
   _hudTick() {
     const R = this.me, n = this.racers.length;
@@ -556,7 +570,10 @@ export class Race {
     $('raceTurbo').textContent = lv === 2 ? '🔥 SUPER TURBO' : lv === 1 ? '⚡ TURBO' : lv === 0 ? 'derrapando…' : '';
     // mini clasificación
     $('raceBoard').innerHTML = this.order.slice(0, 8).map(o => `<div class="${o.you ? 'me' : ''}"><b>${o.place}</b> <i style="background:#${o.color.toString(16).padStart(6, '0')}"></i>${o.name.replace(/[<>&]/g, '').slice(0, 12)}</div>`).join('');
-    if (this.phase === 'race' && this.clock > 6) $('raceTip').classList.add('fade');
+    if (this.phase === 'race' && this.clock > 7) $('raceTip').classList.add('fade');
+    const el = $('raceItem'), id = R.roll > 0 ? Object.keys(ITEMS)[Math.floor(this.clock * 14) % 6] : R.item;
+    const txt = id ? ITEMS[id].icon : '', key = (R.roll > 0 ? 'r' : '') + txt + (R.uses || 0);
+    if (key !== this._itemKey) { this._itemKey = key; el.innerHTML = id ? `<span>${R.item === 'nitro3' && R.roll <= 0 ? '🔥'.repeat(R.uses) : txt}</span><small>${R.roll > 0 ? '…' : ITEMS[id].name}</small>` : '<small>Caja ?</small>'; el.classList.toggle('full', !!id && R.roll <= 0); }
   }
   _flash(text, color) { const el = $('raceMsg'); el.textContent = text; el.style.color = color; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); }
 
