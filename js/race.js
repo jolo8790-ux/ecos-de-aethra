@@ -57,6 +57,7 @@ export const TRACKS = {
 export const RACE_LAPS = [3, 5];
 const LEVEL = { facil: 0.83, normal: 0.92, dificil: 0.99, auto: 0.9 };
 const COLORS = [0x3aa0ff, 0xff6a4a, 0x6ad04a, 0xffc83a, 0xb070ff, 0xff7ab8, 0x3ad6c6, 0xf0f0f0];
+const INTRO = 4.2; // segundos de presentación de la parrilla
 const BADW = /\b(put[ao]s?|mierda|pendej[oa]s?|idiota|est[uú]pid[oa]|imb[eé]cil|boludo|pelotudo|cabr[oó]n|co[nñ]o|joder|verga|culiao|maric[oó]n|forro|hdp|fuck|shit|bitch)\b/gi;
 const MAXV = 27, ACC = 17, BRAKE = 34, TURN = 2.05;
 
@@ -88,6 +89,11 @@ const iceRoad = () => tex(256, 256, (c, w, h) => {
   for (let i = 0; i < 18; i++) { c.strokeStyle = `rgba(255,255,255,${0.3 + Math.random() * 0.4})`; c.lineWidth = 1 + Math.random() * 2; c.beginPath(); let x = Math.random() * w, y = Math.random() * h; c.moveTo(x, y); for (let k = 0; k < 4; k++) { x += (Math.random() - 0.5) * 60; y += (Math.random() - 0.5) * 60; c.lineTo(x, y); } c.stroke(); }
   for (let i = 0; i < 30; i++) { c.fillStyle = 'rgba(255,255,255,.5)'; c.beginPath(); c.ellipse(Math.random() * w, Math.random() * h, 10 + Math.random() * 16, 4 + Math.random() * 6, Math.random() * 3, 0, 7); c.fill(); }
 });
+const gridTex = n => tex(128, 184, (c, w, h) => {
+  c.clearRect(0, 0, w, h); c.strokeStyle = '#ffffff'; c.lineWidth = 9; c.lineCap = 'square';
+  c.beginPath(); c.moveTo(8, 60); c.lineTo(8, 10); c.lineTo(w - 8, 10); c.lineTo(w - 8, 60); c.stroke(); // la «caja» abierta hacia atrás
+  c.fillStyle = 'rgba(255,255,255,.9)'; c.font = 'bold 56px system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(String(n), w / 2, 120);
+}, false);
 const curbTex = (a = '#f4f2ee', b = '#e8483c') => tex(32, 64, (c, w, h) => { c.fillStyle = a; c.fillRect(0, 0, w, h); c.fillStyle = b; c.fillRect(0, 0, w, h / 2); });
 const checker = () => tex(128, 32, (c, w, h) => { for (let x = 0; x < 16; x++) for (let y = 0; y < 4; y++) { c.fillStyle = (x + y) % 2 ? '#111' : '#fafafa'; c.fillRect(x * 8, y * 8, 8, 8); } });
 const chevron = () => tex(128, 128, (c, w, h) => {
@@ -263,6 +269,22 @@ class Track {
     for (const sg of [-1, 1]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 7, 12), pm); p.position.set(sg * (this.hw + 1), 3.5, 0); p.castShadow = true; arch.add(p); }
     const bn = new THREE.Mesh(new THREE.BoxGeometry(this.def.w + 2.6, 1.5, 0.3), [pm, pm, pm, pm, new THREE.MeshStandardMaterial({ map: banner(TH.banner) }), new THREE.MeshStandardMaterial({ map: banner('META') })]);
     bn.position.y = 6.6; bn.castShadow = true; arch.add(bn);
+    // semáforo de salida (como en la Fórmula 1): cinco pares de luces rojas colgando del arco
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(5.6, 1.5, 0.35), new THREE.MeshStandardMaterial({ color: 0x15151c, roughness: 0.5, metalness: 0.4 }));
+    panel.position.set(0, 5.05, -0.3); panel.castShadow = true; arch.add(panel);
+    for (const x of [-1.6, 1.6]) { const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.9, 6), new THREE.MeshStandardMaterial({ color: 0x333340 })); rod.position.set(x, 6.0, -0.3); arch.add(rod); }
+    this.lights = [];
+    const lg = new THREE.SphereGeometry(0.22, 16, 12);
+    for (let k = 0; k < 5; k++) {
+      const pair = [];
+      for (const y of [5.4, 4.75]) {
+        const m = new THREE.MeshStandardMaterial({ color: 0x2a0606, emissive: 0xff1a10, emissiveIntensity: 0, roughness: 0.3 });
+        for (const z of [-0.5, -0.1]) { const l = new THREE.Mesh(lg, m); l.position.set(-2.2 + k * 1.1, y, z); arch.add(l); }
+        pair.push(m);
+      }
+      this.lights.push(pair);
+    }
+    this.setLights = n => this.lights.forEach((pair, k) => pair.forEach(m => { m.emissiveIntensity = k < n ? 3.2 : 0; m.color.setHex(k < n ? 0xff3020 : 0x2a0606); }));
     for (const sg of [-1, 1]) { const fl = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.2, 4), new THREE.MeshStandardMaterial({ color: 0xffc83a })); fl.position.set(sg * (this.hw + 1), 7.6, 0); arch.add(fl); }
     // placas de impulso
     this.boosts = []; const cv = chevron();
@@ -385,9 +407,15 @@ export class Race {
       const row = Math.floor(k / 2), col = k % 2 ? 1 : -1;
       const i = (T.N - 6 - row * 13) % T.N, c = T.c[i], r = T.r[i], t = T.t[i];
       R.pos.set(c.x + r.x * col * 2.6, c.y, c.z + r.z * col * 2.6); R.yaw = Math.atan2(t.x, t.z); R.i = i; R.lap = -1; R.half = true; R.dist = T.d[i];
+      // caja de salida pintada en la pista, con su número
+      const box = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 3.6), new THREE.MeshBasicMaterial({ map: gridTex(k + 1), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6 }));
+      box.rotation.set(-Math.PI / 2, 0, R.yaw + Math.PI); box.position.set(R.pos.x - Math.sin(R.yaw) * 0.2, c.y + 0.03, R.pos.z - Math.cos(R.yaw) * 0.2); this.root.add(box);
     });
+    this.gridMid = T.c[(T.N - 6 - Math.floor((grid.length - 1) / 2) * 13) % T.N].clone();
     this.items = new RaceItems(this);
-    this.phase = 'count'; this.t = 3.6; this._pairT = {}; this.clock = 0; this.results = []; this._lastCount = null;
+    // salida: presentación de la parrilla, semáforo de cinco luces y ¡fuera! (en línea, la misma espera para todos)
+    this.phase = 'count'; this.st = 0; this.t = 1; this.track.setLights(0);
+    this.hold = 0.5 + ((opts.ep || Math.floor(Math.random() * 1e6)) % 700) / 1000; this._pairT = {}; this.clock = 0; this.results = []; this._lastCount = null;
     this.camPos = null; this.lookBack = false;
     this._hud(true); this._engine(true);
     document.body.classList.toggle('netrace', !!this.net); this._chatClose();
@@ -401,16 +429,21 @@ export class Race {
     if (!this.active || (this.paused && !this.net)) return; // en línea la carrera sigue aunque abras la pausa
     const C = this.ctx;
     if (this.phase === 'count') {
-      this.t -= dt; const n = Math.ceil(this.t - 0.6);
-      if (n !== this._lastCount && n <= 3) { this._lastCount = n; this._flash(n > 0 ? String(n) : '¡YA!', n > 0 ? '#ffd27a' : '#7affa0'); C.audio.play(n > 0 ? 'beep' : 'go'); }
-      if (this.t <= 0.6) this.phase = 'race';
+      this.st += dt;
+      // fuera de línea, acelerar o pulsar salta la presentación
+      if (!this.net && this.st < INTRO - 0.8 && this.st > 0.6 && (C.input.pressed('jump') || C.input.pressed('attack') || C.input.pressed('interact') || C.input.keys.KeyW || C.input.keys.ArrowUp)) this.st = INTRO - 0.8;
+      const L = this.st < INTRO ? 0 : Math.min(5, Math.floor((this.st - INTRO) / 0.75) + 1);
+      if (L !== this._lastCount) { this._lastCount = L; this.track.setLights(L); this._hudLights(L); if (L > 0) C.audio.play('beep'); }
+      if (this.st >= INTRO + 5 * 0.75 + this.hold) { // ¡se apagan las luces!
+        this.phase = 'race'; this.track.setLights(0); this._hudLights(-1); this._flash('¡FUERA!', '#7affa0'); C.audio.play('go'); C.input.rumble(160, 0.6);
+      }
     } else this.clock += dt;
     const go = this.phase === 'race' || this.phase === 'end';
     if (this.net) this._netTick(dt);
     for (const R of this.racers) {
       if (R.remote) { this._remoteTick(R, dt); continue; }
       const ctl = R.you && !R.done ? this._myControls() : this._cpu(R, dt);
-      if (!go) { ctl.throttle = 0; ctl.brake = 1; ctl.drift = false; if (R.you) this._revs = this._myControls().throttle; }
+      if (!go) { if (R.you) this._revs = this._myControls().throttle; ctl.throttle = 0; ctl.brake = 0; ctl.drift = false; ctl.steer = 0; ctl.use = false; R.v = 0; } // quietos en su caja hasta que se apaguen las luces
       if (R.you && ctl.use && this.phase === 'race') this.items.use(R, ctl.back);
       this._drive(R, ctl, dt);
     }
@@ -554,7 +587,7 @@ export class Race {
   }
   _finish() {
     const C = this.ctx;
-    this.phase = 'end'; this.endT = 3.2;
+    this.phase = 'end'; this.endT = 3.2; this._hudLights(-1); this.track.setLights(0);
     const p = this.me.place;
     this._flash(p === 1 ? '¡GANASTE!' : `¡Meta! Llegaste ${p}.º`, p === 1 ? '#ffd27a' : '#ffffff');
     C.audio.play(p <= 3 ? 'unlock' : 'checkpoint');
@@ -583,7 +616,7 @@ export class Race {
     $('raceEndSub').innerHTML = `${this.def.name} · ${this.laps} vueltas · +${rew} Ecos` + ((this.newUnlocks || []).length ? `<div class="raceUnl">🔓 ¡Desbloqueaste ${this.newUnlocks.map(u => u.name).join(', ')}!</div>` : '');
     if ((this.newUnlocks || []).length) this.ctx.audio.play('unlock');
     this._endList();
-    $('bRaceAgain').textContent = this.net ? 'Volver a la sala' : 'Otra carrera';
+    $('bRaceAgain').textContent = this.net ? '🌐 Volver a la sala' : '🔁 Repetir carrera';
     $('raceEnd').classList.remove('hidden');
   }
 
@@ -705,11 +738,24 @@ export class Race {
     const back = this.lookBack ? -1 : 1, dist = 7.2 + clamp(R.v / MAXV, 0, 1.4) * 1.6, h = 3.3;
     const yaw = R.yaw - R.slip * 0.5;
     const want = new THREE.Vector3(R.pos.x - Math.sin(yaw) * dist * back, R.pos.y + h, R.pos.z - Math.cos(yaw) * dist * back);
-    if (!this.camPos || this.phase === 'count' && this.t > 3.3) this.camPos = want.clone();
-    this.camPos.lerp(want, damp(this.lookBack ? 30 : 7, dt));
-    cam.position.copy(this.camPos);
     const look = new THREE.Vector3(R.pos.x + Math.sin(yaw) * 4 * back, R.pos.y + 1.1, R.pos.z + Math.cos(yaw) * 4 * back);
-    cam.lookAt(look);
+    if (this.phase === 'count' && this.st < INTRO + 0.6) {
+      // presentación: cámara de frente a la parrilla que barre de un lado a otro, y luego se pasa detrás de tu kart
+      const T = this.track, N = T.N, rows = Math.ceil(this.racers.length / 2), u = clamp(this.st / (INTRO - 1), 0, 1), ue = u * u * (3 - 2 * u);
+      // la cámara recorre la parrilla de adelante hacia atrás, mirando a los karts de frente
+      const iA = N - 6 + 12, iB = N - 6 - (rows - 1) * 13 + 2, fi = iA + (iB - iA) * ue, ci = ((Math.round(fi) % N) + N) % N, li = ((Math.round(Math.max(fi - 11, N - 6 - (rows - 1) * 13 - 2)) % N) + N) % N;
+      const c = T.c[ci], r = T.r[ci], sw = Math.sin(u * Math.PI * 1.5) * 0.55;
+      const front = new THREE.Vector3(c.x + r.x * T.hw * sw, c.y + 2.0 + Math.sin(u * Math.PI) * 0.8, c.z + r.z * T.hw * sw);
+      const mid = T.c[li].clone().setY(T.c[li].y + 0.7);
+      const k = clamp((this.st - (INTRO - 1.2)) / 1.6, 0, 1), e = k * k * (3 - 2 * k);
+      cam.position.copy(front.lerp(want, e)); cam.lookAt(mid.lerp(look, e));
+      this.camPos = cam.position.clone();
+    } else {
+      if (!this.camPos) this.camPos = want.clone();
+      this.camPos.lerp(want, damp(this.lookBack ? 30 : 7, dt));
+      cam.position.copy(this.camPos);
+      cam.lookAt(look);
+    }
     const fov = 64 + clamp(R.v / MAXV, 0, 1.4) * 10 + (R.boostT > 0 ? 6 : 0);
     cam.fov += (fov - cam.fov) * damp(4, dt); cam.updateProjectionMatrix();
     this.fov = cam.fov;
@@ -755,6 +801,11 @@ export class Race {
     const txt = id ? ITEMS[id].icon : '', key = (R.roll > 0 ? 'r' : '') + txt + (R.uses || 0);
     if (key !== this._itemKey) { this._itemKey = key; el.innerHTML = id ? `<span>${R.item === 'nitro3' && R.roll <= 0 ? '🔥'.repeat(R.uses) : txt}</span><small>${R.roll > 0 ? '…' : ITEMS[id].name}</small>` : '<small>Caja ?</small>'; el.classList.toggle('full', !!id && R.roll <= 0); }
   }
+  _hudLights(n) {
+    const el = $('raceLights'); if (!el) return;
+    el.classList.toggle('hidden', n < 0 || (n === 0 && this.st < INTRO - 0.2));
+    [...el.children].forEach((d, k) => d.classList.toggle('on', k < n));
+  }
   _flash(text, color) { const el = $('raceMsg'); el.textContent = text; el.style.color = color; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); }
 
   // ---------- motor (sonido continuo) ----------
@@ -769,7 +820,7 @@ export class Race {
   }
   _engineTick() {
     if (!this.eng) return; const A = this.ctx.audio, c = A.ctx, R = this.me, k = clamp(Math.abs(R.v) / MAXV, 0, 1.5);
-    const rev = this.phase === 'count' ? (this._revs ? 0.6 + Math.random() * 0.1 : 0.05) : k;
+    const rev = this.phase === 'count' ? (this._revs ? 0.55 + Math.random() * 0.15 : 0.08) : k;
     const f = (48 + rev * 95 + (R.boostT > 0 ? 25 : 0)) * ((R.parts && R.parts.sound) || 1);
     this.eng.o1.frequency.setTargetAtTime(f, c.currentTime, 0.05); this.eng.o2.frequency.setTargetAtTime(f * 0.5, c.currentTime, 0.05);
     this.eng.f.frequency.setTargetAtTime(500 + rev * 1400, c.currentTime, 0.08);
@@ -788,7 +839,7 @@ export class Race {
     for (const R of this.racers) R.remove();
     this.racers = [];
     if (this.root) { C.scene.remove(this.root); this.root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); this.root = null; }
-    if (!keep) this._hud(false);
+    if (!keep) this._hud(false); this._hudLights(-1);
     document.body.classList.remove('netrace'); this._chatClose();
     if (this.net) $('chatBtn').classList.add('hidden');
     this.net = null;

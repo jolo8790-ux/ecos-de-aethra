@@ -3239,10 +3239,21 @@ function leaveRace(keepNet) {
 }
 $('raceBtnPause').onclick = () => race.togglePause();
 $('bRaceResume').onclick = () => race.togglePause();
-$('bRaceRestart').onclick = () => { race.paused = false; race.again(); };
 $('bRaceLeave').onclick = () => leaveRace();
 $('bRaceEndLeave').onclick = () => leaveRace();
 $('bRaceAgain').onclick = () => { if (race.net) backToLobby(); else race.again(); };
+$('bRaceRestart').onclick = () => { race.paused = false; race.again(); };
+// cambiar de pista: vuelve al menú de Carreras (en línea, a la sala: allí el anfitrión elige)
+function raceChangeTrack() {
+  if (race.net) { backToLobby(); return; }
+  const from = raceUI.from; leaveRace();
+  if (from === 'pause') { pause(); openRace('pause'); } else openRace('title');
+}
+function raceToMenu() { // al menú principal del juego
+  const from = raceUI.from; raceUI.from = 'title'; leaveRace(); raceUI.from = from;
+}
+$('bRaceTrack').onclick = raceChangeTrack; $('bRaceTrack2').onclick = raceChangeTrack;
+$('bRaceMenu').onclick = raceToMenu; $('bRaceMenu2').onclick = raceToMenu;
 $('bRacePauseMenu').onclick = () => { if (challenge) { toast('Termina o sal del desafío antes de ir a las Carreras'); return; } openRace('pause'); };
 $('bHubRace').onclick = () => { audio.unlock(); openRace('title'); };
 
