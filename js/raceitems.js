@@ -68,7 +68,7 @@ export class RaceItems {
       if (!on) continue;
       for (const R of race.racers) {
         if (B.t > 0) break;
-        if (Math.hypot(R.pos.x - B.m.position.x, R.pos.z - B.m.position.z) < 2.1) { // la caja se rompe siempre; da objeto si tienes la mano libre
+        if (Math.hypot(R.pos.x - B.m.position.x, R.pos.z - B.m.position.z) < 2.1 && Math.abs(R.pos.y - B.m.position.y) < 2.5) { // la caja se rompe siempre; da objeto si tienes la mano libre
           B.t = 3; this._pop(B.m.position, 0xffd24a, 1.2); this._shards(B.m.position);
           if (R.you) race.ctx.audio.play(R.item || R.roll > 0 ? 'crack' : 'crystal');
           if (!R.item && !(R.roll > 0) && !R.remote) { R.roll = R.you ? 1.0 : 0.4; R.rollFor = roll(R.place, race.racers.length); }
@@ -102,7 +102,7 @@ export class RaceItems {
     if (!R.item || R.roll > 0) return;
     const id = R.item;
     if (id === 'nitro' || id === 'nitro3') {
-      R.boostT = Math.max(R.boostT, 1.5); R.v = Math.max(R.v, 27 * 1.2);
+      R.boostT = Math.max(R.boostT, 1.5); R.nitroT = 1.6; R.v = Math.max(R.v, 27 * 1.2);
       if (R.you) { A.play('dash'); race.ctx.input.rumble(140, 0.5); }
     } else if (id === 'escudo') { R.shieldT = 8; if (R.you) A.play('shieldUp'); }
     else if (id === 'bomba') this._fire(R, 'bomba', back);

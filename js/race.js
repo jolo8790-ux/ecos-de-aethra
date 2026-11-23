@@ -238,8 +238,24 @@ class Track {
     this.tunnels = (F.tunnels || []).map(([a, b]) => [idx(a), idx(b)]);
     this.bridges = (F.bridges || []).map(([a, b]) => [idx(a), idx(b)]);
     this.inRange = (i, list) => list.some(([a, b]) => i >= a && i <= b);
-    this._findShortcut();
+    this.sky = null; this._findShortcut();
+    this._findSky();
     this._build();
+  }
+  // carril colgante: tramo casi recto sin otros elementos; se llega con la rampa de nitro que hay antes
+  _findSky() {
+    const N = this.N, step = this.L / N, Kr = Math.round(26 / step), Ks = Math.round(62 / step), AL = this.alt;
+    const clash = (a, b) => this.tunnels.some(([t0, t1]) => t1 > a && t0 < b) || this.bridges.some(([t0, t1]) => t1 > a && t0 < b)
+      || (AL && AL.b + 20 > a && AL.a - 20 < b);
+    let best = null;
+    for (let s0 = 60 + Kr; s0 + Ks < N - 40; s0 += 4) {
+      const r = s0 - Kr, s1 = s0 + Ks; if (clash(r - 10, s1 + 25)) continue;
+      let bend = 0; for (let k = r; k < s1; k += 4) { const a = this.t[k], b = this.t[k + 4]; bend += Math.abs(Math.atan2(a.x * b.z - a.z * b.x, a.x * b.x + a.z * b.z)); }
+      const climb = Math.abs(this.c[s1].y - this.c[r].y);
+      const score = bend + climb * 0.05; if (!best || score < best.score) best = { r, s0, s1, score };
+    }
+    this.sky = best ? { r: best.r, s0: best.s0, s1: best.s1, H: 5.6, hw: this.hw - 1.2 } : null;
+    if (this.sky) this.ramps = this.ramps.filter(r => r < best.r - 45 || r > best.s1 + 10); // la rampa de nitro sustituye a una normal cercana
   }
   // busca solo el mejor atajo: un tramo recto por dentro de una curva grande que no choque con la pista
   _findShortcut() {
@@ -247,7 +263,7 @@ class Track {
     const busy = i => this.inRange(i, this.tunnels) || this.inRange(i, this.bridges) || this.ramps.some(r => Math.abs(r - i) < 12);
     for (let a = 40; a < N - 100; a += 4) for (let len = 50; len <= 220; len += 6) {
       const b = a + len; if (b > N - 40) continue;
-      if (busy(a) || busy(b) || this.tunnels.some(([t0, t1]) => t1 > a - 10 && t0 < b + 10)) continue;
+      if (busy(a) || busy(b) || this.tunnels.some(([t0, t1]) => t1 > a - 10 && t0 < b + 10) || (this.sky && this.sky.s1 + 25 > a - 10 && this.sky.r - 10 < b + 10)) continue;
       const A = this.c[a], B = this.c[b], cx = B.x - A.x, cz = B.z - A.z, chord = Math.hypot(cx, cz), along = this.d[b] - this.d[a];
       if (along > this.L * 0.24 || chord < 18 || chord > along * 0.75 || Math.abs(B.y - A.y) > 5) continue;
       const side = Math.sign(cx * this.r[a].x + cz * this.r[a].z) || 1;
@@ -420,8 +436,45 @@ class Track {
     const under = new THREE.Mesh(g.clone(), new THREE.MeshStandardMaterial({ color: TH.side, side: THREE.DoubleSide })); under.position.y = -0.6; root.add(under);
     const bush = new THREE.MeshStandardMaterial({ color: TH.road === 'ice' ? 0xe8f4ff : TH.road === 'sand' ? 0x9a7a4a : 0x3a8a3a, roughness: 1, flatShading: true });
     for (let k = 6; k < M - 6; k += 5) for (const sg of [-1, 1]) { const c = A.c[k], r = A.r[k], b2 = new THREE.Mesh(new THREE.IcosahedronGeometry(0.7 + Math.random() * 0.5, 0), bush); b2.position.set(c.x + r.x * (A.hw + 0.4) * sg, c.y + 0.35, c.z + r.z * (A.hw + 0.4) * sg); b2.castShadow = true; root.add(b2); }
-    // matorrales a los lados de la entrada (la «esconden» sin bloquearla)
-    for (const i of [A.a, A.b]) for (const o of [-6, 7]) { const k = i + o, c = this.c[k], r = this.r[k], b2 = new THREE.Mesh(new THREE.IcosahedronGeometry(1.3, 0), bush); b2.position.set(c.x + r.x * (hw + 1.4) * A.side, c.y + 0.6, c.z + r.z * (hw + 1.4) * A.side); root.add(b2); }
+    // la entrada queda tapada por un seto continuo que se puede atravesar: desde la pista parece un borde más
+    const hedge = new THREE.MeshStandardMaterial({ color: TH.road === 'ice' ? 0xdff0ff : TH.road === 'sand' ? 0xb08050 : 0x2f7a34, roughness: 1, flatShading: true });
+    this.hedges = [];
+    for (const [k0, k1] of [[A.a - 4, A.a + 12], [A.b - 12, A.b + 4]]) for (let k = k0; k <= k1; k += 1) {
+      const c = this.c[k], r = this.r[k], h = new THREE.Mesh(new THREE.IcosahedronGeometry(0.75 + Math.random() * 0.25, 0), hedge);
+      h.position.set(c.x + r.x * (hw + 0.2) * A.side, c.y + 0.55 + Math.random() * 0.2, c.z + r.z * (hw + 0.2) * A.side); h.scale.set(1, 0.9, 1); h.rotation.y = Math.random() * 3; root.add(h); this.hedges.push(h);
+    }
+    this._buildSky();
+  }
+  _buildSky() {
+    const S = this.sky; if (!S) return;
+    const root = this.root, hw = this.hw, TH = this.def.theme, { r: ri, s0, s1, H } = S;
+    // rampa grande de nitro
+    const c = this.c[ri], t = this.t[ri], shape = new THREE.Shape(); shape.moveTo(-5, 0); shape.lineTo(1.4, 0); shape.lineTo(1.4, 1.5); shape.lineTo(-5, 0);
+    const g = new THREE.ExtrudeGeometry(shape, { depth: this.def.w * 0.9, bevelEnabled: false }); g.translate(0, 0, -this.def.w * 0.45);
+    const rm = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0xff5a2a, roughness: 0.4, emissive: 0xaa2200, emissiveIntensity: 0.5 }));
+    rm.position.set(c.x, c.y, c.z); rm.rotation.y = Math.atan2(t.x, t.z) - Math.PI / 2; rm.castShadow = true; root.add(rm);
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.3), new THREE.MeshBasicMaterial({ map: banner('NITRO ▲ SALTO'), side: THREE.DoubleSide }));
+    const k0 = Math.max(0, ri - 16); sign.position.set(this.c[k0].x + this.r[k0].x * (hw + 1.3), this.c[k0].y + 2, this.c[k0].z + this.r[k0].z * (hw + 1.3)); sign.rotation.y = Math.atan2(t.x, t.z) + Math.PI; root.add(sign);
+    // el carril: tablero con flechas brillantes, colgado de cables
+    const arrows = tex(128, 256, (cx, w, h) => { cx.fillStyle = '#1a2a4a'; cx.fillRect(0, 0, w, h); cx.strokeStyle = '#4af0ff'; cx.lineWidth = 14; cx.lineCap = 'round';
+      for (const y of [70, 190]) { cx.beginPath(); cx.moveTo(24, y + 30); cx.lineTo(64, y - 20); cx.lineTo(104, y + 30); cx.stroke(); } cx.fillStyle = '#ffd24a'; cx.fillRect(0, 0, 8, h); cx.fillRect(w - 8, 0, 8, h); });
+    const pos = [], uv = [], idx = [], pos2 = [];
+    for (let k = s0; k <= s1; k++) { const p = this.c[k], r = this.r[k], v = (this.d[k] - this.d[s0]) / 6;
+      pos.push(p.x - r.x * S.hw, p.y + H, p.z - r.z * S.hw, p.x + r.x * S.hw, p.y + H, p.z + r.z * S.hw); uv.push(0, v, 1, v);
+      if (k < s1) { const q = (k - s0) * 2; idx.push(q, q + 2, q + 1, q + 1, q + 2, q + 3); } }
+    const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); lg.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); lg.setIndex(idx); lg.computeVertexNormals();
+    const lane = new THREE.Mesh(lg, new THREE.MeshStandardMaterial({ map: arrows, emissive: 0x2a8aff, emissiveMap: arrows, emissiveIntensity: 0.7, roughness: 0.5, side: THREE.DoubleSide })); lane.receiveShadow = true; root.add(lane);
+    const bottom = new THREE.Mesh(lg.clone(), new THREE.MeshStandardMaterial({ color: 0x2a3550, side: THREE.DoubleSide })); bottom.position.y = -0.35; root.add(bottom);
+    const railM = new THREE.MeshStandardMaterial({ color: 0x4af0ff, emissive: 0x2ab0ff, emissiveIntensity: 0.8 }), poleM = new THREE.MeshStandardMaterial({ color: TH.post, roughness: 0.8 }), cab = new THREE.MeshStandardMaterial({ color: 0x2a2a2a });
+    for (const sg of [-1, 1]) {
+      const pts = []; for (let k = s0; k <= s1; k += 2) { const p = this.c[k], r = this.r[k]; pts.push(new THREE.Vector3(p.x + r.x * S.hw * sg, p.y + H + 0.45, p.z + r.z * S.hw * sg)); }
+      root.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), pts.length * 2, 0.09, 6, false), railM));
+      for (let k = s0 + 3; k < s1; k += 12) { const p = this.c[k], r = this.r[k];
+        const top = new THREE.Vector3(p.x + r.x * (hw + 0.9) * sg, p.y + H + 4.5, p.z + r.z * (hw + 0.9) * sg);
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.24, H + 5.5, 6), poleM); pole.position.set(top.x, p.y + (H + 5.5) / 2 - 1, top.z); pole.castShadow = true; root.add(pole);
+        const low = new THREE.Vector3(p.x + r.x * S.hw * sg, p.y + H, p.z + r.z * S.hw * sg), mid = top.clone().add(low).multiplyScalar(0.5), len = top.distanceTo(low);
+        const cb = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, len, 4), cab); cb.position.copy(mid); cb.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), top.clone().sub(low).normalize()); root.add(cb); }
+    }
   }
   // decorado: islas, casas, faro y barriles lejos de la calzada (para el mundo)
   decor(seed = 7) {
@@ -554,7 +607,7 @@ export class Race {
     this.items = new RaceItems(this);
     // salida: presentación de la parrilla, semáforo de cinco luces y ¡fuera! (en línea, la misma espera para todos)
     this.phase = 'count'; this.st = 0; this.t = 1; this.track.setLights(0);
-    this.hold = 0.5 + ((opts.ep || Math.floor(Math.random() * 1e6)) % 700) / 1000; this._pairT = {}; this.clock = 0; this.results = []; this._lastCount = null; this._altSeen = false;
+    this.hold = 0.5 + ((opts.ep || Math.floor(Math.random() * 1e6)) % 700) / 1000; this._pairT = {}; this.clock = 0; this.results = []; this._lastCount = null; this._altSeen = false; this._skySeen = false; this._skyHint = false;
     this.camPos = null; this.lookBack = false;
     this._hud(true); this._engine(true); document.body.classList.remove('raceover');
     $('raceEndTitle').textContent = ''; $('raceEndSub').textContent = ''; $('raceEndList').innerHTML = ''; this.shown = false; this._errs = 0;
@@ -666,6 +719,7 @@ export class Race {
     R.boostT -= dt; R.bump -= dt;
     // placas de impulso
     for (const B of T.boosts) {
+      if (R.onSky || R.air) break;
       const dd = Math.abs(((T.d[R.i] - B.d + T.L * 1.5) % T.L) - T.L / 2);
       if (dd < 3.2 && Math.abs(R.lat - B.lat) < 2.1 && R.boostT < 0.9) { R.boostT = 1.1; R.v = Math.max(R.v, MAXV * 1.15); if (R.you) { this.ctx.audio.play('dash'); this.ctx.input.rumble(120, 0.4); } }
     }
@@ -703,19 +757,42 @@ export class Race {
         if (R.v > 10 && (R.wallT || 0) <= 0) { R.v *= 0.72; R.wallT = 0.4; if (R.you) { this.ctx.audio.play('block'); this.ctx.input.rumble(90, 0.4); } }
         R.lat = sg * lim;
       } else if (Math.abs(F.lat) > T.hw + 0.4) { R.pos.x -= T.r[R.i].x * Math.sign(F.lat) * (Math.abs(F.lat) - T.hw - 0.4); R.pos.z -= T.r[R.i].z * Math.sign(F.lat) * (Math.abs(F.lat) - T.hw - 0.4); }
+      // rampa de nitro: solo con el nitro encendido se sube al carril colgante
+      const S = T.sky;
+      if (S && !R.onSky) {
+        let dd = T.d[R.i] + F.along - T.d[S.r];
+        if (R.you && !this._skyHint && dd > -45 && dd < -30 && !R.air) { this._skyHint = true; this._flash(R.item && /nitro/.test(R.item) ? '¡Usa el nitro antes de la rampa!' : 'Rampa de nitro más adelante'); }
+        if (Math.abs(F.lat) < this.def.w * 0.46 && dd > -5 && dd < 3) {
+          if (dd < 1.4) gy += 1.5 * (dd + 5) / 6.4;
+          const pd = R.skyDD; R.skyDD = dd;
+          if (pd != null && pd < 0.9 && dd >= 0.9 && !R.air && R.v > 6) { const nit = (R.nitroT || 0) > 0; R.air = true; R.vy = nit ? 17 : 5 + R.v * 0.1; R.y = gy; if (R.you) { this.ctx.audio.play(nit ? 'dash' : 'jump'); this.ctx.input.rumble(nit ? 160 : 80, nit ? 0.6 : 0.3); } }
+        }
+      }
       // rampas: la cuña levanta el kart y al final sale volando
       for (const ri of T.ramps) {
         let dd = T.d[R.i] + F.along - T.d[ri]; if (dd > T.L / 2) dd -= T.L; if (dd < -T.L / 2) dd += T.L;
-        if (Math.abs(F.lat) < this.def.w * 0.46 && dd > -3 && dd < 1.2) {
-          gy += 0.9 * (dd + 3) / 4.2;
-          if (dd > 0.6 && !R.air && R.v > 6) { R.air = true; R.vy = 4 + R.v * 0.16; R.y = gy; if (R.you) { this.ctx.audio.play('jump'); this.ctx.input.rumble(80, 0.3); } }
+        if (Math.abs(F.lat) < this.def.w * 0.46 && dd > -3 && dd < 2.5) {
+          if (dd < 1.2) gy += 0.9 * (dd + 3) / 4.2;
+          const pd = R.rampDD && R.rampDD[ri]; (R.rampDD = R.rampDD || {})[ri] = dd;
+          if (pd != null && pd < 0.6 && dd >= 0.6 && !R.air && R.v > 6) { R.air = true; R.vy = 4 + R.v * 0.16; R.y = gy; if (R.you) { this.ctx.audio.play('jump'); this.ctx.input.rumble(80, 0.3); } }
         }
       }
     }
-    R.wallT = (R.wallT || 0) - dt;
+    R.wallT = (R.wallT || 0) - dt; R.nitroT = (R.nitroT || 0) - dt;
+    // en el carril colgante
+    const S = T.sky, onSkyRange = S && !onAlt && R.i >= S.s0 && R.i <= S.s1 && Math.abs(F.lat) < S.hw + 0.3;
+    if (R.onSky && !R.air) {
+      if (!onSkyRange || R.i >= S.s1) { R.onSky = false; R.air = true; R.vy = 2; R.y = R.pos.y; } // se acaba: a volar
+      else {
+        gy = T.c[R.i].y + S.H; pitch = 0; R.boostT = Math.max(R.boostT, 0.25);
+        const lim2 = S.hw - 0.6; if (Math.abs(F.lat) > lim2) { const sg = Math.sign(F.lat), r = T.r[R.i], push = Math.abs(F.lat) - lim2; R.pos.x -= r.x * sg * push; R.pos.z -= r.z * sg * push; const d = angD(R.yaw, Math.atan2(T.t[R.i].x, T.t[R.i].z)); if (Math.abs(d) > 0.12) R.yaw -= d * 0.35; }
+      }
+    }
     if (R.air) {
-      R.vy -= 20 * dt; R.y += R.vy * dt; R.pitch = clamp(-R.vy * 0.03, -0.3, 0.3);
-      if (R.y <= gy) { R.air = false; R.pos.y = gy; R.pitch = pitch; if (R.you) { this.ctx.audio.play('land'); this.ctx.input.rumble(110, 0.5); } if (R.v > 10) R.boostT = Math.max(R.boostT, 0.35); }
+      const y0 = R.y; R.vy -= 20 * dt; R.y += R.vy * dt; R.pitch = clamp(-R.vy * 0.03, -0.3, 0.3);
+      const sy = onSkyRange ? T.c[R.i].y + S.H : null;
+      if (sy != null && R.vy < 0 && y0 >= sy - 0.4 && R.y <= sy) { R.air = false; R.onSky = true; R.pos.y = sy; R.pitch = 0; if (R.you) { this.ctx.audio.play('land'); this.ctx.input.rumble(130, 0.6); if (!this._skySeen) { this._skySeen = true; this._flash('¡Carril colgante!'); } } }
+      else if (R.y <= gy) { R.air = false; R.pos.y = gy; R.pitch = pitch; if (R.you) { this.ctx.audio.play('land'); this.ctx.input.rumble(110, 0.5); } if (R.v > 10) R.boostT = Math.max(R.boostT, 0.35); }
       else R.pos.y = R.y;
     } else { R.pitch = pitch; R.pos.y = gy; }
   }
