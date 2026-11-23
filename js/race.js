@@ -27,7 +27,8 @@ export const TRACKS = {
     light: { hemiSky: 0xfff0ff, hemiGround: 0x6a4a8a, sun: 0xfff0d0 },
     water: { y: -6, color: 0xf6eaff },
     reward: [60, 35, 20, 10],
-    theme: { road: 'planks', curb: ['#f4f2ee', '#e8483c'], side: 0x6e4428, rail: 0x8c5a32, post: 0x5a3820, pile: 0x5e3c24, banner: '⚓  GRAN PREMIO DE PUERTO BRUMA  ⚓', decor: 'puerto', palette: { top: 0x7ac85a, side: 0x8a6a54 } },
+    feat: { ramps: [0.24], tunnels: [[0.08, 0.17]], bridges: [[0.4, 0.5]] },
+    theme: { tunnel: 0x6a5a4a, cable: 0x3a2a1a, road: 'planks', curb: ['#f4f2ee', '#e8483c'], side: 0x6e4428, rail: 0x8c5a32, post: 0x5a3820, pile: 0x5e3c24, banner: '⚓  GRAN PREMIO DE PUERTO BRUMA  ⚓', decor: 'puerto', palette: { top: 0x7ac85a, side: 0x8a6a54 } },
   },
   bosque: {
     name: 'Circuito del Bosque Colgante', short: 'Bosque Colgante', icon: '🌳',
@@ -39,7 +40,8 @@ export const TRACKS = {
     light: { hemiSky: 0xfff4d0, hemiGround: 0x3a5a2a, sun: 0xffe8b0 },
     water: { y: -14, color: 0xc8e8b8 },
     reward: [70, 40, 22, 12],
-    theme: { road: 'forest', curb: ['#ffd24a', '#3a9a4a'], side: 0x5a3a22, rail: 0x4a8a3a, post: 0x4a3018, pile: 0x5a3a22, banner: '🌳  CIRCUITO DEL BOSQUE COLGANTE  🌳', decor: 'bosque', palette: { top: 0x5ab04a, side: 0x6a4a34 } },
+    feat: { ramps: [0.78], tunnels: [[0.18, 0.27]], bridges: [[0.48, 0.58]] },
+    theme: { tunnel: 0x5a3a22, cable: 0x3a6a2a, road: 'forest', curb: ['#ffd24a', '#3a9a4a'], side: 0x5a3a22, rail: 0x4a8a3a, post: 0x4a3018, pile: 0x5a3a22, banner: '🌳  CIRCUITO DEL BOSQUE COLGANTE  🌳', decor: 'bosque', palette: { top: 0x5ab04a, side: 0x6a4a34 } },
   },
   glaciar: {
     name: 'Pista del Glaciar del Eco', short: 'Glaciar del Eco', icon: '❄', lock: 'bosque',
@@ -51,7 +53,21 @@ export const TRACKS = {
     light: { hemiSky: 0xf4f8ff, hemiGround: 0x8aa0c0, sun: 0xffffff },
     water: { y: -8, color: 0xeef6ff },
     reward: [80, 45, 25, 14],
-    theme: { road: 'ice', curb: ['#ffffff', '#3a7aff'], side: 0x9ac0e0, rail: 0xd8ecff, post: 0x7aa0c8, pile: 0xb8d4ee, banner: '❄  PISTA DEL GLACIAR DEL ECO  ❄', decor: 'glaciar', palette: { top: 0xf4f8ff, side: 0x9ab4d0 } },
+    feat: { ramps: [0.6], tunnels: [[0.28, 0.4]], bridges: [[0.7, 0.82]] },
+    theme: { tunnel: 0x9ad0ff, tunnelGlass: true, cable: 0x7aa0c8, road: 'ice', curb: ['#ffffff', '#3a7aff'], side: 0x9ac0e0, rail: 0xd8ecff, post: 0x7aa0c8, pile: 0xb8d4ee, banner: '❄  PISTA DEL GLACIAR DEL ECO  ❄', decor: 'glaciar', palette: { top: 0xf4f8ff, side: 0x9ab4d0 } },
+  },
+  canon: {
+    name: 'Cañón del Ocaso', short: 'Cañón del Ocaso', icon: '🌄', lock: 'glaciar',
+    desc: 'Al atardecer entre mesetas rojas: puente colgante sobre el abismo, túnel en la roca y dos rampas.',
+    w: 13,
+    p: [[0, 0, 0], [50, 0, 2], [90, -15, 6], [110, -50, 10], [95, -90, 12], [55, -110, 9], [15, -100, 6], [-10, -75, 8], [-40, -60, 12], [-80, -75, 10], [-110, -50, 6], [-105, -10, 3], [-70, 15, 1], [-35, 15, 0]],
+    boosts: [0.07, 0.34, 0.6, 0.9], items: [0.16, 0.44, 0.74],
+    sky: { top: 0x4a2a7a, bottom: 0xffa060, fog: 0xf0a878, fogNear: 80, fogFar: 290 },
+    light: { hemiSky: 0xffe0c0, hemiGround: 0x7a3a3a, sun: 0xffc080 },
+    water: { y: -26, color: 0xc0704a },
+    reward: [90, 50, 28, 15],
+    feat: { ramps: [0.27, 0.83], tunnels: [[0.5, 0.58]], bridges: [[0.62, 0.72]] },
+    theme: { tunnel: 0x9a4a32, cable: 0x5a3020, road: 'sand', curb: ['#ffe2a8', '#d0603a'], side: 0x9a5a3a, rail: 0xc08a5a, post: 0x7a4a2a, pile: 0xa06a4a, banner: '☀  CAÑÓN DEL OCASO  ☀', decor: 'ruinas', palette: { top: 0xe0a060, side: 0xb0603a } },
   },
 };
 export const RACE_LAPS = [3, 5];
@@ -105,6 +121,11 @@ const gridTex = n => tex(128, 184, (c, w, h) => {
   c.beginPath(); c.moveTo(8, 60); c.lineTo(8, 10); c.lineTo(w - 8, 10); c.lineTo(w - 8, 60); c.stroke(); // la «caja» abierta hacia atrás
   c.fillStyle = 'rgba(255,255,255,.9)'; c.font = 'bold 56px system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(String(n), w / 2, 120);
 }, false);
+const sandRoad = () => tex(256, 256, (c, w, h) => {
+  c.fillStyle = '#d9a46a'; c.fillRect(0, 0, w, h);
+  for (let i = 0; i < 300; i++) { c.fillStyle = `rgba(${150 + Math.random() * 80},${90 + Math.random() * 50},${50},.25)`; c.beginPath(); c.arc(Math.random() * w, Math.random() * h, 1 + Math.random() * 5, 0, 7); c.fill(); }
+  for (let i = 0; i < 8; i++) { c.strokeStyle = 'rgba(140,80,40,.35)'; c.lineWidth = 2; c.beginPath(); const y = Math.random() * h; c.moveTo(0, y); c.bezierCurveTo(w * 0.3, y + 12, w * 0.7, y - 12, w, y); c.stroke(); }
+});
 const curbTex = (a = '#f4f2ee', b = '#e8483c') => tex(32, 64, (c, w, h) => { c.fillStyle = a; c.fillRect(0, 0, w, h); c.fillStyle = b; c.fillRect(0, 0, w, h / 2); });
 const checker = () => tex(128, 32, (c, w, h) => { for (let x = 0; x < 16; x++) for (let y = 0; y < 4; y++) { c.fillStyle = (x + y) % 2 ? '#111' : '#fafafa'; c.fillRect(x * 8, y * 8, 8, 8); } });
 const chevron = () => tex(128, 128, (c, w, h) => {
@@ -212,7 +233,44 @@ class Track {
     }
     this.L = this.d[N - 1] + this.c[0].distanceTo(this.c[N - 1]);
     this.hw = def.w / 2;
+    const F = def.feat || {}, idx = f => Math.floor(f * N) % N;
+    this.ramps = (F.ramps || []).map(idx);
+    this.tunnels = (F.tunnels || []).map(([a, b]) => [idx(a), idx(b)]);
+    this.bridges = (F.bridges || []).map(([a, b]) => [idx(a), idx(b)]);
+    this.inRange = (i, list) => list.some(([a, b]) => i >= a && i <= b);
+    this._findShortcut();
     this._build();
+  }
+  // busca solo el mejor atajo: un tramo recto por dentro de una curva grande que no choque con la pista
+  _findShortcut() {
+    const N = this.N, hw = this.hw; let best = null;
+    const busy = i => this.inRange(i, this.tunnels) || this.inRange(i, this.bridges) || this.ramps.some(r => Math.abs(r - i) < 12);
+    for (let a = 40; a < N - 100; a += 4) for (let len = 50; len <= 220; len += 6) {
+      const b = a + len; if (b > N - 40) continue;
+      if (busy(a) || busy(b) || this.tunnels.some(([t0, t1]) => t1 > a - 10 && t0 < b + 10)) continue;
+      const A = this.c[a], B = this.c[b], cx = B.x - A.x, cz = B.z - A.z, chord = Math.hypot(cx, cz), along = this.d[b] - this.d[a];
+      if (along > this.L * 0.24 || chord < 18 || chord > along * 0.75 || Math.abs(B.y - A.y) > 5) continue;
+      const side = Math.sign(cx * this.r[a].x + cz * this.r[a].z) || 1;
+      let ok = true;
+      for (let u = 0.1; u <= 0.9 && ok; u += 0.04) {
+        const x = A.x + cx * u, z = A.z + cz * u;
+        for (let k = 0; k < N; k += 2) { if (Math.abs(k - a) < 12 || Math.abs(k - b) < 12) continue; const c = this.c[k]; if (Math.hypot(c.x - x, c.z - z) < hw + 4) { ok = false; break; } }
+      }
+      if (!ok) continue;
+      const gain = along - chord; if (gain < 12) continue;
+      if (!best || gain > best.gain) best = { a, b, side, gain };
+    }
+    this.alt = null; if (!best) return;
+    const { a, b, side } = best, A = this.c[a], B = this.c[b];
+    const P0 = A.clone().addScaledVector(this.r[a], side * (hw - 1.5)), P3 = B.clone().addScaledVector(this.r[b], side * (hw - 1.5));
+    const P1 = P0.clone().addScaledVector(this.r[a], side * 4.5).addScaledVector(this.t[a], 9), P2 = P3.clone().addScaledVector(this.r[b], side * 4.5).addScaledVector(this.t[b], -9);
+    const cur = new THREE.CatmullRomCurve3([P0, P1, P2, P3], false, 'centripetal');
+    const M = Math.max(40, Math.round(cur.getLength() / 1.2)), alt = { a, b, side, M, hw: 3.4, c: [], t: [], r: [], u: [] };
+    for (let k = 0; k <= M; k++) { const p = cur.getPointAt(k / M); p.y = A.y + (B.y - A.y) * (k / M) + Math.sin(Math.PI * k / M) * 0.6; alt.c.push(p); }
+    for (let k = 0; k <= M; k++) { const p0 = alt.c[Math.max(0, k - 1)], p1 = alt.c[Math.min(M, k + 1)], t = p1.clone().sub(p0).setY(0).normalize(); alt.t.push(t); alt.r.push(new THREE.Vector3(-t.z, 0, t.x)); alt.u.push(k / M); }
+    alt.near = (p, hint = -1) => { let bi = 0, bd = Infinity; const lo = hint < 0 ? 0 : Math.max(0, hint - 20), hi = hint < 0 ? M : Math.min(M, hint + 20); for (let k = lo; k <= hi; k++) { const c = alt.c[k], d = (c.x - p.x) ** 2 + (c.z - p.z) ** 2; if (d < bd) { bd = d; bi = k; } } return bi; };
+    alt.frame = (p, k) => { const c = alt.c[k], dx = p.x - c.x, dz = p.z - c.z; return { y: c.y, lat: dx * alt.r[k].x + dz * alt.r[k].z, along: dx * alt.t[k].x + dz * alt.t[k].z }; };
+    this.alt = alt;
   }
   // punto de la pista más cercano, buscando cerca del anterior
   near(p, hint = -1) {
@@ -233,19 +291,21 @@ class Track {
   }
   _build() {
     const N = this.N, hw = this.hw, root = this.root;
-    const ribbon = (offA, offB, yA, yB, vScale, mat, close = true) => {
+    const AL = this.alt, gap = (k, sg) => AL && sg === AL.side && ((k >= AL.a - 4 && k <= AL.a + 12) || (k >= AL.b - 12 && k <= AL.b + 4)); // entradas del atajo
+    this.gap = gap;
+    const ribbon = (offA, offB, yA, yB, vScale, mat, close = true, skip = null) => {
       const pos = [], uv = [], idx = [];
       for (let i = 0; i <= N; i++) {
         const k = i % N, c = this.c[k], r = this.r[k], v = (i === N ? this.L : this.d[k]) / vScale;
         pos.push(c.x + r.x * offA, c.y + yA, c.z + r.z * offA, c.x + r.x * offB, c.y + yB, c.z + r.z * offB);
         uv.push(0, v, 1, v);
-        if (i < N) { const a = i * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+        if (i < N && !(skip && skip(k))) { const a = i * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
       }
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
       const m = new THREE.Mesh(g, mat); m.receiveShadow = true; root.add(m); return m;
     };
     // calzada de tablones
-    const TH = this.def.theme; const pl = TH.road === 'forest' ? forestRoad() : TH.road === 'ice' ? iceRoad() : planks(); ribbon(-hw, hw, 0, 0, TH.road === 'planks' ? 6 : 10, new THREE.MeshStandardMaterial({ map: pl, roughness: TH.road === 'ice' ? 0.25 : 0.8, metalness: TH.road === 'ice' ? 0.1 : 0, side: THREE.DoubleSide }));
+    const TH = this.def.theme; const pl = TH.road === 'forest' ? forestRoad() : TH.road === 'ice' ? iceRoad() : TH.road === 'sand' ? sandRoad() : planks(); ribbon(-hw, hw, 0, 0, TH.road === 'planks' ? 6 : 10, new THREE.MeshStandardMaterial({ map: pl, roughness: TH.road === 'ice' ? 0.25 : 0.8, metalness: TH.road === 'ice' ? 0.1 : 0, side: THREE.DoubleSide }));
     // bordillos rojos y blancos (un poco elevados)
     const cb = curbTex(TH.curb[0], TH.curb[1]); const cm = new THREE.MeshStandardMaterial({ map: cb, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2, side: THREE.DoubleSide });
     ribbon(-hw, -hw + 0.9, 0.03, 0.03, 2.4, cm); ribbon(hw - 0.9, hw, 0.03, 0.03, 2.4, cm);
@@ -253,8 +313,8 @@ class Track {
     const side = new THREE.MeshStandardMaterial({ color: TH.side, roughness: 0.85, side: THREE.DoubleSide });
     ribbon(-hw, -hw, 0, -0.9, 1, side); ribbon(hw, hw, -0.9, 0, 1, side);
     const rail = new THREE.MeshStandardMaterial({ color: TH.rail, roughness: 0.7, side: THREE.DoubleSide });
-    ribbon(-hw - 0.15, -hw - 0.15, 0.55, 0.85, 1, rail).castShadow = true; ribbon(hw + 0.15, hw + 0.15, 0.85, 0.55, 1, rail).castShadow = true;
-    ribbon(-hw - 0.15, -hw - 0.15, 0.2, 0.32, 1, rail); ribbon(hw + 0.15, hw + 0.15, 0.32, 0.2, 1, rail);
+    ribbon(-hw - 0.15, -hw - 0.15, 0.55, 0.85, 1, rail, true, k => gap(k, -1)).castShadow = true; ribbon(hw + 0.15, hw + 0.15, 0.85, 0.55, 1, rail, true, k => gap(k, 1)).castShadow = true;
+    ribbon(-hw - 0.15, -hw - 0.15, 0.2, 0.32, 1, rail, true, k => gap(k, -1)); ribbon(hw + 0.15, hw + 0.15, 0.32, 0.2, 1, rail, true, k => gap(k, 1));
     // postes de la barandilla y pilotes hasta las nubes
     const step = 5, nPost = Math.floor(this.L / step);
     const post = new THREE.InstancedMesh(new THREE.BoxGeometry(0.22, 1.05, 0.22), new THREE.MeshStandardMaterial({ color: TH.post, roughness: 0.8 }), nPost * 2);
@@ -266,11 +326,12 @@ class Track {
       const c = this.c[si], r = this.r[si];
       q.setFromAxisAngle(up, Math.atan2(r.x, r.z));
       for (const sg of [-1, 1]) {
-        m4.compose(new THREE.Vector3(c.x + r.x * (hw + 0.15) * sg, c.y + 0.42, c.z + r.z * (hw + 0.15) * sg), q, s); post.setMatrixAt(pi++, m4);
-        if (k % 3 === 0) { const h = c.y + 0.9 - this.def.water.y + 1; m4.compose(new THREE.Vector3(c.x + r.x * (hw - 1.2) * sg, c.y - 0.9 - h / 2, c.z + r.z * (hw - 1.2) * sg), q, new THREE.Vector3(1, h, 1)); pile.setMatrixAt(pj++, m4); }
+        if (!gap(si, sg)) { m4.compose(new THREE.Vector3(c.x + r.x * (hw + 0.15) * sg, c.y + 0.42, c.z + r.z * (hw + 0.15) * sg), q, s); post.setMatrixAt(pi++, m4); }
+        if (k % 3 === 0 && !this.inRange(si, this.bridges)) { const h = c.y + 0.9 - this.def.water.y + 1; m4.compose(new THREE.Vector3(c.x + r.x * (hw - 1.2) * sg, c.y - 0.9 - h / 2, c.z + r.z * (hw - 1.2) * sg), q, new THREE.Vector3(1, h, 1)); pile.setMatrixAt(pj++, m4); }
       }
     }
     post.count = pi; pile.count = pj; post.castShadow = true; root.add(post, pile);
+    this._buildFeatures();
     // línea de meta y arco
     const c0 = this.c[0], r0 = this.r[0], t0 = this.t[0], yaw = Math.atan2(t0.x, t0.z);
     const fin = new THREE.Mesh(new THREE.PlaneGeometry(this.def.w, 2.2), new THREE.MeshStandardMaterial({ map: checker(), roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }));
@@ -311,6 +372,57 @@ class Track {
       this.boosts.push({ i, lat, mat, d: this.d[i] });
     }
   }
+  _buildFeatures() {
+    const N = this.N, hw = this.hw, root = this.root, TH = this.def.theme, up = new THREE.Vector3(0, 1, 0);
+    // túneles: bóveda, montaña encima y farolillos
+    for (const [a, b] of this.tunnels) {
+      const R = hw + 1.4, seg = 10, pos = [], idx = [];
+      for (let i = a; i <= b; i++) { const c = this.c[i], r = this.r[i]; for (let k = 0; k <= seg; k++) { const ang = Math.PI * k / seg; pos.push(c.x + r.x * Math.cos(ang) * R, c.y - 0.6 + Math.sin(ang) * R * 0.72, c.z + r.z * Math.cos(ang) * R); } }
+      const rows = b - a + 1; for (let i = 0; i < rows - 1; i++) for (let k = 0; k < seg; k++) { const p0 = i * (seg + 1) + k, p1 = p0 + seg + 1; idx.push(p0, p1, p0 + 1, p0 + 1, p1, p1 + 1); }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+      const mat = TH.tunnelGlass ? new THREE.MeshStandardMaterial({ color: TH.tunnel, roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.55, side: THREE.DoubleSide, emissive: 0x2a5a8a, emissiveIntensity: 0.25 })
+        : new THREE.MeshStandardMaterial({ color: TH.tunnel, roughness: 0.95, side: THREE.DoubleSide, flatShading: true });
+      const arch = new THREE.Mesh(g, mat); arch.receiveShadow = true; root.add(arch);
+      const rockM = new THREE.MeshStandardMaterial({ color: TH.tunnel, roughness: 1, flatShading: true, transparent: !!TH.tunnelGlass, opacity: TH.tunnelGlass ? 0.85 : 1 });
+      for (let i = a + 4; i < b - 2; i += 9) { const c = this.c[i]; const rr = hw + 4 + Math.random() * 3, m = new THREE.Mesh(new THREE.IcosahedronGeometry(rr, 0), rockM); m.position.set(c.x, c.y + R * 0.72 + rr * 0.45 * 0.55, c.z); m.scale.set(1, 0.45, 1); m.rotation.y = Math.random() * 3; root.add(m); }
+      const lamp = new THREE.MeshBasicMaterial({ color: 0xffd27a });
+      for (let i = a + 3; i < b; i += 8) for (const sg of [-1, 1]) { const c = this.c[i], r = this.r[i], l = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), lamp); l.position.set(c.x + r.x * (hw + 0.9) * sg, c.y + 2.4, c.z + r.z * (hw + 0.9) * sg); root.add(l); }
+      for (const i of [a, b]) { const c = this.c[i], fr = new THREE.Mesh(new THREE.TorusGeometry(R, 0.7, 6, 18, Math.PI), rockM); fr.position.set(c.x, c.y - 0.6, c.z); fr.scale.set(1, 0.72, 1); fr.rotation.y = Math.atan2(this.t[i].x, this.t[i].z); root.add(fr); }
+    }
+    // puentes colgantes: torres, cables y tirantes
+    for (const [a, b] of this.bridges) {
+      const towerM = new THREE.MeshStandardMaterial({ color: TH.post, roughness: 0.8 }), cableM = new THREE.MeshStandardMaterial({ color: TH.cable, roughness: 0.6 });
+      const H = 9;
+      for (const i of [a, b]) for (const sg of [-1, 1]) { const c = this.c[i], r = this.r[i], tw = new THREE.Mesh(new THREE.BoxGeometry(0.9, H + 4, 0.9), towerM); tw.position.set(c.x + r.x * (hw + 0.8) * sg, c.y + (H + 4) / 2 - 3, c.z + r.z * (hw + 0.8) * sg); tw.castShadow = true; root.add(tw);
+        const fl = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.2, 4), new THREE.MeshStandardMaterial({ color: 0xffc83a })); fl.position.copy(tw.position).setY(c.y + H + 1.6); root.add(fl); }
+      for (const sg of [-1, 1]) {
+        const pts = []; for (let i = a; i <= b; i += 3) { const u = (i - a) / (b - a), c = this.c[i], r = this.r[i]; pts.push(new THREE.Vector3(c.x + r.x * (hw + 0.8) * sg, c.y + 1.4 + (H - 1.4) * (4 * (u - 0.5) ** 2), c.z + r.z * (hw + 0.8) * sg)); }
+        const cur = new THREE.CatmullRomCurve3(pts); root.add(new THREE.Mesh(new THREE.TubeGeometry(cur, pts.length * 3, 0.12, 6, false), cableM));
+        for (let i = a + 3; i < b - 2; i += 4) { const u = (i - a) / (b - a), c = this.c[i], r = this.r[i], h = (H - 1.4) * (4 * (u - 0.5) ** 2) + 0.6; if (h < 0.7) continue; const hg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, h, 4), cableM); hg.position.set(c.x + r.x * (hw + 0.8) * sg, c.y + 0.85 + h / 2, c.z + r.z * (hw + 0.8) * sg); root.add(hg); }
+      }
+    }
+    // rampas: cuña con flechas; al pasar, el kart salta
+    const rampM = new THREE.MeshStandardMaterial({ color: 0xffb030, roughness: 0.5, emissive: 0x6a3a00, emissiveIntensity: 0.4 });
+    for (const i of this.ramps) {
+      const c = this.c[i], t = this.t[i], shape = new THREE.Shape(); shape.moveTo(-3, 0); shape.lineTo(1.2, 0); shape.lineTo(1.2, 0.9); shape.lineTo(-3, 0);
+      const g = new THREE.ExtrudeGeometry(shape, { depth: this.def.w * 0.9, bevelEnabled: false }); g.translate(0, 0, -this.def.w * 0.45);
+      const m = new THREE.Mesh(g, rampM); m.position.set(c.x, c.y, c.z); m.rotation.y = Math.atan2(t.x, t.z) - Math.PI / 2; m.castShadow = true; m.receiveShadow = true; root.add(m);
+      const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.1), new THREE.MeshBasicMaterial({ map: banner('▲ SALTO ▲'), side: THREE.DoubleSide })); sign.position.set(c.x - t.x * 10 + this.r[i].x * (hw + 1.2), c.y + 1.8, c.z - t.z * 10 + this.r[i].z * (hw + 1.2)); sign.rotation.y = Math.atan2(t.x, t.z) + Math.PI; root.add(sign);
+    }
+    // atajo oculto: camino estrecho con bordes bajos y matorrales que tapan la entrada
+    const A = this.alt; if (!A) return;
+    const M = A.M, pos = [], uv = [], idx = [], wpos = [], widx = [];
+    for (let k = 0; k <= M; k++) { const c = A.c[k], r = A.r[k]; pos.push(c.x - r.x * A.hw, c.y + 0.02, c.z - r.z * A.hw, c.x + r.x * A.hw, c.y + 0.02, c.z + r.z * A.hw); uv.push(0, k / 3, 1, k / 3); if (k < M) { const q = k * 2; idx.push(q, q + 2, q + 1, q + 1, q + 2, q + 3); } }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+    const roadTex = TH.road === 'ice' ? iceRoad() : TH.road === 'sand' ? sandRoad() : forestRoad();
+    const road = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: roadTex, color: 0xd8c8b0, roughness: 0.9, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 })); road.receiveShadow = true; root.add(road);
+    // debajo, un soporte para que no flote
+    const under = new THREE.Mesh(g.clone(), new THREE.MeshStandardMaterial({ color: TH.side, side: THREE.DoubleSide })); under.position.y = -0.6; root.add(under);
+    const bush = new THREE.MeshStandardMaterial({ color: TH.road === 'ice' ? 0xe8f4ff : TH.road === 'sand' ? 0x9a7a4a : 0x3a8a3a, roughness: 1, flatShading: true });
+    for (let k = 6; k < M - 6; k += 5) for (const sg of [-1, 1]) { const c = A.c[k], r = A.r[k], b2 = new THREE.Mesh(new THREE.IcosahedronGeometry(0.7 + Math.random() * 0.5, 0), bush); b2.position.set(c.x + r.x * (A.hw + 0.4) * sg, c.y + 0.35, c.z + r.z * (A.hw + 0.4) * sg); b2.castShadow = true; root.add(b2); }
+    // matorrales a los lados de la entrada (la «esconden» sin bloquearla)
+    for (const i of [A.a, A.b]) for (const o of [-6, 7]) { const k = i + o, c = this.c[k], r = this.r[k], b2 = new THREE.Mesh(new THREE.IcosahedronGeometry(1.3, 0), bush); b2.position.set(c.x + r.x * (hw + 1.4) * A.side, c.y + 0.6, c.z + r.z * (hw + 1.4) * A.side); root.add(b2); }
+  }
   // decorado: islas, casas, faro y barriles lejos de la calzada (para el mundo)
   decor(seed = 7) {
     let s = seed; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
@@ -329,6 +441,22 @@ class Track {
       if (k === 0) houses.push({ x, z, w: 5, d: 4.5, h: 3.2, base: top, roof: rnd() < 0.5 ? 0xc9563c : 0x4f7fc0 });
       else if (k === 1) lights.push({ x, z, y: top });
       else { trees.push({ x: x - w * 0.2, z: z - d * 0.15, y: top, s: 0.9 + rnd() * 0.4 }); props.push({ kind: 'barril', x: x + w * 0.2, z: z + d * 0.1, y: top }, { kind: 'caja', x: x + w * 0.25, z: z - d * 0.2, y: top, rot: rnd() * 3 }); }
+    }
+    if (theme === 'ruinas') { // mesetas rojas a franjas y columnas rotas
+      const cols = [0xc8603a, 0xe08a50, 0xa84a32, 0xf0b070];
+      this._mesas = 0; this._cols = 0;
+      for (let n = 0; n < 400 && this._mesas < 16; n++) {
+        const x = -160 + rnd() * 320, z = -190 + rnd() * 250, R = 8 + rnd() * 12; if (!clear(x, z, R + 3)) continue;
+        this._mesas = (this._mesas || 0) + 1; const H = 18 + rnd() * 26, base = this.def.water.y;
+        for (let k = 0; k < 4; k++) { const m = new THREE.Mesh(new THREE.CylinderGeometry(R * (1 - k * 0.06), R * (1.05 - k * 0.05), H / 4, 7, 1), new THREE.MeshStandardMaterial({ color: cols[k], roughness: 1, flatShading: true })); m.position.set(x, base + H / 8 + k * H / 4, z); m.rotation.y = rnd() * 3; m.castShadow = true; this.root.add(m); }
+      }
+      for (let n = 0; n < 120 && (this._cols || 0) < 16; n++) {
+        const x = -130 + rnd() * 260, z = -150 + rnd() * 200; if (!clear(x, z, 2) || clear(x, z, 9)) continue;
+        this._cols = (this._cols || 0) + 1; const i = this.near(new THREE.Vector3(x, 0, z)), c = this.c[i], h = 2 + rnd() * 5;
+        const col = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.8, h, 10), new THREE.MeshStandardMaterial({ color: 0xf0e0c0, roughness: 0.8 })); col.position.set(x, c.y - 1 + h / 2, z); col.castShadow = true; this.root.add(col);
+        const pil = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, c.y + 1 - this.def.water.y, 8), new THREE.MeshStandardMaterial({ color: 0xa06a4a })); pil.position.set(x, (c.y - 1 + this.def.water.y) / 2, z); this.root.add(pil);
+      }
+      return { islands: [], houses: [], trees: [], lighthouses: [], props: [], pines: [], bigTrees: [], mushrooms: [], snow: 0 };
     }
     if (theme === 'bosque') { // árboles colosales que suben desde el fondo junto a la pista
       for (let n = 0; n < 160 && bigTrees.length < 9; n++) { const x = -120 + rnd() * 240, z = -150 + rnd() * 190; if (clear(x, z, 4) && !clear(x, z, 14)) bigTrees.push({ x, z, y: -30, r: 2.4 + rnd() * 1.4, h: 60 + rnd() * 20 }); }
@@ -426,7 +554,7 @@ export class Race {
     this.items = new RaceItems(this);
     // salida: presentación de la parrilla, semáforo de cinco luces y ¡fuera! (en línea, la misma espera para todos)
     this.phase = 'count'; this.st = 0; this.t = 1; this.track.setLights(0);
-    this.hold = 0.5 + ((opts.ep || Math.floor(Math.random() * 1e6)) % 700) / 1000; this._pairT = {}; this.clock = 0; this.results = []; this._lastCount = null;
+    this.hold = 0.5 + ((opts.ep || Math.floor(Math.random() * 1e6)) % 700) / 1000; this._pairT = {}; this.clock = 0; this.results = []; this._lastCount = null; this._altSeen = false;
     this.camPos = null; this.lookBack = false;
     this._hud(true); this._engine(true); document.body.classList.remove('raceover');
     $('raceEndTitle').textContent = ''; $('raceEndSub').textContent = ''; $('raceEndList').innerHTML = ''; this.shown = false; this._errs = 0;
@@ -531,7 +659,7 @@ export class Race {
     }
     const grip = this.def.grip || 1; let turn = ctl.steer * TURN * M.giro * grip * clamp(Math.abs(R.v) / 9, 0, 1) * (R.v < 0 ? -1 : 1) * (1 - clamp(R.v / 60, 0, 0.3));
     if (R.drift) { turn = (R.drift * 0.65 + ctl.steer * 0.55) * TURN * M.giro * 1.25; R.charge += dt * (0.8 + Math.abs(ctl.steer) * 0.6) * M.charge * (this.def.slide ? 1.2 : 1); }
-    R.yaw += turn * dt;
+    R.yaw += turn * dt * (R.air ? 0.35 : 1);
     R.slip += ((R.drift ? R.drift * 0.38 : ctl.steer * 0.08 * (this.def.slide || 1) * clamp(R.v / MAXV, 0, 1)) - R.slip) * damp(6 / (this.def.slide || 1), dt);
     const dir = R.yaw - R.slip * 0.6;
     R.pos.x += Math.sin(dir) * R.v * dt; R.pos.z += Math.cos(dir) * R.v * dt;
@@ -541,21 +669,55 @@ export class Race {
       const dd = Math.abs(((T.d[R.i] - B.d + T.L * 1.5) % T.L) - T.L / 2);
       if (dd < 3.2 && Math.abs(R.lat - B.lat) < 2.1 && R.boostT < 0.9) { R.boostT = 1.1; R.v = Math.max(R.v, MAXV * 1.15); if (R.you) { this.ctx.audio.play('dash'); this.ctx.input.rumble(120, 0.4); } }
     }
-    // pegado a la pista
+    // pegado a la pista (o al atajo oculto si te metiste por el hueco de la barandilla)
     R.i = T.near(R.pos, R.i);
-    const F = T.frame(R.pos, R.i); R.lat = F.lat; R.dist = F.dist;
-    const lim = T.hw - 1.0;
-    if (Math.abs(F.lat) > lim) { // choca con la barandilla: rebota hacia dentro
-      const sg = Math.sign(F.lat), r = T.r[R.i], push = Math.abs(F.lat) - lim;
-      R.pos.x -= r.x * sg * push; R.pos.z -= r.z * sg * push;
-      const ty = Math.atan2(T.t[R.i].x, T.t[R.i].z), d = angD(R.yaw, ty);
-      if (Math.abs(d) > 0.12 && Math.sign(d) === sg * -1 || Math.abs(d) > 0.12) R.yaw -= d * 0.35;
-      if (R.v > 10 && (R.wallT || 0) <= 0) { R.v *= 0.72; R.wallT = 0.4; if (R.you) { this.ctx.audio.play('block'); this.ctx.input.rumble(90, 0.4); } }
-      R.lat = sg * lim;
+    let F = T.frame(R.pos, R.i); const lim = T.hw - 1.0, AL = T.alt;
+    let gy = F.y, pitch = Math.atan2(T.t[R.i].y, Math.hypot(T.t[R.i].x, T.t[R.i].z));
+    if (AL && !R.onAlt && Math.abs(F.lat) > lim - 0.4 && T.gap(R.i, Math.sign(F.lat))) {
+      const k = AL.near(R.pos), AF = AL.frame(R.pos, k);
+      if ((k < 16 || k > AL.M - 16) && Math.abs(AF.lat) < AL.hw + 1.5) { R.onAlt = true; R.ai = k; if (R.you && !this._altSeen) { this._altSeen = true; this._flash('¡Atajo secreto!'); } }
+    }
+    let onAlt = false;
+    if (R.onAlt) {
+      R.ai = AL.near(R.pos, R.ai); const AF = AL.frame(R.pos, R.ai), ends = R.ai < 6 || R.ai > AL.M - 6;
+      if ((ends && Math.abs(F.lat) < lim) || (R.ai === 0 && AF.along < -0.5) || (R.ai === AL.M && AF.along > 0.5)) R.onAlt = false;
+      else {
+        onAlt = true; const al = AL.hw - 0.7;
+        if (Math.abs(AF.lat) > al && !ends) {
+          const sg = Math.sign(AF.lat), r = AL.r[R.ai], push = Math.abs(AF.lat) - al;
+          R.pos.x -= r.x * sg * push; R.pos.z -= r.z * sg * push;
+          const d = angD(R.yaw, Math.atan2(AL.t[R.ai].x, AL.t[R.ai].z)); if (Math.abs(d) > 0.12) R.yaw -= d * 0.35;
+          if (R.v > 10 && (R.wallT || 0) <= 0) { R.v *= 0.8; R.wallT = 0.4; if (R.you) this.ctx.audio.play('block'); }
+        }
+        const idx = Math.min(T.N - 1, Math.round(AL.a + AL.u[R.ai] * (AL.b - AL.a)));
+        R.i = idx; R.lat = 0; R.dist = T.d[idx]; gy = AL.c[R.ai].y; pitch = 0;
+      }
+    }
+    if (!onAlt) {
+      R.lat = F.lat; R.dist = F.dist;
+      if (Math.abs(F.lat) > lim && !(AL && T.gap(R.i, Math.sign(F.lat)))) { // choca con la barandilla: rebota hacia dentro
+        const sg = Math.sign(F.lat), r = T.r[R.i], push = Math.abs(F.lat) - lim;
+        R.pos.x -= r.x * sg * push; R.pos.z -= r.z * sg * push;
+        const ty = Math.atan2(T.t[R.i].x, T.t[R.i].z), d = angD(R.yaw, ty);
+        if (Math.abs(d) > 0.12) R.yaw -= d * 0.35;
+        if (R.v > 10 && (R.wallT || 0) <= 0) { R.v *= 0.72; R.wallT = 0.4; if (R.you) { this.ctx.audio.play('block'); this.ctx.input.rumble(90, 0.4); } }
+        R.lat = sg * lim;
+      } else if (Math.abs(F.lat) > T.hw + 0.4) { R.pos.x -= T.r[R.i].x * Math.sign(F.lat) * (Math.abs(F.lat) - T.hw - 0.4); R.pos.z -= T.r[R.i].z * Math.sign(F.lat) * (Math.abs(F.lat) - T.hw - 0.4); }
+      // rampas: la cuña levanta el kart y al final sale volando
+      for (const ri of T.ramps) {
+        let dd = T.d[R.i] + F.along - T.d[ri]; if (dd > T.L / 2) dd -= T.L; if (dd < -T.L / 2) dd += T.L;
+        if (Math.abs(F.lat) < this.def.w * 0.46 && dd > -3 && dd < 1.2) {
+          gy += 0.9 * (dd + 3) / 4.2;
+          if (dd > 0.6 && !R.air && R.v > 6) { R.air = true; R.vy = 4 + R.v * 0.16; R.y = gy; if (R.you) { this.ctx.audio.play('jump'); this.ctx.input.rumble(80, 0.3); } }
+        }
+      }
     }
     R.wallT = (R.wallT || 0) - dt;
-    const gy = F.y; R.pitch = Math.atan2(T.t[R.i].y, Math.hypot(T.t[R.i].x, T.t[R.i].z));
-    R.pos.y = gy;
+    if (R.air) {
+      R.vy -= 20 * dt; R.y += R.vy * dt; R.pitch = clamp(-R.vy * 0.03, -0.3, 0.3);
+      if (R.y <= gy) { R.air = false; R.pos.y = gy; R.pitch = pitch; if (R.you) { this.ctx.audio.play('land'); this.ctx.input.rumble(110, 0.5); } if (R.v > 10) R.boostT = Math.max(R.boostT, 0.35); }
+      else R.pos.y = R.y;
+    } else { R.pitch = pitch; R.pos.y = gy; }
   }
   _collide() {
     const L = this.racers;

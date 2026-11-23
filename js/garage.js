@@ -136,6 +136,7 @@ export function unlockables() {
   for (const [cat, C] of Object.entries(PARTS)) for (const p of C.list) if (p.lock) out.push({ key: 'p:' + cat + p.id, name: `${C.name.toLowerCase()} «${p.name}»`, reto: p.lock });
   for (const d of DRIVERS) if (d.lock) out.push({ key: 'd:' + d.id, name: `el piloto ${d.name}`, reto: d.lock });
   out.push({ key: 't:glaciar', name: 'la pista del Glaciar del Eco', reto: 'bosque' });
+  out.push({ key: 't:canon', name: 'la pista del Cañón del Ocaso', reto: 'glaciar' });
   return out;
 }
 export function newUnlocks(sv) {
