@@ -28,7 +28,7 @@ export const TRACKS = {
     water: { y: -6, color: 0xf6eaff },
     reward: [60, 35, 20, 10],
     feat: { ramps: [0.24], tunnels: [[0.08, 0.17]], bridges: [[0.4, 0.5]] },
-    theme: { tunnel: 0x6a5a4a, cable: 0x3a2a1a, road: 'planks', curb: ['#f4f2ee', '#e8483c'], side: 0x6e4428, rail: 0x8c5a32, post: 0x5a3820, pile: 0x5e3c24, banner: '⚓  GRAN PREMIO DE PUERTO BRUMA  ⚓', decor: 'puerto', palette: { top: 0x7ac85a, side: 0x8a6a54 } },
+    theme: { tunnel: 0x6a5a4a, cable: 0x3a2a1a, road: 'planks', curb: ['#f4f2ee', '#e8483c'], side: 0x6e4428, rail: 0x8c5a32, post: 0x5a3820, pile: 0x5e3c24, banner: '◆  GRAN PREMIO DE PUERTO BRUMA  ◆', decor: 'puerto', palette: { top: 0x7ac85a, side: 0x8a6a54 } },
   },
   bosque: {
     name: 'Circuito del Bosque Colgante', short: 'Bosque Colgante', icon: '🌳',
@@ -41,7 +41,7 @@ export const TRACKS = {
     water: { y: -14, color: 0xc8e8b8 },
     reward: [70, 40, 22, 12],
     feat: { ramps: [0.78], tunnels: [[0.18, 0.27]], bridges: [[0.48, 0.58]] },
-    theme: { tunnel: 0x5a3a22, cable: 0x3a6a2a, road: 'forest', curb: ['#ffd24a', '#3a9a4a'], side: 0x5a3a22, rail: 0x4a8a3a, post: 0x4a3018, pile: 0x5a3a22, banner: '🌳  CIRCUITO DEL BOSQUE COLGANTE  🌳', decor: 'bosque', palette: { top: 0x5ab04a, side: 0x6a4a34 } },
+    theme: { tunnel: 0x5a3a22, cable: 0x3a6a2a, road: 'forest', curb: ['#ffd24a', '#3a9a4a'], side: 0x5a3a22, rail: 0x4a8a3a, post: 0x4a3018, pile: 0x5a3a22, banner: '◆  CIRCUITO DEL BOSQUE COLGANTE  ◆', decor: 'bosque', palette: { top: 0x5ab04a, side: 0x6a4a34 } },
   },
   glaciar: {
     name: 'Pista del Glaciar del Eco', short: 'Glaciar del Eco', icon: '❄', lock: 'bosque',
@@ -54,7 +54,7 @@ export const TRACKS = {
     water: { y: -8, color: 0xeef6ff },
     reward: [80, 45, 25, 14],
     feat: { ramps: [0.6], tunnels: [[0.28, 0.4]], bridges: [[0.7, 0.82]] },
-    theme: { tunnel: 0x9ad0ff, tunnelGlass: true, cable: 0x7aa0c8, road: 'ice', curb: ['#ffffff', '#3a7aff'], side: 0x9ac0e0, rail: 0xd8ecff, post: 0x7aa0c8, pile: 0xb8d4ee, banner: '❄  PISTA DEL GLACIAR DEL ECO  ❄', decor: 'glaciar', palette: { top: 0xf4f8ff, side: 0x9ab4d0 } },
+    theme: { tunnel: 0x9ad0ff, tunnelGlass: true, cable: 0x7aa0c8, road: 'ice', curb: ['#ffffff', '#3a7aff'], side: 0x9ac0e0, rail: 0xd8ecff, post: 0x7aa0c8, pile: 0xb8d4ee, banner: '◆  PISTA DEL GLACIAR DEL ECO  ◆', decor: 'glaciar', palette: { top: 0xf4f8ff, side: 0x9ab4d0 } },
   },
   canon: {
     name: 'Cañón del Ocaso', short: 'Cañón del Ocaso', icon: '🌄', lock: 'glaciar',
@@ -67,7 +67,7 @@ export const TRACKS = {
     water: { y: -26, color: 0xc0704a },
     reward: [90, 50, 28, 15],
     feat: { ramps: [0.27, 0.83], tunnels: [[0.5, 0.58]], bridges: [[0.62, 0.72]] },
-    theme: { tunnel: 0x9a4a32, cable: 0x5a3020, road: 'sand', curb: ['#ffe2a8', '#d0603a'], side: 0x9a5a3a, rail: 0xc08a5a, post: 0x7a4a2a, pile: 0xa06a4a, banner: '☀  CAÑÓN DEL OCASO  ☀', decor: 'ruinas', palette: { top: 0xe0a060, side: 0xb0603a } },
+    theme: { tunnel: 0x9a4a32, cable: 0x5a3020, road: 'sand', curb: ['#ffe2a8', '#d0603a'], side: 0x9a5a3a, rail: 0xc08a5a, post: 0x7a4a2a, pile: 0xa06a4a, banner: '◆  CAÑÓN DEL OCASO  ◆', decor: 'ruinas', palette: { top: 0xe0a060, side: 0xb0603a } },
   },
   cloaca: {
     name: 'Cloacas de Bruma', short: 'Cloacas de Bruma', icon: '🌀', lock: 'canon', tube: 6,
@@ -1232,7 +1232,7 @@ export class Race {
     $('raceSpeed').innerHTML = `${kmh}<small> km/h</small>`;
     const lv = R.drift ? (R.charge > 1.8 ? 2 : R.charge > 0.9 ? 1 : 0) : -1;
     $('raceTurbo').className = lv < 0 ? '' : 'lv' + lv;
-    $('raceTurbo').textContent = lv === 2 ? '🔥 SUPER TURBO' : lv === 1 ? '⚡ TURBO' : lv === 0 ? 'derrapando…' : '';
+    { const tt = lv === 2 ? '🔥 SUPER TURBO' : lv === 1 ? '⚡ TURBO' : lv === 0 ? 'derrapando…' : ''; if (tt !== this._turboTxt) { this._turboTxt = tt; $('raceTurbo').textContent = tt; } }
     // mini clasificación
     $('raceBoard').innerHTML = this.order.slice(0, 8).map(o => `<div class="${o.you ? 'me' : ''}"><b>${o.place}</b> <i style="background:#${o.color.toString(16).padStart(6, '0')}"></i>${o.name.replace(/[<>&]/g, '').slice(0, 12)}</div>`).join('');
     if (this.phase === 'race' && this.clock > 7) $('raceTip').classList.add('fade');

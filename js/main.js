@@ -32,6 +32,8 @@ import { Combat, DIFF } from './combat.js';
 import { LOGROS, storeOf, unlock, bump as bumpL, addTo as addToL } from './logros.js';
 import { runCredits } from './credits.js';
 import { applySenderos, SENDEROS } from './zones/senderos.js';
+import { installIcons, icon } from './icons.js';
+installIcons();
 import { HEROES, heroById, heroLook, heroUnlocked } from './heroes.js';
 import { ZONE_PIECES, MISIONES, PIECE_TOTAL, piecesOf, pieceCount, pieceHearts, pieceBreakable, newlyDone, givePiece, bumpMax as bumpMaxL } from './piezas.js';
 import { Arena, ARENA_MODES, wireChat } from './arena.js';
@@ -2040,7 +2042,7 @@ function updateChallenge(dt) {
   const C = challenge; if (C.done) return;
   C.t += dt;
   const got = zone.fragments.filter(f => save.fragments.includes(f.id)).length, all = got === zone.fragments.length;
-  $('chTimer').textContent = `⏱ ${fmtT(C.t)}`;
+  { const el = $('chTimer'); let tv = el.querySelector('.tv'); if (!tv) { el.innerHTML = icon('reloj') + ' <span class="tv"></span>'; tv = el.querySelector('.tv'); } tv.textContent = fmtT(C.t); }
   const P = world.portal; if (!P) return;
   if (all && !P.open) { P.setOpen(true); audio.play('unlock'); toast('¡El portal se abrió! Crúzalo'); }
   if (P.open && Math.hypot(player.pos.x - P.pos.x, player.pos.z - P.pos.z) < 1.3 && Math.abs(player.pos.y - P.pos.y) < 2) finishChallenge();
