@@ -6,6 +6,7 @@ import { createCharacter, recolor } from './characters.js';
 import { HEROES, heroById, heroLook, heroUnlocked } from './heroes.js';
 import { prop, hasProp } from './props.js';
 import { RaceItems, ITEMS } from './raceitems.js';
+import { buildHazards, tickHazards } from './racehaz.js';
 import { KARTS, kartById, garageOf, kartPoints, kartMods, PAINTS, TRAILS, DRIVERS, partOf, retoOk } from './garage.js';
 
 const $ = id => document.getElementById(id);
@@ -147,6 +148,45 @@ export const TRACKS = {
     feat: { ramps: [0.22, 0.6, 0.9], tunnels: [[0.4, 0.47]], bridges: [[0.7, 0.8]] },
     theme: { tunnel: 0xf0f4ff, tunnelGlass: true, cable: 0xc8a050, road: 'marble', curb: ['#ffffff', '#ffc83a'], side: 0xe8eef8, rail: 0xffffff, post: 0xd8e0f0, pile: 0xe8eef8, banner: '◆  CUMBRE DE LAS NUBES  ◆', decor: 'nubes', palette: { top: 0xffffff, side: 0xd8e0f0 } },
   },
+  circo: {
+    name: 'Gran Circo de Aethra', short: 'Gran Circo', icon: '🎪', lock: 'cumbre',
+    desc: 'Entre carpas a rayas, una noria que gira y globos de colores: cuidado con las barras giratorias y las pelotas gigantes.',
+    w: 13,
+    p: [[0, 0, 0], [55, 0, 1], [100, -12, 3], [118, -55, 4], [95, -95, 2], [55, -110, 0], [20, -95, 2], [-15, -120, 4], [-60, -130, 2], [-100, -105, 0], [-112, -60, 2], [-90, -20, 1], [-45, 5, 0]],
+    boosts: [0.08, 0.33, 0.58, 0.85], items: [0.16, 0.44, 0.72],
+    sky: { top: 0x3a2a7a, bottom: 0xffa8c8, fog: 0xe8b0d0, fogNear: 90, fogFar: 300 },
+    light: { hemiSky: 0xfff0f8, hemiGround: 0x8a5a7a, sun: 0xffe0d0 },
+    water: { y: -18, color: 0xf0c8e8 },
+    reward: [180, 100, 58, 32],
+    feat: { ramps: [0.27, 0.74], tunnels: [[0.45, 0.52]], bridges: [[0.62, 0.7]] },
+    theme: { tunnel: 0xe8303a, cable: 0xffd24a, road: 'circo', curb: ['#ffffff', '#e8303a'], side: 0x8a3a4a, rail: 0xffd24a, post: 0xe8303a, pile: 0x6a3a4a, banner: '★  GRAN CIRCO DE AETHRA  ★', decor: 'circo', palette: { top: 0xe8a0c0, side: 0x8a3a4a } },
+  },
+  sombras: {
+    name: 'Reino de las Sombras', short: 'Reino de Sombras', icon: '👻', lock: 'circo',
+    desc: 'Un mundo oscuro de agujas negras y cristales violetas, con ojos gigantes en el cielo, espectros y manos que salen del suelo.',
+    w: 13,
+    p: [[0, 0, 0], [50, -4, 3], [92, -25, 7], [110, -68, 9], [82, -105, 5], [40, -95, 2], [5, -125, 0], [-40, -140, 3], [-85, -120, 7], [-108, -78, 4], [-112, -38, 1], [-95, 2, 3], [-50, 8, 0]],
+    boosts: [0.07, 0.32, 0.58, 0.84], items: [0.15, 0.43, 0.71],
+    sky: { top: 0x05000c, bottom: 0x3a1a5a, fog: 0x1a0a2a, fogNear: 50, fogFar: 220 },
+    light: { hemiSky: 0xb08aff, hemiGround: 0x1a0a24, sun: 0xd0a0ff },
+    water: { y: -20, color: 0x1a0a2a },
+    reward: [190, 106, 62, 34],
+    feat: { ramps: [0.25, 0.79], tunnels: [[0.4, 0.48]], bridges: [[0.6, 0.68]] },
+    theme: { tunnel: 0x2a1a3a, cable: 0x5a2a8a, road: 'sombra', curb: ['#b06aff', '#140a1e'], side: 0x1a1024, rail: 0x5a3a7a, post: 0x140a1e, pile: 0x1a1024, banner: '◆  REINO DE LAS SOMBRAS  ◆', decor: 'sombras', palette: { top: 0x2a1a3a, side: 0x140a1e } },
+  },
+  ovni: {
+    name: 'Base de los Ovnis', short: 'Base Ovni', icon: '🛸', lock: 'sombras',
+    desc: 'De noche, bajo un planeta con anillos: platillos volantes con rayos tractores que te abducen y meteoritos que caen.',
+    w: 13,
+    p: [[0, 0, 0], [60, 0, 2], [112, -18, 6], [128, -65, 8], [100, -102, 5], [60, -92, 9], [30, -125, 6], [-20, -142, 2], [-70, -128, 0], [-108, -95, 3], [-118, -50, 6], [-90, -12, 3], [-45, 6, 0]],
+    boosts: [0.08, 0.34, 0.6, 0.86], items: [0.16, 0.45, 0.73],
+    sky: { top: 0x020a14, bottom: 0x0a3a3a, fog: 0x0a2a2a, fogNear: 70, fogFar: 260 },
+    light: { hemiSky: 0x8affd8, hemiGround: 0x0a2a2a, sun: 0xc8fff0 },
+    water: { y: -18, color: 0x0a3a3a },
+    reward: [200, 112, 66, 36],
+    feat: { ramps: [0.22, 0.56, 0.88], tunnels: [[0.42, 0.49]], bridges: [[0.66, 0.74]] },
+    theme: { tunnel: 0x3a4a5a, tunnelGlass: true, cable: 0x6affc8, road: 'neon', curb: ['#6affc8', '#0a1a24'], side: 0x1a2a34, rail: 0x6affc8, post: 0x2a3a44, pile: 0x1a2a34, banner: '◆  BASE DE LOS OVNIS  ◆', decor: 'ovni', palette: { top: 0x2a4a4a, side: 0x1a2a34 } },
+  },
 };
 export const RACE_LAPS = [3, 5];
 const LEVEL = { facil: 0.83, normal: 0.92, dificil: 0.99, auto: 0.9 };
@@ -244,7 +284,23 @@ const marbleRoad = () => tex(256, 256, (c, w, h) => {
   for (let i = 0; i < 12; i++) { c.strokeStyle = `rgba(150,160,190,${0.2 + Math.random() * 0.3})`; c.lineWidth = 1 + Math.random() * 2; c.beginPath(); let x = Math.random() * w, y = 0; c.moveTo(x, y); while (y < h) { x += (Math.random() - 0.5) * 30; y += 20; c.lineTo(x, y); } c.stroke(); }
   c.strokeStyle = 'rgba(200,170,90,.5)'; c.lineWidth = 2; for (let y = 0; y < h; y += 128) { c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke(); }
 });
-const ROADS = { forest: () => forestRoad(), ice: () => iceRoad(), sand: () => sandRoad(), basalt: basaltRoad, glass: glassRoad, metal: metalRoad, marble: marbleRoad };
+const circoRoad = () => tex(256, 256, (c, w, h) => {
+  for (let y = 0; y < h; y += 32) { c.fillStyle = (y / 32) % 2 ? '#c8803a' : '#b8702e'; c.fillRect(0, y, w, 32); c.fillStyle = 'rgba(0,0,0,.2)'; c.fillRect(0, y, w, 2); }
+  c.fillStyle = 'rgba(255,210,74,.85)'; const star = (x, y, r) => { c.beginPath(); for (let k = 0; k < 10; k++) { const a = k * Math.PI / 5 - Math.PI / 2, rr = k % 2 ? r * 0.45 : r; c.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } c.fill(); };
+  star(w * 0.5, h * 0.25, 18); star(w * 0.5, h * 0.75, 18); c.fillStyle = 'rgba(232,48,58,.7)'; star(w * 0.2, h * 0.5, 10); star(w * 0.8, h * 0.5, 10);
+});
+const sombraRoad = () => tex(256, 256, (c, w, h) => {
+  c.fillStyle = '#1a1420'; c.fillRect(0, 0, w, h);
+  for (let i = 0; i < 160; i++) { c.fillStyle = `rgba(${40 + Math.random() * 30},${30},${50 + Math.random() * 30},.5)`; c.fillRect(Math.random() * w, Math.random() * h, 6 + Math.random() * 20, 4 + Math.random() * 10); }
+  c.strokeStyle = 'rgba(176,106,255,.85)'; c.lineWidth = 2.5; c.lineCap = 'round';
+  for (let k = 0; k < 6; k++) { const x = 30 + Math.random() * (w - 60), y = 30 + Math.random() * (h - 60), r = 10 + Math.random() * 8; c.beginPath(); c.arc(x, y, r, 0, Math.PI * 1.6); c.moveTo(x - r, y); c.lineTo(x + r, y); c.moveTo(x, y - r); c.lineTo(x, y + r * 0.5); c.stroke(); }
+});
+const neonRoad = () => tex(256, 256, (c, w, h) => {
+  c.fillStyle = '#0c1a22'; c.fillRect(0, 0, w, h);
+  c.strokeStyle = 'rgba(106,255,200,.55)'; c.lineWidth = 2; for (let k = 0; k <= 4; k++) { c.beginPath(); c.moveTo(k * w / 4, 0); c.lineTo(k * w / 4, h); c.stroke(); c.beginPath(); c.moveTo(0, k * h / 4); c.lineTo(w, k * h / 4); c.stroke(); }
+  c.fillStyle = 'rgba(106,255,200,.9)'; for (let k = 0; k < 4; k++) c.fillRect(w / 2 - 3, k * h / 4 + 14, 6, 34);
+});
+const ROADS = { circo: circoRoad, sombra: sombraRoad, neon: neonRoad, forest: () => forestRoad(), ice: () => iceRoad(), sand: () => sandRoad(), basalt: basaltRoad, glass: glassRoad, metal: metalRoad, marble: marbleRoad };
 const roadOf = k => (ROADS[k] || planks)();
 const curbTex = (a = '#f4f2ee', b = '#e8483c') => tex(32, 64, (c, w, h) => { c.fillStyle = a; c.fillRect(0, 0, w, h); c.fillStyle = b; c.fillRect(0, 0, w, h / 2); });
 const checker = () => tex(128, 32, (c, w, h) => { for (let x = 0; x < 16; x++) for (let y = 0; y < 4; y++) { c.fillStyle = (x + y) % 2 ? '#111' : '#fafafa'; c.fillRect(x * 8, y * 8, 8, 8); } });
@@ -524,7 +580,7 @@ class Track {
       const m = new THREE.Mesh(g, mat); m.receiveShadow = true; root.add(m); return m;
     };
     // calzada de tablones
-    const TH = this.def.theme; const pl = roadOf(TH.road); ribbon(-hw, hw, 0, 0, TH.road === 'planks' ? 6 : 10, new THREE.MeshStandardMaterial({ map: pl, roughness: TH.road === 'ice' || TH.road === 'glass' || TH.road === 'marble' ? 0.25 : TH.road === 'metal' ? 0.45 : 0.8, metalness: TH.road === 'ice' ? 0.1 : TH.road === 'metal' ? 0.2 : 0, side: THREE.DoubleSide }));
+    const TH = this.def.theme; const pl = roadOf(TH.road); const glowRoad = TH.road === 'neon' || TH.road === 'sombra'; ribbon(-hw, hw, 0, 0, TH.road === 'planks' ? 6 : 10, new THREE.MeshStandardMaterial({ map: pl, roughness: TH.road === 'ice' || TH.road === 'glass' || TH.road === 'marble' ? 0.25 : TH.road === 'metal' ? 0.45 : TH.road === 'neon' ? 0.4 : 0.8, metalness: TH.road === 'ice' ? 0.1 : TH.road === 'metal' ? 0.2 : 0, side: THREE.DoubleSide, ...(glowRoad ? { emissive: 0xffffff, emissiveMap: pl, emissiveIntensity: 0.35 } : {}) }));
     // bordillos rojos y blancos (un poco elevados)
     const cb = curbTex(TH.curb[0], TH.curb[1]); const cm = new THREE.MeshStandardMaterial({ map: cb, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2, side: THREE.DoubleSide });
     ribbon(-hw, -hw + 0.9, 0.03, 0.03, 2.4, cm); ribbon(hw - 0.9, hw, 0.03, 0.03, 2.4, cm);
@@ -700,6 +756,7 @@ class Track {
     }
     const EMPTY = { islands: [], houses: [], trees: [], lighthouses: [], props: [], pines: [], bigTrees: [], mushrooms: [], snow: 0 };
     const M = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8, ...o }), add = m => { this.root.add(m); return m; };
+    const B = (c, o = {}) => new THREE.MeshBasicMaterial({ color: c, ...o });
     const spots = (n, R, near = false, tries = 500) => { const out = []; for (let k = 0; k < tries && out.length < n; k++) { const x = -170 + rnd() * 340, z = -200 + rnd() * 260; if (!clear(x, z, R)) continue; if (near && clear(x, z, R + 18)) continue; if (out.some(o => Math.hypot(o.x - x, o.z - z) < R * 2)) continue; out.push({ x, z }); } return out; };
     const wy = this.def.water.y;
     this.spinners = []; this.bobs = [];
@@ -757,6 +814,48 @@ class Track {
         g.position.set(x, 6 + rnd() * 14, z); add(g); this.bobs.push({ m: g, y0: g.position.y, a: 1, sp: 0.2 }); }
       const rb = ['#ff4a4a', '#ff9a3a', '#ffe04a', '#5ad05a', '#4ab0ff', '#7a5aff'];
       rb.forEach((c, k) => { const a = add(new THREE.Mesh(new THREE.TorusGeometry(120 - k * 3, 1.5, 6, 60, Math.PI), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.45, fog: false, depthWrite: false }))); a.position.set(0, -20, -260); });
+      return EMPTY;
+    }
+    if (theme === 'circo') { // carpas a rayas, noria, globos y focos
+      const stripe = (a, b) => tex(256, 64, (c, w, h) => { for (let k = 0; k < 16; k++) { c.fillStyle = k % 2 ? a : b; c.fillRect(k * w / 16, 0, w / 16 + 1, h); } });
+      const pairs = [['#e8303a', '#ffffff'], ['#3a6aff', '#ffd24a'], ['#ffd24a', '#e8303a'], ['#5ad05a', '#ffffff']];
+      spots(7, 12).forEach(({ x, z }, k) => { const [a, b] = pairs[k % 4], R = 9 + rnd() * 6, H = 7 + rnd() * 4;
+        const mt = new THREE.MeshStandardMaterial({ map: stripe(a, b), roughness: 0.7 });
+        const wall = add(new THREE.Mesh(new THREE.CylinderGeometry(R, R, H, 24, 1, true), mt)); wall.position.set(x, wy + 14 + H / 2, z);
+        const roof = add(new THREE.Mesh(new THREE.ConeGeometry(R * 1.1, H * 1.1, 24), mt)); roof.position.set(x, wy + 14 + H + H * 0.55, z);
+        const flag = add(new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.6, 3), M(0xffd24a))); flag.position.set(x, wy + 14 + H + H * 1.15, z); flag.rotation.z = -Math.PI / 2;
+        const isl = add(new THREE.Mesh(new THREE.CylinderGeometry(R + 2, R - 2, 6, 16), M(0x8a5a3a))); isl.position.set(x, wy + 11, z); });
+      spots(1, 18).forEach(({ x, z }) => { const g = new THREE.Group(), Rw = 16, rim = new THREE.Mesh(new THREE.TorusGeometry(Rw, 0.35, 6, 48), M(0xffffff, { metalness: 0.4 })); g.add(rim);
+        for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2, sp = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, Rw, 5), M(0xffffff)); sp.position.set(Math.cos(a) * Rw / 2, Math.sin(a) * Rw / 2, 0); sp.rotation.z = a - Math.PI / 2; g.add(sp);
+          const cab = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.6, 1.6), M([0xe8303a, 0x3a6aff, 0xffd24a, 0x5ad05a][k % 4])); cab.position.set(Math.cos(a) * Rw, Math.sin(a) * Rw - 1, 0); g.add(cab); }
+        g.position.set(x, wy + 34, z); g.rotation.y = rnd() * 3; g.rotation.order = 'YXZ'; add(g); g.userData.sp = 0.15; this.spinners.push(g);
+        for (const s of [-1, 1]) { const leg = add(new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.5, 34, 6), M(0xd8d8e0))); leg.position.set(x + s * 6, wy + 17, z); leg.rotation.z = s * 0.18; } });
+      for (let k = 0; k < 40; k++) { const x = -160 + rnd() * 320, z = -200 + rnd() * 260; if (!clear(x, z, 2)) continue; const g = new THREE.Group();
+        g.add(new THREE.Mesh(new THREE.SphereGeometry(0.9, 12, 10), M([0xe8303a, 0x3a6aff, 0xffd24a, 0x5ad05a, 0xff8ad0][k % 5], { roughness: 0.3 })));
+        const str = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 3, 4), M(0xffffff)); str.position.y = -2.3; g.add(str); g.position.set(x, 4 + rnd() * 20, z); add(g); this.bobs.push({ m: g, y0: g.position.y, a: 1.2, sp: 0.5 + rnd() * 0.5 }); }
+      return EMPTY;
+    }
+    if (theme === 'sombras') { // agujas negras, cristales violetas y ojos enormes en el cielo
+      for (const { x, z } of spots(26, 3)) { const h = 20 + rnd() * 40, m = add(new THREE.Mesh(new THREE.ConeGeometry(1.5 + rnd() * 2.5, h, 5), M(0x0e0814, { roughness: 0.9, flatShading: true }))); m.position.set(x, wy + h / 2, z); m.rotation.y = rnd() * 3; }
+      for (let k = 0; k < 30; k++) { const x = -160 + rnd() * 320, z = -200 + rnd() * 260; if (!clear(x, z, 2)) continue; const c = add(new THREE.Mesh(new THREE.OctahedronGeometry(0.8 + rnd() * 1.2, 0), M(0xb06aff, { emissive: 0x7a2aff, emissiveIntensity: 1, roughness: 0.2 }))); c.scale.y = 1.8; c.position.set(x, 2 + rnd() * 18, z); this.bobs.push({ m: c, y0: c.position.y, a: 1, sp: 0.6 + rnd() * 0.4 }); }
+      [[-90, 70, -240], [110, 90, -220], [0, 120, -300]].forEach(([x, y, z], k) => { const g = new THREE.Group(); const w = new THREE.Mesh(new THREE.SphereGeometry(10 + k * 3, 24, 16), B(0xf0e8ff, { fog: false })); w.scale.z = 0.4; g.add(w);
+        const iris = new THREE.Mesh(new THREE.CircleGeometry(5 + k, 24), B(0xa04aff, { fog: false })); iris.position.z = 4.2 + k * 1.3; g.add(iris); const pup = new THREE.Mesh(new THREE.CircleGeometry(2.4 + k * 0.5, 20), B(0x05000c, { fog: false })); pup.position.z = 4.3 + k * 1.3; g.add(pup);
+        g.position.set(x, y, z); g.lookAt(0, 0, -60); add(g); this.bobs.push({ m: g, y0: y, a: 2, sp: 0.3 + k * 0.1 }); });
+      return EMPTY;
+    }
+    if (theme === 'ovni') { // estrellas, planeta con anillos, platillos lejanos y antenas
+      const sg = new THREE.BufferGeometry(), sp = []; for (let k = 0; k < 900; k++) { const a = rnd() * 6.28, b = rnd() * 1.2, r = 380; sp.push(Math.cos(a) * Math.cos(b) * r, Math.sin(b) * r + 10, Math.sin(a) * Math.cos(b) * r); }
+      sg.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3)); add(new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xd8fff0, size: 1.6, sizeAttenuation: false, fog: false })));
+      const pl = add(new THREE.Mesh(new THREE.SphereGeometry(40, 32, 20), M(0x3a8a7a, { emissive: 0x1a4a3a, emissiveIntensity: 0.6, fog: false }))); pl.position.set(140, 110, -330);
+      const ring = add(new THREE.Mesh(new THREE.RingGeometry(52, 78, 48), B(0x8affd8, { transparent: true, opacity: 0.45, side: THREE.DoubleSide, fog: false }))); ring.position.copy(pl.position); ring.rotation.set(1.2, 0.3, 0);
+      for (let k = 0; k < 9; k++) { const x = -180 + rnd() * 360, z = -240 + rnd() * 300; if (!clear(x, z, 8)) continue; const g = new THREE.Group();
+        const d = new THREE.Mesh(new THREE.SphereGeometry(4, 20, 8), M(0xb8c0c8, { metalness: 0.8, roughness: 0.25 })); d.scale.y = 0.28; g.add(d);
+        const dome = new THREE.Mesh(new THREE.SphereGeometry(1.8, 14, 8, 0, 6.3, 0, Math.PI / 2), M(0x6affc8, { transparent: true, opacity: 0.7, emissive: 0x2aaa7a, emissiveIntensity: 0.8 })); dome.position.y = 0.7; g.add(dome);
+        for (let q = 0; q < 8; q++) { const l = new THREE.Mesh(new THREE.SphereGeometry(0.25, 6, 5), B(q % 2 ? 0xffd24a : 0x6affc8)); const a = q / 8 * 6.28; l.position.set(Math.cos(a) * 3.6, -0.2, Math.sin(a) * 3.6); g.add(l); }
+        g.position.set(x, 15 + rnd() * 30, z); add(g); g.userData.axis = 'y'; g.userData.sp = 0.8 + rnd(); this.spinners.push(g); this.bobs.push({ m: g, y0: g.position.y, a: 3, sp: 0.3 + rnd() * 0.3 }); }
+      for (const { x, z } of spots(8, 3, true)) { const h = 14 + rnd() * 10, tw = add(new THREE.Mesh(new THREE.CylinderGeometry(0.4, 1.2, h, 6), M(0x2a3a44, { metalness: 0.6 }))); tw.position.set(x, wy + h / 2 + (0 - wy) - 4, z);
+        const tip = add(new THREE.Mesh(new THREE.SphereGeometry(0.6, 10, 8), B(0x6affc8))); tip.position.set(x, tw.position.y + h / 2 + 0.4, z);
+        const dish = add(new THREE.Mesh(new THREE.SphereGeometry(2.2, 16, 8, 0, 6.3, 0, 1.1), M(0xd8e0e8, { metalness: 0.5, side: THREE.DoubleSide }))); dish.position.set(x, tw.position.y + h / 2 - 2, z); dish.rotation.x = Math.PI * 0.75; }
       return EMPTY;
     }
     if (theme === 'cloaca') return { islands: [], houses: [], trees: [], lighthouses: [], props: [], pines: [], bigTrees: [], mushrooms: [], snow: 0 };
@@ -871,7 +970,7 @@ export class Race {
     this.gridMid = T.c[(T.N - 6 - Math.floor((grid.length - 1) / 2) * 13) % T.N].clone();
     this.items = new RaceItems(this);
     if (T.tube) for (const o of this.root.children) if (o.userData.grid) T.bend(o);
-    this._buildObstacles(level);
+    buildHazards(this, level);
     // salida: presentación de la parrilla, semáforo de cinco luces y ¡fuera! (en línea, la misma espera para todos)
     this.phase = 'count'; this.st = 0; this.t = 1; this.track.setLights(0);
     this.hold = 0.5 + ((opts.ep || Math.floor(Math.random() * 1e6)) % 700) / 1000; this._pairT = {}; this.clock = 0; this.results = []; this._lastCount = null; this._altSeen = false; this._skySeen = false; this._skyHint = false;
@@ -917,53 +1016,19 @@ export class Race {
     safe('objetos', () => {
       const T = this.track, kids = this.items.root.children;
       if (T.tube) for (const o of kids) if (o.userData.lp) { o.position.copy(o.userData.lp); o.quaternion.copy(o.userData.lq); }
-      this._obstacles(dt); this.items.update(dt, this.clock + this.t);
+      tickHazards(this, dt); this.items.update(dt, this.clock + this.t);
       if (T.tube) for (const o of kids) { const u = o.userData; (u.lp || (u.lp = new THREE.Vector3())).copy(o.position); (u.lq || (u.lq = new THREE.Quaternion())).copy(o.quaternion); u.hi = T.place(o, u.hi ?? -1); }
     });
     safe('choques', () => this._collide(dt));
     safe('puestos', () => this.place());
     safe('dibujo', () => this._sync(dt));
-    safe('decorado', () => { const T = this.track, tt = this.clock + this.t; if (T.spinners) for (const g of T.spinners) g.rotation.z += dt * g.userData.sp; if (T.bobs) for (const b of T.bobs) b.m.position.y = b.y0 + Math.sin(tt * b.sp + b.y0) * b.a; });
+    safe('decorado', () => { const T = this.track, tt = this.clock + this.t; if (T.spinners) for (const g of T.spinners) g.rotation[g.userData.axis || 'z'] += dt * g.userData.sp; if (T.bobs) for (const b of T.bobs) b.m.position.y = b.y0 + Math.sin(tt * b.sp + b.y0) * b.a; });
     safe('cámara', () => this._camera(dt));
     safe('pantalla', () => this._hudTick(dt));
     safe('motor', () => this._engineTick(dt));
     if (this.shown && this.net && (this._listT = (this._listT || 0) - dt) <= 0) { this._listT = 0.5; this._endList(); } // en línea: la tabla se completa a medida que llegan
   }
 
-  // obstáculos que esquivar: bajo el carril colgante (según la isla) y babosas que giran dentro del tubo
-  _buildObstacles(level = 0.92) {
-    const T = this.track, N = T.N, kind = T.tube ? 'baba' : ({ puerto: 'barril', bosque: 'seta', glaciar: 'bola', ruinas: 'roca', volcan: 'roca', cristales: 'bola', engranajes: 'barril', faroles: 'barril', nubes: 'bola' }[this.def.theme.decor] || 'barril');
-    this.obst = []; const list = [];
-    if (T.tube) for (let k = 0; k < 7; k++) list.push({ i: Math.floor(N * (0.08 + k * 0.13)) % N, mode: 'orbit', lat0: k * 9, sp: (k % 2 ? 1 : -1) * (6 + k) * level });
-    else if (T.sky) { const S = T.sky; [0.15, 0.38, 0.6, 0.85].forEach((f, k) => list.push({ i: S.s0 + Math.floor((S.s1 - S.s0) * f), mode: 'swing', amp: T.hw - 2.2, sp: (1.3 + k * 0.25) * level, ph: k * 1.9 })); }
-    const look = {
-      barril: () => { const g = new THREE.Group(), b = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 1.7, 14), new THREE.MeshStandardMaterial({ color: 0x8a5a2a, roughness: 0.8 })); b.rotation.x = Math.PI / 2; g.add(b);
-        for (const z of [-0.55, 0.55]) { const h = new THREE.Mesh(new THREE.TorusGeometry(0.87, 0.07, 6, 18), new THREE.MeshStandardMaterial({ color: 0x3a3a40, metalness: 0.6 })); h.position.z = z; g.add(h); } return [g, 0.9]; },
-      seta: () => { const g = new THREE.Group(), st = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 1.2, 10), new THREE.MeshStandardMaterial({ color: 0xf4ecd8 })); st.position.y = -0.3; g.add(st);
-        const cap = new THREE.Mesh(new THREE.SphereGeometry(1.1, 16, 10, 0, 6.3, 0, 1.7), new THREE.MeshStandardMaterial({ color: 0xe0303a, roughness: 0.5 })); cap.position.y = 0.2; g.add(cap); return [g, 1.0]; },
-      bola: () => [new THREE.Mesh(new THREE.IcosahedronGeometry(1.15, 2), new THREE.MeshStandardMaterial({ color: 0xf4faff, roughness: 0.7, flatShading: true })), 1.15],
-      roca: () => [new THREE.Mesh(new THREE.DodecahedronGeometry(1.15, 0), new THREE.MeshStandardMaterial({ color: 0xa0583a, roughness: 1, flatShading: true })), 1.15],
-      baba: () => { const m = new THREE.Mesh(new THREE.SphereGeometry(1.1, 18, 12), new THREE.MeshStandardMaterial({ color: 0x6aff5a, emissive: 0x2a8a1a, emissiveIntensity: 0.8, roughness: 0.2, transparent: true, opacity: 0.85 })); m.scale.set(1.2, 0.75, 1.2); return [m, 1.15]; },
-    };
-    for (const o of list) { const [m, rad] = look[kind](); m.castShadow = true; this.items.root.add(m); this.obst.push({ ...o, m, rad, kind, lat: 0 }); }
-  }
-  _obstacles(dt) {
-    if (!this.obst || !this.obst.length) return;
-    const T = this.track, time = this.clock + this.t;
-    for (const O of this.obst) {
-      if (O.mode === 'orbit') { let l = O.lat0 + O.sp * time; l = ((l + T.hw) % (2 * T.hw) + 2 * T.hw) % (2 * T.hw) - T.hw; O.lat = l; }
-      else O.lat = O.amp * Math.sin(O.sp * time + O.ph);
-      const c = T.c[O.i], r = T.r[O.i], t = T.t[O.i], bounce = O.kind === 'seta' ? Math.abs(Math.sin(time * 4 + O.i)) * 0.8 : 0;
-      O.m.position.set(c.x + r.x * O.lat, c.y + O.rad * (O.kind === 'baba' ? 0.7 : 0.9) + bounce, c.z + r.z * O.lat);
-      const yaw = Math.atan2(t.x, t.z); O.m.rotation.set(0, yaw, 0);
-      if (O.kind !== 'seta') O.m.rotateZ(-O.lat / O.rad); // rueda mientras se mueve
-      if (O.kind === 'baba') O.m.scale.set(1.2 + Math.sin(time * 6) * 0.1, 0.75 - Math.sin(time * 6) * 0.08, 1.2);
-      for (const R of this.racers) {
-        if (R.remote || R.onSky || R.inv > 0 || R.done) continue;
-        if (Math.hypot(R.pos.x - O.m.position.x, R.pos.z - O.m.position.z) < O.rad + 0.85 && Math.abs(R.pos.y - c.y) < 2.2) { this.items.hit(R, null); if (R.you) this._flash(O.kind === 'baba' ? '¡Babosa!' : '¡Cuidado!', '#ff8a7a'); }
-      }
-    }
-  }
   _myControls() {
     const I = this.ctx.input, k = I.keys, touch = I.isTouch && !I.usingGamepad;
     const steer = -clamp(I.move.x, -1, 1); // el giro positivo del kart va hacia la izquierda de la cámara

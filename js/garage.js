@@ -44,6 +44,9 @@ export const RETOS = {
   vidrio: { text: 'Gana en el Espejismo de Vidrio', ok: r => !!(r.wonAt || {}).vidrio },
   engranajes: { text: 'Gana en la Ciudad de los Engranajes', ok: r => !!(r.wonAt || {}).engranajes },
   faroles: { text: 'Gana en la Noche de los Faroles', ok: r => !!(r.wonAt || {}).faroles },
+  cumbre: { text: 'Gana en la Cumbre de las Nubes', ok: r => !!(r.wonAt || {}).cumbre },
+  circo: { text: 'Gana en el Gran Circo de Aethra', ok: r => !!(r.wonAt || {}).circo },
+  sombras: { text: 'Gana en el Reino de las Sombras', ok: r => !!(r.wonAt || {}).sombras },
   alltracks: { text: 'Gana en las tres pistas', ok: r => ['puerto', 'bosque', 'glaciar'].every(t => (r.wonAt || {})[t]) },
   hits10: { text: 'Acierta 10 objetos a tus rivales', ok: r => (r.hits || 0) >= 10 },
 };
@@ -149,6 +152,9 @@ export function unlockables() {
   out.push({ key: 't:engranajes', name: 'la Ciudad de los Engranajes', reto: 'vidrio' });
   out.push({ key: 't:faroles', name: 'la Noche de los Faroles', reto: 'engranajes' });
   out.push({ key: 't:cumbre', name: 'la Cumbre de las Nubes', reto: 'faroles' });
+  out.push({ key: 't:circo', name: 'el Gran Circo de Aethra', reto: 'cumbre' });
+  out.push({ key: 't:sombras', name: 'el Reino de las Sombras', reto: 'circo' });
+  out.push({ key: 't:ovni', name: 'la Base de los Ovnis', reto: 'sombras' });
   return out;
 }
 export function newUnlocks(sv) {
