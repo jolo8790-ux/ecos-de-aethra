@@ -85,6 +85,13 @@ export function buildArmor(id, model) {
   const SK = skinned[0] && skinned[0].skeleton;
   const binv = b => { const k = SK ? SK.bones.indexOf(b) : -1; return k >= 0 ? SK.boneInverses[k] : null; };
   const at = b => { const bi = binv(b); return bi ? new THREE.Vector3().setFromMatrixPosition(bi.clone().invert()) : new THREE.Vector3(); };
+  // tamaño real del torso a cierta altura (en la pose de enlace), sin contar los brazos
+  const verts = (() => { const sk = skinned[0]; if (!sk) return null; const P = sk.geometry.attributes.position, v = new THREE.Vector3(), out = new Float32Array(P.count * 3);
+    for (let i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i).applyMatrix4(sk.bindMatrix); out[i * 3] = v.x; out[i * 3 + 1] = v.y; out[i * 3 + 2] = v.z; } return out; })();
+  const torso = (y, half, cx, maxDx) => { if (!verts) return null; let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity, n = 0;
+    for (let i = 0; i < verts.length; i += 3) { const vy = verts[i + 1]; if (Math.abs(vy - y) > half) continue; const dx = verts[i] - cx; if (Math.abs(dx) > maxDx) continue;
+      n++; if (verts[i] < x0) x0 = verts[i]; if (verts[i] > x1) x1 = verts[i]; if (verts[i + 2] < z0) z0 = verts[i + 2]; if (verts[i + 2] > z1) z1 = verts[i + 2]; }
+    return n > 8 ? { rx: (x1 - x0) / 2, rz: (z1 - z0) / 2, cz: (z0 + z1) / 2 } : null; };
   const parts = [];
   const K = model.userData.armorScale || 1; // cuerpos más finos (protagonista HD) llevan la armadura a su medida
   const put = (obj, b, p) => {
@@ -105,7 +112,11 @@ export function buildArmor(id, model) {
     const emb = new THREE.Mesh(id === 'aethra' ? new THREE.OctahedronGeometry(0.06, 0) : new THREE.SphereGeometry(0.045, 10, 8), C.stud); emb.position.set(0, 0.03, 0.34); g.add(emb);
     if (id === 'obsidiana' || id === 'aethra') for (const s of [-1, 1]) { const sp = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.09, 5), C.stud); sp.position.set(s * 0.16, -0.06, 0.31); sp.rotation.x = Math.PI / 2; g.add(sp); }
     if (K !== 1) g.scale.set(1.3, 1.15, 1.45); // el pecho de la protagonista es más profundo que ancho
-    put(g, chest, new THREE.Vector3(c.x, c.y + 0.02 * K, c.z + (K === 1 ? 0.01 : 0.02)));
+    // a la medida del torso: un poco más ancho y hondo que el cuerpo, para que se vea por fuera
+    const sh = la && ra ? Math.abs(at(la).x - at(ra).x) / 2 : 0.3, T = torso(c.y, 0.09, c.x, sh * 0.8);
+    let cz = c.z + (K === 1 ? 0.01 : 0.02);
+    if (T) { g.scale.set(Math.max(T.rx * 1.12, 0.12) / 0.37 / K, (K !== 1 ? 1.15 : 1), Math.max(T.rz * 1.15, 0.1) / (0.37 * 0.9) / K); cz = T.cz; }
+    put(g, chest, new THREE.Vector3(c.x, c.y + 0.02 * K, cz));
     if ((id === 'viento' || id === 'aethra') && K === 1) { // capa (la protagonista HD ya lleva mochila en la espalda)
       const cape = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.62, 1, 4), new THREE.MeshStandardMaterial({ color: id === 'aethra' ? 0x2a5aa8 : 0x3fa898, side: THREE.DoubleSide, roughness: 0.8 }));
       const pa = cape.geometry.attributes.position; for (let i = 0; i < pa.count; i++) { const y = pa.getY(i); pa.setZ(i, -(0.3 - y) * (0.3 - y) * 0.5); pa.setX(i, pa.getX(i) * (1 + (0.3 - y) * 0.6)); }
@@ -126,7 +137,9 @@ export function buildArmor(id, model) {
   if (hips) {
     const h = at(hips), belt = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.04, 6, 24), C.trim); belt.rotation.x = Math.PI / 2; belt.scale.y = 0.85;
     const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.07, 0.03), C.stud); buckle.position.set(0, 0.31, 0); buckle.rotation.x = -Math.PI / 2; belt.add(buckle);
-    put(belt, hips, new THREE.Vector3(h.x, h.y + (K === 1 ? 0.14 : 0.03), h.z + 0.01 * K));
+    const by = h.y + (K === 1 ? 0.14 : 0.03), shw = la && ra ? Math.abs(at(la).x - at(ra).x) / 2 : 0.3, TB = torso(by, 0.05, h.x, shw * 0.9);
+    let bz = h.z + 0.01 * K; if (TB) { belt.scale.set(Math.max(TB.rx * 1.1, 0.1) / 0.34 / K, Math.max(TB.rz * 1.12, 0.08) / 0.34 / K, 1); bz = TB.cz; }
+    put(belt, hips, new THREE.Vector3(h.x, by, bz));
   }
   return parts;
 }
