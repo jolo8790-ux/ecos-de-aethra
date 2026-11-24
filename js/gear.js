@@ -79,15 +79,20 @@ export function buildArmor(id, model) {
     aethra: { main: std(0xf2f0e8, { metalness: 0.5, roughness: 0.25 }), trim: std(0xf2c94c, { metalness: 0.8, roughness: 0.25 }), stud: std(0x9ff0ff, { emissive: 0x4ad0ff, emissiveIntensity: 1.2 }) },
   }[id];
   const bone = n => { let b = null; model.traverse(o => { if (!b && o.isBone && o.name === n) b = o; }); return b; };
-  // pose de reposo para medir
+  // medidas en la pose de enlace del esqueleto (sin tocar los huesos: la animación puede estar en marcha
+  // y en los personajes generados «pose()» deja el esqueleto desplazado)
   const skinned = []; model.traverse(o => { if (o.isSkinnedMesh) skinned.push(o); });
-  if (skinned[0]) skinned[0].skeleton.pose();
-  model.updateMatrixWorld(true);
-  const inv = model.matrixWorld.clone().invert();
-  const at = b => b.getWorldPosition(new THREE.Vector3()).applyMatrix4(inv);
+  const SK = skinned[0] && skinned[0].skeleton;
+  const binv = b => { const k = SK ? SK.bones.indexOf(b) : -1; return k >= 0 ? SK.boneInverses[k] : null; };
+  const at = b => { const bi = binv(b); return bi ? new THREE.Vector3().setFromMatrixPosition(bi.clone().invert()) : new THREE.Vector3(); };
   const parts = [];
   const K = model.userData.armorScale || 1; // cuerpos más finos (protagonista HD) llevan la armadura a su medida
-  const put = (obj, b, p) => { if (!b) return; obj.scale.multiplyScalar(K); obj.position.copy(p); model.add(obj); model.updateMatrixWorld(true); b.attach(obj); parts.push(obj); obj.traverse(o => { if (o.isMesh) o.castShadow = true; }); };
+  const put = (obj, b, p) => {
+    const bi = b && binv(b); if (!bi) return;
+    obj.scale.multiplyScalar(K); obj.position.copy(p); obj.updateMatrix();
+    new THREE.Matrix4().multiplyMatrices(bi, obj.matrix).decompose(obj.position, obj.quaternion, obj.scale); // del espacio de enlace al del hueso
+    b.add(obj); parts.push(obj); obj.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  };
   const chest = bone('chest'), hips = bone('hips'), la = bone('upperarml'), ra = bone('upperarmr');
   if (chest) {
     const c = at(chest), g = new THREE.Group();

@@ -1391,11 +1391,17 @@ function falling() {
   return lastGround && !player.grounded && !player.swimming && !player.gliding && player.vel.y < -5 && player.pos.y < lastGround.y - 2.5 && !player.dead;
 }
 function portalSafePoint() {
-  const g = zone.story && zone.story.goal(S), goal = g && g.at ? new THREE.Vector3(...g.at) : null, from = lastGround || player.pos;
-  const d0 = goal ? Math.hypot(from.x - goal.x, from.z - goal.z) : 0;
+  const from = lastGround || player.pos, SD = zone._sendero, sdef = SENDEROS[zone.id];
+  // en un Sendero el camino avanza en línea: «adelante» es hacia el Sello, no hacia el objetivo de la historia
+  const inRoute = SD && sdef && (from.x - sdef.start[0]) * sdef.dir > 1;
+  const g = !inRoute && zone.story && zone.story.goal(S), goal = inRoute ? new THREE.Vector3(...SD.altar) : g && g.at ? new THREE.Vector3(...g.at) : null;
+  // la plataforma de la que caíste no cuenta: se aparece en la siguiente
+  const src = world.physics.boxes.find(b => from.x > b.minX - 0.6 && from.x < b.maxX + 0.6 && from.z > b.minZ - 0.6 && from.z < b.maxZ + 0.6 && Math.abs(b.maxY - from.y) < 0.8);
+  const ahead = (x, z) => inRoute ? (x - from.x) * sdef.dir : goal ? Math.hypot(from.x - goal.x, from.z - goal.z) - Math.hypot(x - goal.x, z - goal.z) : 0;
+  const srcAhead = src ? Math.max(ahead(src.minX, (src.minZ + src.maxZ) / 2), ahead(src.maxX, (src.minZ + src.maxZ) / 2)) : 0;
   let best = null, bs = Infinity;
   for (const b of world.physics.boxes) {
-    if (b.off || b.crumble || b.blink || b.delta || b.noPortal) continue;
+    if (b === src || b.off || b.crumble || b.blink || b.delta || b.noPortal) continue;
     const w = b.maxX - b.minX, d = b.maxZ - b.minZ; if (w < 2.4 || d < 2.4 || b.maxY - b.minY < 0.25) continue;
     const cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2, top = b.maxY;
     if (top > from.y + 8 || top < from.y - 25) continue;
@@ -1404,7 +1410,7 @@ function portalSafePoint() {
     if (world.physics.boxes.some(q => q !== b && cx > q.minX && cx < q.maxX && cz > q.minZ && cz < q.maxZ && q.minY < top + 2.2 && q.maxY > top + 0.1)) continue;
     let score;
     // el siguiente lugar seguro: el más cercano a donde estabas que quede más cerca del objetivo (si no hay, el más cercano)
-    score = dist; if (goal && Math.hypot(cx - goal.x, cz - goal.z) > d0 - 1) score += 1000;
+    score = dist; if (goal && ahead(cx, cz) < srcAhead + 0.5) score += 1000;
     if (score < bs) { bs = score; best = new THREE.Vector3(cx, top, cz); }
   }
   return best;
@@ -1445,10 +1451,10 @@ function tickPortal(dt) {
     }
   } else if (P.phase === 'out') {
     P.outP.scale.setScalar(Math.min(1, P.t * 5)); P.inP.scale.setScalar(Math.max(0.01, 1 - P.t * 3));
-    if (P.t > 0.25 && !player.mesh.visible) { player.mesh.visible = true; player.frozen = false; player.vel.set(0, -2, 0); player.invuln = 1.2; }
+    if (P.t > 0.25 && !P.shown) { P.shown = true; player.mesh.visible = true; player.frozen = false; player.vel.set(0, -2, 0); player.invuln = 1.2; } // (otra parte del juego puede volver a mostrarla antes: por eso la marca propia)
     player.mesh.scale.setScalar(P.s0 * Math.min(1, Math.max(0.01, (P.t - 0.25) * 4)));
     if (P.t > 1.2) { P.outP.scale.setScalar(Math.max(0.01, 1 - (P.t - 1.2) * 3)); }
-    if (P.t > 1.6) { scene.remove(P.inP); scene.remove(P.outP); player.mesh.scale.setScalar(P.s0); portalFx = null; }
+    if (P.t > 1.6) { scene.remove(P.inP); scene.remove(P.outP); player.mesh.scale.setScalar(P.s0); player.mesh.visible = true; player.frozen = false; portalFx = null; }
   }
 }
 function addEcos(n, pos) {
@@ -3287,7 +3293,7 @@ window.__aethra = {
   playCredits: (then) => playCredits(save, then || (() => {})), showChapterEnd, startEnding, openTrophies, offerLowerDifficulty, get lossStreak() { return lossStreak; },
   showIntro, get introRun() { return introRun; }, arena, openArena, race, openRace, leaveRace, get raceUI() { return raceUI; }, get lobby() { return lobby; }, openLobby, openTaller, loadKarts, openArmeria, openHeroes, openMisiones, openPoderes, powers, audio, leaveArena, checkMissions, get arenaUI() { return arenaUI; }, Net,
   endless, startEndless, stopEndless, startChallenge,
-  hold(on) { paused4test = on; }, S, combat, enterZone, choose, get zone() { return zone; }, get dialog() { return dialog; },
+  hold(on) { paused4test = on; }, applyHero, S, combat, enterZone, choose, get zone() { return zone; }, get dialog() { return dialog; },
   step(n, press) {
     for (let i = 0; i < n; i++) { if (press && i === 0) input._pressed.add(press); simulate(1 / 60); input.endFrame(); }
   },
