@@ -1218,7 +1218,7 @@ export class Race {
       const u = $('rtUse'); const fire = e => { e.preventDefault(); this.tUseP = true; u.classList.add('on'); setTimeout(() => u.classList.remove('on'), 120); };
       u.addEventListener('touchstart', fire, { passive: false }); u.addEventListener('mousedown', fire);
     }
-    this.tDrift = this.tBrake = false;
+    this.tDrift = this.tBrake = false; if (this.ctx.input.resetTouch) this.ctx.input.resetTouch();
     const tip = this.ctx.input.isTouch ? 'Acelera solo · palanca: girar · DERRAPE en curvas · toca el objeto para usarlo (con FRENO, hacia atrás)' : 'W/↑ acelerar · S/↓ frenar · A/D girar · Espacio: derrape · E/J: usar objeto (con S, hacia atrás) · C: mirar atrás';
     $('raceTip').textContent = tip; $('raceTip').classList.remove('fade'); this._itemKey = null;
   }

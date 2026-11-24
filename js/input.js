@@ -90,7 +90,12 @@ export class Input {
       this._joy.x = dx / m; this._joy.y = -dy / m;
       knob.style.left = (39 + dx) + 'px'; knob.style.top = (39 + dy) + 'px';
     };
+    // si un dedo «se perdió» (su touchend no llegó: el elemento desapareció, salió un menú encima…), se suelta
+    const alive = (e, id) => [...e.touches].some(t => t.identifier === id);
+    this.resetTouch = () => { joyId = null; camId = null; this._joy.x = this._joy.y = 0; knob.style.left = knob.style.top = '39px'; };
     addEventListener('touchstart', e => {
+      if (joyId !== null && !alive(e, joyId)) { joyId = null; this._joy.x = this._joy.y = 0; knob.style.left = knob.style.top = '39px'; }
+      if (camId !== null && !alive(e, camId)) camId = null;
       for (const t of e.changedTouches) {
         if (t.target.closest('.tbtn') || t.target.closest('.overlay') || t.target.closest('#dialog')) continue;
         if (t.clientX < innerWidth * 0.45 && joyId === null) { joyId = t.identifier; setKnob(t.clientX, t.clientY); }
@@ -113,6 +118,7 @@ export class Input {
       }
     };
     addEventListener('touchend', end); addEventListener('touchcancel', end);
+    addEventListener('visibilitychange', () => { if (document.hidden) this.resetTouch(); }); addEventListener('blur', () => this.resetTouch());
   }
 
   // Llamar una vez por frame, antes de leer el estado.
