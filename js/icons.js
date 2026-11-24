@@ -60,6 +60,8 @@ const P = {
   piloto: '<path class="d" d="M5 12a7 7 0 0 1 14 0v3H5z"/><path d="M5 12a7 7 0 0 1 14 0v3H5z"/><path d="M8.5 12h7M4 21a8 8 0 0 1 16 0"/>',
   villano: '<circle class="d" cx="12" cy="13.5" r="7.5"/><circle cx="12" cy="13.5" r="7.5"/><path d="M5.5 7 4 3l4 2.5M18.5 7 20 3l-4 2.5M8.5 12l2 1M15.5 12l-2 1M9 16.5q3 2 6 0"/>',
   ok: '<path d="M4.5 12.5l5 5L20 6.5"/>',
+  cristal: '<path class="d" d="M7 3h10l4 6-9 12L3 9z"/><path d="M7 3h10l4 6-9 12L3 9z"/><path d="M3 9h18M9.5 3 8 9l4 12 4-12-1.5-6"/>',
+  farol: '<path class="d" d="M7 7.5h10a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z"/><path d="M7 7.5h10a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1zM9 7.5V5h6v2.5M12 2.5V5M9 17.5V20h6v-2.5M12 20v1.5M6 12.5h12"/>',
   medalla: '<path class="d" d="M8 2h3l2 6.5h-3zM16 2h-3l-2 6.5h3z"/><path d="M8 2h3l2 6.5M16 2h-3l-2 6.5"/><circle class="d" cx="12" cy="15" r="6"/><circle cx="12" cy="15" r="6"/>',
 };
 // medallas de color (oro, plata, bronce)
@@ -75,7 +77,7 @@ export const EMOJI_ICON = {
   '⛨': 'escudo', '🛡': 'peto', '🪶': 'pluma', '🗡': 'espada', '❓': 'caja', '☯': 'equilibrio', '➶': 'ave', '♨': 'calor', '🌄': 'ocaso',
   '🍀': 'trebol', '💨': 'viento', '🌬': 'viento', '⚱': 'vasija', '✊': 'puno', '✋': 'mano', '👁': 'ojo', '🏹': 'arco', '🪄': 'baston',
   '👕': 'tunica', '🐚': 'concha', '🌋': 'volcan', '⏳': 'arena', '☁': 'nube', '🏆': 'trofeo', '🥇': 'oro', '🥈': 'plata', '🥉': 'bronce',
-  '❤': 'corazon', '📏': 'regla', '🤖': 'robot', '🎨': 'paleta', '🧑': 'piloto', '😈': 'villano', '✔': 'ok', '🏅': 'medalla',
+  '❤': 'corazon', '📏': 'regla', '🤖': 'robot', '🎨': 'paleta', '🧑': 'piloto', '😈': 'villano', '✔': 'ok', '🏅': 'medalla', '💎': 'cristal', '🏮': 'farol',
 };
 
 export const icon = (name, cls = '') => P[name] ? `<svg class="gi ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name]}</svg>` : '';

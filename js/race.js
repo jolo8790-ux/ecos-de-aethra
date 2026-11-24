@@ -82,6 +82,71 @@ export const TRACKS = {
     feat: { ramps: [0.22, 0.47, 0.71] },
     theme: { tube: true, sections: [[0, 'concreto'], [0.28, 'ladrillo'], [0.5, 'cristal'], [0.62, 'oxido'], [0.84, 'concreto']], road: 'planks', curb: ['#ffd24a', '#2a2a2a'], side: 0x5a6a60, rail: 0x7a8a80, post: 0x4a5a50, pile: 0x4a5a50, banner: '◎  CLOACAS DE BRUMA  ◎', decor: 'cloaca', palette: { top: 0x4a6a5a, side: 0x3a4a40 } },
   },
+  forja: {
+    name: 'Volcán de las Forjas', short: 'Volcán de Ignis', icon: '🌋', lock: 'cloaca',
+    desc: 'Sobre un mar de lava entre volcanes humeantes: roca negra con grietas que brillan y chispas en el aire.',
+    w: 13,
+    p: [[0, 0, 0], [60, 0, 3], [110, -20, 8], [125, -70, 12], [95, -110, 10], [45, -100, 6], [20, -130, 4], [-30, -150, 2], [-80, -125, 5], [-95, -75, 9], [-92, -40, 6], [-78, -8, 3], [-45, 8, 0]],
+    boosts: [0.08, 0.36, 0.62, 0.88], items: [0.17, 0.46, 0.74],
+    sky: { top: 0x1a0606, bottom: 0xff6a2a, fog: 0x4a1c10, fogNear: 70, fogFar: 260 },
+    light: { hemiSky: 0xffb48a, hemiGround: 0x3a1208, sun: 0xffb070 },
+    water: { y: -14 }, lava: { y: -14 }, embers: { n: 260, area: 160, y0: -10, y1: 30, cx: 0, cz: -70 },
+    reward: [120, 66, 36, 20],
+    feat: { ramps: [0.3, 0.8], tunnels: [[0.52, 0.6]], bridges: [[0.68, 0.76]] },
+    theme: { tunnel: 0x3a2a26, cable: 0x2a1a14, road: 'basalt', curb: ['#ffb030', '#2a1a14'], side: 0x3a2a26, rail: 0x5a4440, post: 0x2a1a18, pile: 0x3a2a26, banner: '◆  VOLCÁN DE LAS FORJAS  ◆', decor: 'volcan', palette: { top: 0x5a4440, side: 0x2a1a18 } },
+  },
+  vidrio: {
+    name: 'Espejismo de Vidrio', short: 'Espejismo de Vidrio', icon: '💎', lock: 'forja',
+    desc: 'Entre ruinas de cristal que reflejan el atardecer: agujas de colores, arcos rotos y suelo que brilla.',
+    w: 13,
+    p: [[0, 0, 0], [55, 5, 2], [100, -10, 0], [120, -55, -3], [100, -95, 0], [65, -108, 4], [30, -118, 8], [-15, -128, 6], [-60, -110, 3], [-100, -80, 0], [-110, -35, 2], [-75, -5, 1], [-35, 5, 0]],
+    boosts: [0.07, 0.33, 0.58, 0.86], items: [0.15, 0.44, 0.72],
+    sky: { top: 0x6a4aa8, bottom: 0xffc8a0, fog: 0xf0c8d8, fogNear: 90, fogFar: 300 },
+    light: { hemiSky: 0xfff0ff, hemiGround: 0x8a6aa0, sun: 0xffe0c8 },
+    water: { y: -18, color: 0xffe0f0 },
+    reward: [130, 72, 40, 22],
+    feat: { ramps: [0.24, 0.7], tunnels: [[0.4, 0.48]], bridges: [[0.8, 0.9]] },
+    theme: { tunnel: 0xb08aff, tunnelGlass: true, cable: 0x8a6ac8, road: 'glass', curb: ['#ffffff', '#c06aff'], side: 0x8a7ab0, rail: 0xe0d0ff, post: 0x9a8ac8, pile: 0xc0b0e8, banner: '◆  ESPEJISMO DE VIDRIO  ◆', decor: 'cristales', palette: { top: 0xd8c8f0, side: 0x9a8ac8 } },
+  },
+  engranajes: {
+    name: 'Ciudad de los Engranajes', short: 'Ciudad Engranajes', icon: '⚙', lock: 'vidrio',
+    desc: 'Entre torres de latón y engranajes gigantes que giran sin parar, con vapor saliendo de las chimeneas.',
+    w: 13,
+    p: [[0, 0, 0], [70, 0, 0], [105, -15, 3], [112, -60, 6], [97, -90, 6], [88, -124, 3], [45, -145, 0], [-15, -140, 0], [-60, -118, 4], [-72, -82, 8], [-100, -55, 6], [-105, -15, 2], [-60, 5, 0]],
+    boosts: [0.09, 0.35, 0.6, 0.87], items: [0.16, 0.45, 0.73],
+    sky: { top: 0x3a4a5a, bottom: 0xd8b888, fog: 0xb8a888, fogNear: 80, fogFar: 280 },
+    light: { hemiSky: 0xfff0d8, hemiGround: 0x5a4a3a, sun: 0xffe0b0 },
+    water: { y: -20, color: 0x8a9aa0 },
+    reward: [140, 78, 44, 24],
+    feat: { ramps: [0.28, 0.76], tunnels: [[0.5, 0.57]], bridges: [[0.64, 0.72]] },
+    theme: { tunnel: 0x6a5a4a, cable: 0x3a3a40, road: 'metal', curb: ['#ffd24a', '#3a3a40'], side: 0x6a5a4a, rail: 0xc8a050, post: 0x5a4a3a, pile: 0x6a6a70, banner: '◆  CIUDAD DE LOS ENGRANAJES  ◆', decor: 'engranajes', palette: { top: 0x8a7a60, side: 0x5a4a3a } },
+  },
+  faroles: {
+    name: 'Noche de los Faroles', short: 'Noche de Faroles', icon: '🏮', lock: 'engranajes',
+    desc: 'De noche, bajo las estrellas, entre cientos de faroles que flotan y se mecen sobre el mar oscuro.',
+    w: 13,
+    p: [[0, 0, 0], [50, -5, 2], [85, -35, 5], [95, -75, 7], [100, -112, 4], [68, -140, 1], [20, -125, -2], [-25, -140, 0], [-70, -120, 4], [-80, -80, 8], [-115, -50, 5], [-100, -10, 2], [-50, 5, 0]],
+    boosts: [0.08, 0.34, 0.6, 0.86], items: [0.16, 0.45, 0.72],
+    sky: { top: 0x05051a, bottom: 0x2a1a4a, fog: 0x1a1430, fogNear: 60, fogFar: 240 },
+    light: { hemiSky: 0x8a8aff, hemiGround: 0x2a1a3a, sun: 0xffc88a },
+    water: { y: -16, color: 0x1a2a5a },
+    reward: [150, 84, 48, 26],
+    feat: { ramps: [0.26, 0.78], tunnels: [[0.44, 0.52]], bridges: [[0.62, 0.7]] },
+    theme: { tunnel: 0x3a2a4a, cable: 0x2a1a3a, road: 'planks', curb: ['#ffd27a', '#c0303a'], side: 0x4a3020, rail: 0x8a5a32, post: 0x4a3020, pile: 0x3a2418, banner: '◆  NOCHE DE LOS FAROLES  ◆', decor: 'faroles', palette: { top: 0x3a4a3a, side: 0x2a2018 } },
+  },
+  cumbre: {
+    name: 'Cumbre de las Nubes', short: 'Cumbre de Nubes', icon: '☁', lock: 'faroles',
+    desc: 'La pista más alta de Aethra: mármol blanco entre nubes gigantes, un arcoíris y subidas que tocan el cielo.',
+    w: 13,
+    p: [[0, 0, 0], [60, 0, 4], [115, -25, 10], [130, -80, 16], [90, -120, 20], [30, -105, 14], [0, -140, 10], [-50, -150, 6], [-100, -120, 3], [-120, -70, 6], [-108, -35, 10], [-90, -3, 6], [-45, 10, 2]],
+    boosts: [0.07, 0.32, 0.57, 0.84], items: [0.15, 0.43, 0.7],
+    sky: { top: 0x3a8aff, bottom: 0xe8f4ff, fog: 0xf0f6ff, fogNear: 100, fogFar: 340 },
+    light: { hemiSky: 0xffffff, hemiGround: 0xa0b8d8, sun: 0xfff4e0 },
+    water: { y: -30, color: 0xf8fbff },
+    reward: [170, 96, 54, 30],
+    feat: { ramps: [0.22, 0.6, 0.9], tunnels: [[0.4, 0.47]], bridges: [[0.7, 0.8]] },
+    theme: { tunnel: 0xf0f4ff, tunnelGlass: true, cable: 0xc8a050, road: 'marble', curb: ['#ffffff', '#ffc83a'], side: 0xe8eef8, rail: 0xffffff, post: 0xd8e0f0, pile: 0xe8eef8, banner: '◆  CUMBRE DE LAS NUBES  ◆', decor: 'nubes', palette: { top: 0xffffff, side: 0xd8e0f0 } },
+  },
 };
 export const RACE_LAPS = [3, 5];
 const LEVEL = { facil: 0.83, normal: 0.92, dificil: 0.99, auto: 0.9 };
@@ -158,6 +223,29 @@ const tubeTex = (kind) => { const L = TUBE_LOOK[kind]; return [tex(256, 256, (c,
   c.fillStyle = 'rgba(80,255,150,.25)'; c.fillRect(0, 0, 14, h); c.fillRect(w - 14, 0, 14, h);
   c.fillStyle = L.lamp; for (const u of [0.25, 0.5, 0.75]) c.fillRect(u * w - 3, 0, 6, h);
 }), tex(256, 256, (c, w, h) => { c.fillStyle = '#000'; c.fillRect(0, 0, w, h); c.fillStyle = L.lamp; for (const u of [0.25, 0.5, 0.75]) c.fillRect(u * w - 3, 0, 6, h); c.fillStyle = 'rgba(255,210,74,.6)'; for (let y = 0; y < h; y += 64) { c.fillRect(0, y, 3, 36); c.fillRect(w - 3, y, 3, 36); } })]; };
+const basaltRoad = () => tex(256, 256, (c, w, h) => {
+  c.fillStyle = '#2a2224'; c.fillRect(0, 0, w, h);
+  for (let i = 0; i < 200; i++) { c.fillStyle = `rgba(${60 + Math.random() * 40},${50 + Math.random() * 30},${50},.4)`; c.beginPath(); c.arc(Math.random() * w, Math.random() * h, 2 + Math.random() * 8, 0, 7); c.fill(); }
+  c.lineCap = 'round'; for (let i = 0; i < 10; i++) { c.strokeStyle = 'rgba(255,120,30,.85)'; c.lineWidth = 1.5 + Math.random() * 2; c.beginPath(); let x = Math.random() * w, y = Math.random() * h; c.moveTo(x, y); for (let k = 0; k < 4; k++) { x += (Math.random() - 0.5) * 60; y += (Math.random() - 0.5) * 60; c.lineTo(x, y); } c.stroke(); }
+});
+const glassRoad = () => tex(256, 256, (c, w, h) => {
+  const g = c.createLinearGradient(0, 0, w, h); g.addColorStop(0, '#e8d8ff'); g.addColorStop(0.5, '#ffd8ec'); g.addColorStop(1, '#d0e8ff'); c.fillStyle = g; c.fillRect(0, 0, w, h);
+  c.strokeStyle = 'rgba(255,255,255,.8)'; c.lineWidth = 2; for (let i = 0; i < 14; i++) { c.beginPath(); const x = Math.random() * w, y = Math.random() * h; c.moveTo(x, y); c.lineTo(x + (Math.random() - 0.5) * 120, y + (Math.random() - 0.5) * 120); c.stroke(); }
+  for (let i = 0; i < 40; i++) { c.fillStyle = 'rgba(255,255,255,.7)'; c.fillRect(Math.random() * w, Math.random() * h, 2, 2); }
+});
+const metalRoad = () => tex(256, 256, (c, w, h) => {
+  c.fillStyle = '#6a6a70'; c.fillRect(0, 0, w, h);
+  for (let y = 0; y < h; y += 64) { c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(0, y, w, 3); for (let x = 12; x < w; x += 40) { c.fillStyle = '#9a9aa0'; c.beginPath(); c.arc(x, y + 10, 3, 0, 7); c.fill(); c.beginPath(); c.arc(x, y + 54, 3, 0, 7); c.fill(); } }
+  for (let i = 0; i < 260; i++) { c.fillStyle = `rgba(${Math.random() < 0.5 ? '255,255,255' : '0,0,0'},.06)`; c.fillRect(Math.random() * w, Math.random() * h, 10, 2); }
+  c.strokeStyle = 'rgba(200,160,80,.5)'; c.lineWidth = 3; c.beginPath(); c.moveTo(w / 2, 0); c.lineTo(w / 2, h); c.stroke();
+});
+const marbleRoad = () => tex(256, 256, (c, w, h) => {
+  c.fillStyle = '#f4f6fa'; c.fillRect(0, 0, w, h);
+  for (let i = 0; i < 12; i++) { c.strokeStyle = `rgba(150,160,190,${0.2 + Math.random() * 0.3})`; c.lineWidth = 1 + Math.random() * 2; c.beginPath(); let x = Math.random() * w, y = 0; c.moveTo(x, y); while (y < h) { x += (Math.random() - 0.5) * 30; y += 20; c.lineTo(x, y); } c.stroke(); }
+  c.strokeStyle = 'rgba(200,170,90,.5)'; c.lineWidth = 2; for (let y = 0; y < h; y += 128) { c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke(); }
+});
+const ROADS = { forest: () => forestRoad(), ice: () => iceRoad(), sand: () => sandRoad(), basalt: basaltRoad, glass: glassRoad, metal: metalRoad, marble: marbleRoad };
+const roadOf = k => (ROADS[k] || planks)();
 const curbTex = (a = '#f4f2ee', b = '#e8483c') => tex(32, 64, (c, w, h) => { c.fillStyle = a; c.fillRect(0, 0, w, h); c.fillStyle = b; c.fillRect(0, 0, w, h / 2); });
 const checker = () => tex(128, 32, (c, w, h) => { for (let x = 0; x < 16; x++) for (let y = 0; y < 4; y++) { c.fillStyle = (x + y) % 2 ? '#111' : '#fafafa'; c.fillRect(x * 8, y * 8, 8, 8); } });
 const chevron = () => tex(128, 128, (c, w, h) => {
@@ -436,7 +524,7 @@ class Track {
       const m = new THREE.Mesh(g, mat); m.receiveShadow = true; root.add(m); return m;
     };
     // calzada de tablones
-    const TH = this.def.theme; const pl = TH.road === 'forest' ? forestRoad() : TH.road === 'ice' ? iceRoad() : TH.road === 'sand' ? sandRoad() : planks(); ribbon(-hw, hw, 0, 0, TH.road === 'planks' ? 6 : 10, new THREE.MeshStandardMaterial({ map: pl, roughness: TH.road === 'ice' ? 0.25 : 0.8, metalness: TH.road === 'ice' ? 0.1 : 0, side: THREE.DoubleSide }));
+    const TH = this.def.theme; const pl = roadOf(TH.road); ribbon(-hw, hw, 0, 0, TH.road === 'planks' ? 6 : 10, new THREE.MeshStandardMaterial({ map: pl, roughness: TH.road === 'ice' || TH.road === 'glass' || TH.road === 'marble' ? 0.25 : TH.road === 'metal' ? 0.45 : 0.8, metalness: TH.road === 'ice' ? 0.1 : TH.road === 'metal' ? 0.2 : 0, side: THREE.DoubleSide }));
     // bordillos rojos y blancos (un poco elevados)
     const cb = curbTex(TH.curb[0], TH.curb[1]); const cm = new THREE.MeshStandardMaterial({ map: cb, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2, side: THREE.DoubleSide });
     ribbon(-hw, -hw + 0.9, 0.03, 0.03, 2.4, cm); ribbon(hw - 0.9, hw, 0.03, 0.03, 2.4, cm);
@@ -545,7 +633,7 @@ class Track {
     const M = A.M, pos = [], uv = [], idx = [], wpos = [], widx = [];
     for (let k = 0; k <= M; k++) { const c = A.c[k], r = A.r[k]; pos.push(c.x - r.x * A.hw, c.y + 0.02, c.z - r.z * A.hw, c.x + r.x * A.hw, c.y + 0.02, c.z + r.z * A.hw); uv.push(0, k / 3, 1, k / 3); if (k < M) { const q = k * 2; idx.push(q, q + 2, q + 1, q + 1, q + 2, q + 3); } }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
-    const roadTex = TH.road === 'ice' ? iceRoad() : TH.road === 'sand' ? sandRoad() : forestRoad();
+    const roadTex = TH.road === 'planks' ? forestRoad() : roadOf(TH.road);
     const road = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: roadTex, color: 0xd8c8b0, roughness: 0.9, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 })); road.receiveShadow = true; root.add(road);
     // debajo, un soporte para que no flote
     const under = new THREE.Mesh(g.clone(), new THREE.MeshStandardMaterial({ color: TH.side, side: THREE.DoubleSide })); under.position.y = -0.6; root.add(under);
@@ -609,6 +697,67 @@ class Track {
       if (k === 0) houses.push({ x, z, w: 5, d: 4.5, h: 3.2, base: top, roof: rnd() < 0.5 ? 0xc9563c : 0x4f7fc0 });
       else if (k === 1) lights.push({ x, z, y: top });
       else { trees.push({ x: x - w * 0.2, z: z - d * 0.15, y: top, s: 0.9 + rnd() * 0.4 }); props.push({ kind: 'barril', x: x + w * 0.2, z: z + d * 0.1, y: top }, { kind: 'caja', x: x + w * 0.25, z: z - d * 0.2, y: top, rot: rnd() * 3 }); }
+    }
+    const EMPTY = { islands: [], houses: [], trees: [], lighthouses: [], props: [], pines: [], bigTrees: [], mushrooms: [], snow: 0 };
+    const M = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8, ...o }), add = m => { this.root.add(m); return m; };
+    const spots = (n, R, near = false, tries = 500) => { const out = []; for (let k = 0; k < tries && out.length < n; k++) { const x = -170 + rnd() * 340, z = -200 + rnd() * 260; if (!clear(x, z, R)) continue; if (near && clear(x, z, R + 18)) continue; if (out.some(o => Math.hypot(o.x - x, o.z - z) < R * 2)) continue; out.push({ x, z }); } return out; };
+    const wy = this.def.water.y;
+    this.spinners = []; this.bobs = [];
+    if (theme === 'volcan') { // volcanes humeantes y pilares de basalto saliendo de la lava
+      for (const { x, z } of spots(7, 16)) { const H = 30 + rnd() * 30, R = 14 + rnd() * 10;
+        add(new THREE.Mesh(new THREE.ConeGeometry(R, H, 9, 1, true), M(0x3a2a26, { flatShading: true }))).position.set(x, wy + H / 2, z);
+        const crater = add(new THREE.Mesh(new THREE.CylinderGeometry(R * 0.22, R * 0.22, 0.6, 9), new THREE.MeshBasicMaterial({ color: 0xff7a2a }))); crater.position.set(x, wy + H * 0.78, z);
+        for (let k = 0; k < 3; k++) { const sm = add(new THREE.Mesh(new THREE.SphereGeometry(3 + k * 1.5, 8, 6), new THREE.MeshStandardMaterial({ color: 0x5a4a4a, transparent: true, opacity: 0.45 - k * 0.1, roughness: 1 }))); sm.position.set(x + k * 1.5, wy + H * 0.8 + 4 + k * 5, z); this.bobs.push({ m: sm, y0: sm.position.y, a: 1.2, sp: 0.6 + k * 0.2 }); } }
+      for (const { x, z } of spots(18, 3, true)) { const h = 8 + rnd() * 14; const m = add(new THREE.Mesh(new THREE.CylinderGeometry(1.6, 2.2, h + (0 - wy), 6), M(0x2a2224, { flatShading: true }))); m.position.set(x, wy + (h + (0 - wy)) / 2 - 6, z); m.castShadow = true;
+        const glow = add(new THREE.Mesh(new THREE.TorusGeometry(1.9, 0.12, 4, 12), new THREE.MeshBasicMaterial({ color: 0xff8a2a }))); glow.rotation.x = Math.PI / 2; glow.position.set(x, wy + 1, z); }
+      return EMPTY;
+    }
+    if (theme === 'cristales') { // agujas de cristal de colores y arcos rotos
+      const cols = [0xc08aff, 0xff8ad0, 0x8ad0ff, 0xffe08a];
+      for (const { x, z } of spots(26, 4)) { const h = 10 + rnd() * 30, m = add(new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ color: cols[Math.floor(rnd() * 4)], roughness: 0.1, metalness: 0.2, transparent: true, opacity: 0.8, emissive: 0x3a1a5a, emissiveIntensity: 0.4 })));
+        m.scale.set(2 + rnd() * 3, h, 2 + rnd() * 3); m.position.set(x, wy + h * 0.6, z); m.rotation.set((rnd() - 0.5) * 0.4, rnd() * 3, (rnd() - 0.5) * 0.4); }
+      for (const { x, z } of spots(5, 10)) { const a = add(new THREE.Mesh(new THREE.TorusGeometry(9, 1.2, 8, 24, Math.PI * (0.7 + rnd() * 0.3)), new THREE.MeshStandardMaterial({ color: 0xf0e8ff, roughness: 0.3, transparent: true, opacity: 0.85 }))); a.position.set(x, wy + 14, z); a.rotation.y = rnd() * 3; }
+      return EMPTY;
+    }
+    if (theme === 'engranajes') { // engranajes gigantes que giran, torres de latón y chimeneas con vapor
+      const brass = M(0xc8a050, { metalness: 0.7, roughness: 0.35 }), iron = M(0x5a5a62, { metalness: 0.6, roughness: 0.5 });
+      const gear = (R, teeth, mat) => { const sh = new THREE.Shape(); for (let k = 0; k <= teeth * 2; k++) { const a = (k / (teeth * 2)) * Math.PI * 2, r = k % 2 ? R : R * 0.84; const a2 = a + Math.PI / teeth; k ? sh.lineTo(Math.cos(a) * r, Math.sin(a) * r) : sh.moveTo(Math.cos(a) * r, Math.sin(a) * r); sh.lineTo(Math.cos(a2 - 0.001) * r, Math.sin(a2 - 0.001) * r); }
+        const hole = new THREE.Path(); hole.absarc(0, 0, R * 0.3, 0, Math.PI * 2, true); sh.holes.push(hole); return new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 1.2, bevelEnabled: false }), mat); };
+      for (const { x, z } of spots(9, 9, true)) { const R = 6 + rnd() * 8, g = add(gear(R, 10 + Math.floor(rnd() * 6), rnd() < 0.5 ? brass : iron)); g.position.set(x, R + 2 + rnd() * 6, z); g.rotation.y = rnd() * 3; g.rotation.order = 'YXZ';
+        g.userData.sp = (rnd() < 0.5 ? -1 : 1) * (0.3 + rnd() * 0.5); this.spinners.push(g);
+        const post = add(new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.8, g.position.y - wy, 8), iron)); post.position.set(x, (g.position.y + wy) / 2, z); }
+      for (const { x, z } of spots(10, 6)) { const H = 20 + rnd() * 25, t = add(new THREE.Mesh(new THREE.CylinderGeometry(4, 5, H, 8), M(0x8a6a40, { metalness: 0.4 }))); t.position.set(x, wy + H / 2, z);
+        const roof = add(new THREE.Mesh(new THREE.ConeGeometry(5.5, 6, 8), brass)); roof.position.set(x, wy + H + 3, z);
+        const ch = add(new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 6, 8), iron)); ch.position.set(x + 2, wy + H + 4, z);
+        for (let k = 0; k < 2; k++) { const st = add(new THREE.Mesh(new THREE.SphereGeometry(1.6 + k, 8, 6), new THREE.MeshStandardMaterial({ color: 0xf0f0f0, transparent: true, opacity: 0.5 - k * 0.15 }))); st.position.set(x + 2, wy + H + 8 + k * 3, z); this.bobs.push({ m: st, y0: st.position.y, a: 1, sp: 0.8 + k * 0.3 }); } }
+      return EMPTY;
+    }
+    if (theme === 'faroles') { // cielo de estrellas y faroles flotando que se mecen
+      const sg = new THREE.BufferGeometry(), sp = []; for (let k = 0; k < 900; k++) { const a = rnd() * 6.28, b = rnd() * 1.2, r = 380; sp.push(Math.cos(a) * Math.cos(b) * r, Math.sin(b) * r + 10, Math.sin(a) * Math.cos(b) * r); }
+      sg.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3)); add(new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xffffff, size: 1.6, sizeAttenuation: false, fog: false })));
+      const moon = add(new THREE.Mesh(new THREE.SphereGeometry(14, 20, 14), new THREE.MeshBasicMaterial({ color: 0xfff4d0, fog: false }))); moon.position.set(-120, 120, -280);
+      const lampCols = [0xff8a3a, 0xffc04a, 0xff5a5a];
+      for (let k = 0; k < 70; k++) { const x = -160 + rnd() * 320, z = -200 + rnd() * 260; if (!clear(x, z, 1)) continue;
+        const g = new THREE.Group(), col = lampCols[k % 3]; const body = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.45, 1.1, 10), new THREE.MeshBasicMaterial({ color: col }));
+        const glow = new THREE.Mesh(new THREE.SphereGeometry(1.2, 10, 8), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.2, depthWrite: false, blending: THREE.AdditiveBlending })); g.add(body, glow);
+        g.position.set(x, 3 + rnd() * 25, z); add(g); this.bobs.push({ m: g, y0: g.position.y, a: 0.8 + rnd(), sp: 0.4 + rnd() * 0.5 }); }
+      // faroles en postes junto a la pista
+      for (let i = 10; i < this.N; i += 36) for (const sgn of [-1, 1]) { const c = this.c[i], r = this.r[i], x = c.x + r.x * (this.hw + 1.3) * sgn, z = c.z + r.z * (this.hw + 1.3) * sgn;
+        const pole = add(new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 3.4, 6), M(0x2a1a10))); pole.position.set(x, c.y + 1.7, z);
+        const l = add(new THREE.Mesh(new THREE.SphereGeometry(0.35, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffb04a }))); l.position.set(x, c.y + 3.5, z); }
+      return EMPTY;
+    }
+    if (theme === 'nubes') { // nubes enormes, templos flotantes y un arcoíris
+      const cm = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, emissive: 0xdde8ff, emissiveIntensity: 0.25 });
+      for (const { x, z } of spots(22, 8)) { const g = new THREE.Group(); for (let k = 0; k < 5; k++) { const b = new THREE.Mesh(new THREE.SphereGeometry(4 + rnd() * 5, 12, 8), cm); b.position.set((rnd() - 0.5) * 14, (rnd() - 0.3) * 4, (rnd() - 0.5) * 8); b.scale.y = 0.6; g.add(b); }
+        g.position.set(x, -8 + rnd() * 30, z); add(g); this.bobs.push({ m: g, y0: g.position.y, a: 1.5, sp: 0.15 + rnd() * 0.2 }); }
+      for (const { x, z } of spots(4, 10)) { const g = new THREE.Group(), base = new THREE.Mesh(new THREE.CylinderGeometry(8, 3, 6, 10), M(0xe8eef8)); g.add(base);
+        for (let k = 0; k < 6; k++) { const a = k / 6 * 6.28, c = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 6, 8), M(0xffffff)); c.position.set(Math.cos(a) * 5.5, 6, Math.sin(a) * 5.5); g.add(c); }
+        const dome = new THREE.Mesh(new THREE.SphereGeometry(6.2, 16, 8, 0, 6.3, 0, Math.PI / 2), M(0xffd24a, { metalness: 0.5, roughness: 0.3 })); dome.position.y = 9; g.add(dome);
+        g.position.set(x, 6 + rnd() * 14, z); add(g); this.bobs.push({ m: g, y0: g.position.y, a: 1, sp: 0.2 }); }
+      const rb = ['#ff4a4a', '#ff9a3a', '#ffe04a', '#5ad05a', '#4ab0ff', '#7a5aff'];
+      rb.forEach((c, k) => { const a = add(new THREE.Mesh(new THREE.TorusGeometry(120 - k * 3, 1.5, 6, 60, Math.PI), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.45, fog: false, depthWrite: false }))); a.position.set(0, -20, -260); });
+      return EMPTY;
     }
     if (theme === 'cloaca') return { islands: [], houses: [], trees: [], lighthouses: [], props: [], pines: [], bigTrees: [], mushrooms: [], snow: 0 };
     if (theme === 'ruinas') { // mesetas rojas a franjas y columnas rotas
@@ -675,7 +824,7 @@ export class Race {
     const dec = this.track.decor(13);
     C.loadRaceZone({
       id: 'carrera_' + opts.track, arena: true, race: true, title: def.name, subtitle: 'Carreras', seed: 5,
-      sky: def.sky, light: def.light, palette: def.theme.palette, water: def.water,
+      sky: def.sky, light: def.light, palette: def.theme.palette, water: def.water, lava: def.lava, embers: def.embers,
       start: { id: 'salida', pos: [0, 0, 0], facing: 0 }, ...dec,
       airships: def.theme.decor === 'puerto' ? [{ id: 'dirigible', x: 20, y: 18, z: -150 }] : [],
     });
@@ -774,6 +923,7 @@ export class Race {
     safe('choques', () => this._collide(dt));
     safe('puestos', () => this.place());
     safe('dibujo', () => this._sync(dt));
+    safe('decorado', () => { const T = this.track, tt = this.clock + this.t; if (T.spinners) for (const g of T.spinners) g.rotation.z += dt * g.userData.sp; if (T.bobs) for (const b of T.bobs) b.m.position.y = b.y0 + Math.sin(tt * b.sp + b.y0) * b.a; });
     safe('cámara', () => this._camera(dt));
     safe('pantalla', () => this._hudTick(dt));
     safe('motor', () => this._engineTick(dt));
@@ -782,7 +932,7 @@ export class Race {
 
   // obstáculos que esquivar: bajo el carril colgante (según la isla) y babosas que giran dentro del tubo
   _buildObstacles(level = 0.92) {
-    const T = this.track, N = T.N, kind = T.tube ? 'baba' : ({ puerto: 'barril', bosque: 'seta', glaciar: 'bola', ruinas: 'roca' }[this.def.theme.decor] || 'barril');
+    const T = this.track, N = T.N, kind = T.tube ? 'baba' : ({ puerto: 'barril', bosque: 'seta', glaciar: 'bola', ruinas: 'roca', volcan: 'roca', cristales: 'bola', engranajes: 'barril', faroles: 'barril', nubes: 'bola' }[this.def.theme.decor] || 'barril');
     this.obst = []; const list = [];
     if (T.tube) for (let k = 0; k < 7; k++) list.push({ i: Math.floor(N * (0.08 + k * 0.13)) % N, mode: 'orbit', lat0: k * 9, sp: (k % 2 ? 1 : -1) * (6 + k) * level });
     else if (T.sky) { const S = T.sky; [0.15, 0.38, 0.6, 0.85].forEach((f, k) => list.push({ i: S.s0 + Math.floor((S.s1 - S.s0) * f), mode: 'swing', amp: T.hw - 2.2, sp: (1.3 + k * 0.25) * level, ph: k * 1.9 })); }

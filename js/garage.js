@@ -39,6 +39,11 @@ export const RETOS = {
   bosque: { text: 'Sube al podio en el Bosque Colgante', ok: r => !!(r.podiumAt || {}).bosque },
   glaciar: { text: 'Gana en el Glaciar del Eco', ok: r => !!(r.wonAt || {}).glaciar },
   canon: { text: 'Gana en el Cañón del Ocaso', ok: r => !!(r.wonAt || {}).canon },
+  cloaca: { text: 'Gana en las Cloacas de Bruma', ok: r => !!(r.wonAt || {}).cloaca },
+  forja: { text: 'Gana en el Volcán de las Forjas', ok: r => !!(r.wonAt || {}).forja },
+  vidrio: { text: 'Gana en el Espejismo de Vidrio', ok: r => !!(r.wonAt || {}).vidrio },
+  engranajes: { text: 'Gana en la Ciudad de los Engranajes', ok: r => !!(r.wonAt || {}).engranajes },
+  faroles: { text: 'Gana en la Noche de los Faroles', ok: r => !!(r.wonAt || {}).faroles },
   alltracks: { text: 'Gana en las tres pistas', ok: r => ['puerto', 'bosque', 'glaciar'].every(t => (r.wonAt || {})[t]) },
   hits10: { text: 'Acierta 10 objetos a tus rivales', ok: r => (r.hits || 0) >= 10 },
 };
@@ -139,6 +144,11 @@ export function unlockables() {
   out.push({ key: 't:glaciar', name: 'la pista del Glaciar del Eco', reto: 'bosque' });
   out.push({ key: 't:canon', name: 'la pista del Cañón del Ocaso', reto: 'glaciar' });
   out.push({ key: 't:cloaca', name: 'las Cloacas de Bruma', reto: 'canon' });
+  out.push({ key: 't:forja', name: 'el Volcán de las Forjas', reto: 'cloaca' });
+  out.push({ key: 't:vidrio', name: 'el Espejismo de Vidrio', reto: 'forja' });
+  out.push({ key: 't:engranajes', name: 'la Ciudad de los Engranajes', reto: 'vidrio' });
+  out.push({ key: 't:faroles', name: 'la Noche de los Faroles', reto: 'engranajes' });
+  out.push({ key: 't:cumbre', name: 'la Cumbre de las Nubes', reto: 'faroles' });
   return out;
 }
 export function newUnlocks(sv) {

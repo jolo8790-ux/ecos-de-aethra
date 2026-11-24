@@ -3002,6 +3002,7 @@ function refreshRaceMenu() {
     b.onclick = () => { if (locked) { audio.play('powerFail'); toast(`🔒 ${RETOS[TT.lock].text}`); return; } raceUI.track = id; audio.play('uiMove'); refreshRaceMenu(); };
     row.appendChild(b);
   }
+  { const selB = row.querySelector('.sel'); if (selB) requestAnimationFrame(() => { const a = selB.getBoundingClientRect(), r = row.getBoundingClientRect(); row.scrollLeft += (a.left + a.width / 2) - (r.left + r.width / 2); }); }
   tb.insertAdjacentHTML('beforeend', `<div class="raceCard"><span class="ic">${T.icon}</span><div><b>${T.name}</b><small>${T.desc}</small>${best ? `<em>Tu récord: ${fmt(best.time)} · ${best.place}.º lugar</em>` : '<em>Aún sin récord en esta pista</em>'}</div></div>`);
   const opts = (box, list, key, label) => {
     box.innerHTML = '';
