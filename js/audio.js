@@ -5,17 +5,10 @@ import { LOW_MEM } from './glbload.js';
 // coloca a la izquierda o a la derecha y baja con la distancia.
 const MAX_VOICES = 72, MAX_LOW = 40;
 // voces grabadas (generadas con Artlist): se suman al efecto sintetizado. p = probabilidad, para que no se repitan siempre
-const HERO_V = new Set(['hurt1', 'hurt2', 'hurt3', 'jump1', 'jump2', 'atk1', 'atk2', 'atk3', 'ko', 'bien']); // la voz de cada personaje
+const HERO_V = new Set(['bien']); // la voz de cada personaje (sólo palabras: sin quejidos)
 const VOICES = {
-  hurt: { f: ['hurt1', 'hurt2', 'hurt3'], p: 1, vol: 0.9 },
-  jump: { f: ['jump1', 'jump2'], p: 0.3, vol: 0.55, gap: 0.6 },
-  djump: { f: ['jump2'], p: 0.6, vol: 0.6, gap: 0.4 },
-  swing: { f: ['atk1', 'atk2', 'atk3'], p: 0.4, vol: 0.6, gap: 0.45 },
-  hitHeavy: { f: ['atk3'], p: 0.5, vol: 0.6, gap: 0.5 },
-  ko: { f: ['ko'], p: 1, vol: 1 },
+  // (sin quejidos ni jadeos al saltar, atacar o recibir golpes: sonaban raro; sólo la palabra «¡bien!»)
   fragment: { f: ['bien'], p: 0.6, vol: 0.7, gap: 2 },
-  enemyHurt: { f: ['ehurt1', 'ehurt2'], p: 0.8, vol: 0.55, gap: 0.12, rate: 0.15 },
-  enemyDie: { f: ['edie'], p: 1, vol: 0.65, rate: 0.2 },
   roar: { f: ['roar1', 'roar2'], p: 1, vol: 1.1 },
   windup: { f: ['growl'], p: 0.5, vol: 0.6, gap: 1, rate: 0.2 },
   stomp: { f: ['growl'], p: 0.25, vol: 0.5, gap: 2 },
@@ -190,15 +183,15 @@ export class Audio {
         break;
       case 'enemyHurt':
         o('square', 1800, { to: 260, dur: 0.025, vol: 0.05 }); o('sine', 160, { to: 60, dur: 0.15, vol: 0.2 }); n('white', 0.08, { vol: 0.1, f: 2600, type: 'bandpass' });
-        o('sawtooth', 340, { to: 180, dur: 0.14, vol: 0.035, lp: 1400, delay: 0.02 }); // quejido
+        o('triangle', 900, { to: 1500, dur: 0.07, vol: 0.04, delay: 0.03 }); // «pling» de dibujo animado
         break;
       case 'enemyDie':
         o('sine', 700, { to: 110, dur: 0.24, vol: 0.12 }); n('white', 0.45, { vol: 0.12, f: 6000, to: 900, type: 'lowpass' }); n('brown', 0.3, { vol: 0.12, f: 380 });
         sparkle([1318, 1760, 2349], 0.045, 0.03, 0.08);
         break;
-      case 'hurt': // la heroína recibe un golpe: impacto + quejido corto
+      case 'hurt': // la heroína recibe un golpe: «¡bonk!» de dibujo animado, sin voz
         n('brown', 0.2, { vol: 0.22, f: 520 }); o('sine', 130, { to: 60, dur: 0.16, vol: 0.18 });
-        o('sawtooth', 240, { to: 165, dur: 0.2, vol: 0.06, bp: 780, q: 4, att: 0.01 }); o('sawtooth', 242, { to: 170, dur: 0.2, vol: 0.04, bp: 1250, q: 5, att: 0.01 });
+        o('square', 1200, { to: 300, dur: 0.05, vol: 0.05 }); o('triangle', 620, { to: 310, dur: 0.18, vol: 0.07, delay: 0.02 }); sparkle([1568, 1175], 0.05, 0.025, 0.06);
         break;
       case 'block': // escudo: metal que vibra
         for (const [f, v, d] of [[523, 0.07, 0.5], [1307, 0.05, 0.35], [2041, 0.035, 0.28], [3203, 0.025, 0.2]]) o('triangle', f, { dur: d, vol: v, to: f * 0.985 });
