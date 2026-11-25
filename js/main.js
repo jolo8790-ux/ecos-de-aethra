@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Input } from './input.js';
 import { Physics } from './physics.js';
-import { Player, angleDiff } from './player.js';
+import { Player, angleDiff, buildStaff } from './player.js';
 import { FollowCamera } from './camera.js';
 import { World } from './world.js';
 import { Audio } from './audio.js';
@@ -2690,7 +2690,7 @@ function setShopModel() {
   const fit = (obj, size, y) => { const b = new THREE.Box3().setFromObject(obj), sz = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3()), k = size / Math.max(sz.x, sz.y, sz.z, 0.001);
     const g = new THREE.Group(); obj.position.sub(c); g.add(obj); g.scale.setScalar(k); g.position.y = y; return g; };
   if (kind === 'arma') {
-    const w = buildWeapon(id); if (!w) return; w.rotation.set(0, 0, 0.35); H.add(fit(w, 1.65, 1.15));
+    const w = buildWeapon(id) || buildStaff(); w.rotation.set(0, 0, 0.35); H.add(fit(w, 1.65, 1.15)); if (w.userData.tick) sp.spin = (dt, t) => w.userData.tick(t);
   } else if (kind === 'armadura') {
     if (!charLib) return;
     const sv = armUI.sv, ch = createCharacter(charLib, heroLook(sv.hero || 'lia', sv.custom)); buildArmor(id, ch.model);

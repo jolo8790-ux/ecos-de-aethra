@@ -39,6 +39,15 @@ export function mergeMods(base, sv) {
 
 // ---------- modelos ----------
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.5, ...o });
+// textura de llama: lengua de fuego con degradado (centro claro, borde del color de la hoja, punta transparente)
+const flameCache = new Map();
+function flameTex([c0, c1, c2]) {
+  const key = c0 + c1; if (flameCache.has(key)) return flameCache.get(key);
+  const cv = document.createElement('canvas'); cv.width = 64; cv.height = 128; const c = cv.getContext('2d');
+  const g = c.createRadialGradient(32, 100, 2, 32, 86, 60); g.addColorStop(0, c0); g.addColorStop(0.35, c1); g.addColorStop(1, c2);
+  c.fillStyle = g; c.beginPath(); c.moveTo(32, 2); c.bezierCurveTo(40, 34, 60, 58, 58, 92); c.bezierCurveTo(56, 116, 42, 126, 32, 126); c.bezierCurveTo(22, 126, 8, 116, 6, 92); c.bezierCurveTo(4, 58, 24, 34, 32, 2); c.fill();
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; flameCache.set(key, t); return t;
+}
 export function buildWeapon(id) {
   if (id === 'baston' || !WEAPONS.some(w => w.id === id)) return null; // el bastón lo dibuja player.js
   const P = {
@@ -58,10 +67,15 @@ export function buildWeapon(id) {
   const bg = new THREE.ExtrudeGeometry(shape, { depth: 0.02, bevelEnabled: true, bevelThickness: 0.012, bevelSize: 0.012, bevelSegments: 1 }); bg.translate(0, 0, -0.01);
   const blade = new THREE.Mesh(bg, P.blade); blade.position.y = 0.17; g.add(blade);
   const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.035, 0), new THREE.MeshBasicMaterial({ color: P.gem })); gem.position.set(0, 0.15, 0.045); g.add(gem);
-  if (id === 'eco' || id === 'brasa') { // halo suave sobre la hoja
-    const halo = new THREE.Mesh(new THREE.PlaneGeometry(0.3, L + 0.15), new THREE.MeshBasicMaterial({ color: id === 'eco' ? 0xffe08a : 0xff7a2a, transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
-    halo.position.y = 0.17 + L / 2; g.add(halo); const h2 = halo.clone(); h2.rotation.y = Math.PI / 2; g.add(h2);
-    g.userData.halo = [halo, h2];
+  if (id === 'eco' || id === 'brasa') { // llamas del color de la hoja que suben por el filo y titilan
+    const col = id === 'eco' ? ['#fffbe0', '#ffe08a', 'rgba(255,200,80,0)'] : ['#fff2c0', '#ff7a2a', 'rgba(255,60,10,0)'];
+    const tex = flameTex(col), mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+    const flames = [];
+    for (let k = 0; k < 10; k++) { const u = k / 9, h = 0.24 + Math.sin(u * Math.PI) * 0.16, f = new THREE.Mesh(new THREE.PlaneGeometry(0.24, h), mat); f.geometry.translate(0, h / 2, 0);
+      const side = k % 2 ? 1 : -1; f.position.set(side * 0.06, 0.18 + u * (L * 0.8), 0); f.rotation.y = k * 0.9; g.add(f); flames.push({ f, ph: k * 1.7, s: 0.8 + (k % 3) * 0.15 }); }
+    const tip = new THREE.Mesh(new THREE.PlaneGeometry(0.28, 0.42), mat); tip.geometry.translate(0, 0.21, 0); tip.position.y = 0.17 + L - 0.06; g.add(tip); flames.push({ f: tip, ph: 0.4, s: 1 });
+    g.userData.flames = flames;
+    g.userData.tick = t => { for (const F of flames) { const w = 0.75 + Math.sin(t * 13 + F.ph) * 0.18 + Math.sin(t * 21 + F.ph * 2) * 0.1; F.f.scale.set(F.s * (0.9 + Math.sin(t * 9 + F.ph) * 0.12), F.s * w, 1); F.f.rotation.y += 0.04; } };
   }
   g.traverse(o => { if (o.isMesh && !o.material.blending) o.castShadow = true; });
   g.userData.gem = gem;

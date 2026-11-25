@@ -137,6 +137,7 @@ export class Player {
   }
 
   update(dt, input, camYaw, targets = []) {
+    if (this.staff && this.staff.userData.tick && this.staff.visible) this.staff.userData.tick(performance.now() / 1000); // llamas de la espada
     const P = this.physics;
     this._landed = false; this._landSpeed = 0; this._dj = false; this._jumped = false;
     if (this.grounded && this.ground && this.ground.delta) { this.pos.add(this.ground.delta); } // plataformas móviles
@@ -554,7 +555,7 @@ function buildShield() {
 }
 
 // Bastón del abuelo: madera con un cristal en la punta.
-function buildStaff() {
+export function buildStaff() {
   const g = new THREE.Group();
   const wood = new THREE.MeshStandardMaterial({ color: 0x7a4a26, roughness: 0.8 });
   const crystal = new THREE.MeshStandardMaterial({ color: 0x9ff0ff, emissive: 0x2a9fd0, emissiveIntensity: 0.9, roughness: 0.2, flatShading: true });
