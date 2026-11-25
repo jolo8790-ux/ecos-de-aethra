@@ -203,7 +203,8 @@ export class RaceItems {
       // un misil o una bomba que pasa por una caja también la rompe (sin dar objeto a nadie)
       for (const B of this.boxes) { if (B.t > 0) continue; const by = B.m.position.y, sy = S.g.position.y;
         if (Math.hypot(B.m.position.x - S.pos.x, B.m.position.z - S.pos.z) < 1.7 && Math.abs(by - sy) < 2.2) { B.t = B.gold ? 6 : 3; this._pop(B.m.position, 0xffd24a, 1.2); this._shards(B.m.position);
-          const me = race.me; if (me && Math.hypot(me.pos.x - S.pos.x, me.pos.z - S.pos.z) < 40) race.ctx.audio.play('crack'); } }
+          const me = race.me; if (me && Math.hypot(me.pos.x - S.pos.x, me.pos.z - S.pos.z) < 40) race.ctx.audio.play('crack');
+          const O = S.owner; if (!S.remote && O && !O.remote && !O.item && !(O.roll > 0)) { O.roll = O.you ? 1.0 : 0.4; O.rollFor = B.gold ? rollGold() : roll(O.place, race.racers.length); if (O.you) { race.ctx.audio.play('crystal'); race._flash(B.gold ? '¡Caja dorada!' : '¡Caja!', '#ffd24a'); } } } }
       let hit = null;
       if (T.tube) { if (Math.abs(F.lat) > T.hw) { const r = T.r[S.i], sh = -Math.sign(F.lat) * 2 * T.hw; S.pos.x += r.x * sh; S.pos.z += r.z * sh; } }
       else if (Math.abs(F.lat) > T.hw - 0.4) { if (S.kind === 'bomba') { const r = T.r[S.i], sg = Math.sign(F.lat); S.pos.x -= r.x * sg * 0.6; S.pos.z -= r.z * sg * 0.6; S.yaw = Math.atan2(T.t[S.i].x, T.t[S.i].z); } else hit = 'wall'; }
@@ -230,18 +231,22 @@ export class RaceItems {
     for (const R of race.racers) {
       const dd = Math.hypot(R.pos.x - p.x, R.pos.z - p.z);
       if (R === direct || dd < r) {
-        if (R.remote) { if (race.net && !R.gone) race.net.event({ t: 'hit', ep: race.ep, v: R.id, o: S.owner.id }); if (S.owner.you) this._hitFx(R); }
-        else this.hit(R, S.owner);
+        if (R.remote) { if (race.net && !R.gone) race.net.event({ t: 'hit', ep: race.ep, v: R.id, o: S.owner.id, k: 'quema' }); if (S.owner.you) this._hitFx(R); }
+        else this.hit(R, S.owner, false, 'quema');
       }
     }
   }
   _hitFx(R) { const race = this.race; race._flash(`¡Le diste a ${R.name}!`, '#7affa0'); const sv = race.ctx.getSave(); if (sv) { sv.race = sv.race || {}; sv.race.hits = (sv.race.hits || 0) + 1; } }
-  hit(R, by, fromNet = false) {
+  // kind: 'quema' (queda negro), 'aplasta' (queda plano un momento) o 'congela' (queda dentro de un bloque de hielo)
+  hit(R, by, fromNet = false, kind = null) {
     const race = this.race;
     if (R.inv > 0) return;
     if (R.shieldT > 0) { R.shieldT = 0; R.inv = 0.8; this._pop(R.pos.clone().setY(R.pos.y + 1), 0x9fe3ff, 2.4); if (R.you) race.ctx.audio.play('reflect'); return; }
-    R.spin = 1.1; R.inv = 2.2; R.v *= 0.25; R.drift = 0; R.charge = 0; R.boostT = 0;
-    if (R.you) { race.ctx.audio.play('hurt'); race.ctx.input.rumble(260, 0.9); race._flash('¡Te dieron!', '#ff8a7a'); }
+    R.inv = 2.2; R.drift = 0; R.charge = 0; R.boostT = 0;
+    if (kind === 'aplasta') { R.stunT = 0.9; R.v = 0; R.fx = kind; R.fxT = 1.0; }
+    else if (kind === 'congela') { R.stunT = 1.5; R.v *= 0.2; R.fx = kind; R.fxT = 1.7; this._pop(R.pos.clone().setY(R.pos.y + 1), 0xbff0ff, 2.2); }
+    else { R.spin = 1.1; R.v *= 0.25; if (kind === 'quema') { R.fx = kind; R.fxT = 2.4; } }
+    if (R.you) { race.ctx.audio.play(kind === 'congela' ? 'crystal' : kind === 'aplasta' ? 'slam' : 'hurt'); race.ctx.input.rumble(260, 0.9); race._flash(kind === 'congela' ? '¡Congelado!' : kind === 'aplasta' ? '¡Aplastado!' : kind === 'quema' ? '¡Quemado!' : '¡Te dieron!', '#ff8a7a'); }
     else if (by && by.you) { race._flash(`¡Le diste a ${R.name}!`, '#7affa0'); const sv = race.ctx.getSave(); if (sv) { sv.race = sv.race || {}; sv.race.hits = (sv.race.hits || 0) + 1; } }
   }
   // pedacitos de colores al romper una caja

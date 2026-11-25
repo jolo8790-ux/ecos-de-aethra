@@ -957,6 +957,7 @@ class Racer {
     const lib = C.charLib();
     if (lib) this.ch = seatDriver(this.body, lib, this.look, this.artKart);
     try { this.wheelRig = this.ch ? rigWheel(this.ch, this.body, this.kart.userData.wheel) : null; } catch (e) { this.wheelRig = null; }
+    this.mats = []; this.body.traverse(m => { if (!m.isMesh || !m.material || m.material.transparent || !m.material.color) return; const mt = m.material = m.material.clone(); this.mats.push({ mt, c: mt.color.clone() }); });
     // sombra redonda bajo el kart
     this.shadow = new THREE.Mesh(new THREE.CircleGeometry(1.5, 20), new THREE.MeshBasicMaterial({ color: 0, transparent: true, opacity: 0.28, depthWrite: false }));
     this.shadow.rotation.x = -Math.PI / 2; this.shadow.scale.set(0.75, 1.15, 1); race.root.add(this.shadow);
@@ -1132,6 +1133,7 @@ export class Race {
       R.spin -= dt; R.spinA += dt * 14 * clamp(R.spin, 0.2, 1); ctl = { steer: 0, throttle: 0, brake: 0, drift: false };
       R.v -= R.v * damp(3, dt); R.drift = 0;
     } else R.spinA = 0;
+    if (R.stunT > 0) { R.stunT -= dt; ctl = { steer: 0, throttle: 0, brake: 0, drift: false }; R.v -= R.v * damp(8, dt); R.drift = 0; }
     const M = R.mods; const top = MAXV * M.vel * (R.you && !R.done ? 1 : R.done ? 0.5 : R.skillNow || R.skill) * (R.boostT > 0 ? 1.42 : 1) * (R.bump > 0 ? 0.7 : 1);
     if (ctl.brake && R.v > 0.5) R.v -= BRAKE * dt;
     else if (ctl.brake) R.v = Math.max(-8, R.v - ACC * 0.6 * dt); // marcha atrás
@@ -1375,7 +1377,7 @@ export class Race {
     const owner = id => this.racers.find(R => R.id === id);
     if (ev.t === 'shot') this.items.remoteShot(ev, owner(ev.o));
     else if (ev.t === 'boom') this.items.remoteBoom(ev);
-    else if (ev.t === 'hit') { const V = owner(ev.v); if (V && !V.remote) this.items.hit(V, owner(ev.o), true); }
+    else if (ev.t === 'hit') { const V = owner(ev.v); if (V && !V.remote) this.items.hit(V, owner(ev.o), true, ev.k || null); }
   }
   _plate(R) {
     const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64; const c = cv.getContext('2d');
@@ -1411,6 +1413,7 @@ export class Race {
       R.root.rotation.set(0, R.yaw, 0);
       if (T.tube) { const m = T.tmap(R.pos, R.i, R.root.position); R.ti = m.i; R.th = m.th; R.root.quaternion.premultiply(T.tquat(m.i, m.th, T._q)); }
       R.body.rotation.set(-R.pitch, 0, 0); R.body.position.y = R.spin > 0 ? Math.abs(Math.sin(R.spin * 5)) * 0.5 : 0;
+      this._fxLook(R, dt);
       const cp = this.ctx.camera.position, near = !T.tube && !R.you && Math.hypot(cp.x - R.pos.x, cp.z - R.pos.z) < 4.2 && cp.y > R.pos.y; // no tapar la cámara con el kart que viene pegado detrás
       R.root.visible = !near && !(R.inv > 0 && R.spin <= 0 && Math.sin(this.clock * 30) > 0.3);
       R.wob += dt * (8 + R.v * 0.6);
@@ -1436,6 +1439,25 @@ export class Race {
     for (const B of T.boosts) B.mat.map.offset.y -= dt * 2.2;
     // la heroína (invisible) sigue al kart: así la sombra y el sonido van con la cámara
     const P = this.ctx.player; P.pos.copy(this.me.pos);
+  }
+  _fxLook(R, dt) {
+    const fx = R.fxT > 0 ? R.fx : null; if (R.fxT > 0) R.fxT -= dt;
+    const k = fx ? clamp(R.fxT / 0.5, 0, 1) : 0; // se va pasando en el último medio segundo
+    if (fx || R._fxOn) {
+      for (const { mt, c } of R.mats) {
+        if (fx === 'quema') mt.color.copy(c).multiplyScalar(1 - 0.96 * k);
+        else if (fx === 'congela') mt.color.copy(c).lerp(this._ice || (this._ice = new THREE.Color(0xa8e8ff)), 0.75 * k);
+        else mt.color.copy(c);
+      }
+      R._fxOn = !!fx;
+    }
+    // aplastado: plano como una galleta y vuelve de golpe
+    const sq = fx === 'aplasta' ? clamp(R.fxT / 0.2, 0, 1) : 0; R.body.scale.set(1 + 0.4 * sq, 1 - 0.72 * sq, 1 + 0.25 * sq);
+    // congelado: bloque de hielo alrededor
+    if (fx === 'congela' && !R.iceBlock) { const m = R.iceBlock = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2.3, 3.2), new THREE.MeshStandardMaterial({ color: 0xbff0ff, transparent: true, opacity: 0.45, roughness: 0.05, metalness: 0.1, emissive: 0x3a8aaa, emissiveIntensity: 0.4 })); m.position.y = 1.0; R.body.add(m); }
+    if (R.iceBlock) { R.iceBlock.visible = fx === 'congela'; if (R.iceBlock.visible) R.iceBlock.scale.setScalar(0.85 + 0.15 * k); }
+    // quemado: humo negro saliendo
+    if (fx === 'quema' && (R._smk = (R._smk || 0) - dt) <= 0) { R._smk = 0.07; this.items._smoke(R.pos.clone().setY(R.pos.y + 1 + Math.random() * 0.6), 0x2a2a2a); }
   }
   _camSet(p, tgt, R) {
     const cam = this.ctx.camera, T = this.track;

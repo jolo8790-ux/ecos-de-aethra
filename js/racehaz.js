@@ -217,7 +217,8 @@ export function tickHazards(race, dt) {
       if (H.bar) { // distancia al segmento de la barra que gira
         const a = O.ang, bx = Math.sin(a + Math.PI / 2), bz = Math.cos(a + Math.PI / 2), proj = dx * bx + dz * bz; hit = Math.abs(proj) < O.L && Math.abs(dx * bz - dz * bx) < O.r + 0.6;
       } else hit = Math.hypot(lat - H.lat, along) < H.r + 0.85 && Math.abs(hy - H.y) < H.r + 1.3;
-      if (hit) { race.items.hit(R, null); if (R.you) race._flash({ babosa: '¡Babosa!', ovni: '¡Te abdujeron!', pison: '¡Aplastado!', geiser: '¡Lava!', mano: '¡Una sombra!' }[O.model || O.k] || '¡Cuidado!', '#ff8a7a'); }
+      if (hit) { const kind = O.model === 'geiser' || O.model === 'meteoro' ? 'quema' : O.model === 'pison' || (O.k === 'cae' && O.model === 'roca') ? 'aplasta' : O.model === 'bola' ? 'congela' : null;
+        const was = R.inv; race.items.hit(R, null, false, kind); if (R.you && was <= 0 && !kind) race._flash({ babosa: '¡Babosa!', ovni: '¡Te abdujeron!', mano: '¡Una sombra!' }[O.model || O.k] || '¡Cuidado!', '#ff8a7a'); }
     }
   }
 }
