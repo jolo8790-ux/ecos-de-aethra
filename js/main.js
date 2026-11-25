@@ -2579,51 +2579,142 @@ function openArmeria(from) {
   $(from).classList.add('hidden'); $('armeria').classList.remove('hidden');
   buildArmeria();
 }
+// objetos de la tienda que se gastan o suman para siempre
+function shopItems(sv) {
+  const inv = (sv.items = sv.items || {}), xh = sv.extraHearts || 0;
+  return [
+    { id: 'portal', icon: '🌀', name: 'Portal de rescate', desc: 'Al caer al vacío, te lleva por un portal al siguiente lugar seguro. También aparecen dentro de algunas vasijas.', have: `Tienes ${inv.portal || 0}`, cost: 30, can: true },
+    { id: 'corazon', icon: '❤', name: 'Corazón extra', desc: 'Un corazón más para siempre (empiezas con 5).', have: `Tienes ${xh} de 5 extra`, cost: 100 + 60 * xh, can: xh < 5 },
+  ];
+}
 function buildArmeria() {
   const sv = armUI.sv, g = gearOf(sv), ecos = sv.ecos || 0;
-  $('armSub').innerHTML = `Tienes <b class="ecoTag">✧ ${ecos} Ecos</b>. Los ganas venciendo enemigos, rompiendo vasijas, encontrando fragmentos, reliquias y piezas, en la Arena, en los desafíos y en Aethra sin fin.`;
+  $('armSub').innerHTML = `Tienes <b class="ecoTag">✧ ${ecos} Ecos</b>. Toca un artículo para verlo de cerca.`;
   $('armTabs').innerHTML = `<button class="${armUI.tab === 'arma' ? 'sel' : ''}" data-t="arma"><b>🗡</b><small>Armas</small></button><button class="${armUI.tab === 'armadura' ? 'sel' : ''}" data-t="armadura"><b>🛡</b><small>Armaduras</small></button><button class="${armUI.tab === 'objetos' ? 'sel' : ''}" data-t="objetos"><b>🌀</b><small>Objetos</small></button>`;
   $('armTabs').querySelectorAll('button').forEach(b => b.onclick = () => { armUI.tab = b.dataset.t; audio.play('uiMove'); buildArmeria(); });
   const grid = $('armGrid'); grid.innerHTML = '';
-  if (armUI.tab === 'objetos') { // objetos especiales: se gastan (portales) o suman corazones para siempre
-    const inv = (sv.items = sv.items || {}), xh = sv.extraHearts || 0;
-    const SHOP = [
-      { id: 'portal', icon: '🌀', name: 'Portal de rescate', desc: `Al caer al vacío, te lleva por un portal al siguiente lugar seguro. Tienes ${inv.portal || 0}. (También aparecen en vasijas.)`, cost: 30, can: true },
-      { id: 'corazon', icon: '❤', name: 'Corazón extra', desc: `Un corazón más para siempre (empiezas con 5). Tienes ${xh} de 5 extra.`, cost: 100 + 60 * xh, can: xh < 5 },
-    ];
-    for (const it of SHOP) {
-      const b = document.createElement('button'), afford = ecos >= it.cost;
-      b.className = 'powCard' + (it.can && afford ? '' : ' locked');
-      b.innerHTML = `<span class="ic">${it.icon}</span><b>${it.name}</b><small>${it.desc}</small><em>${it.soon ? 'Próximamente' : !it.can ? 'Máximo alcanzado' : `✧ ${it.cost} Ecos${afford ? ' · pulsa para comprar' : ` (te faltan ${it.cost - ecos})`}`}</em>`;
-      b.onclick = () => {
-        if (!it.can || !afford) { audio.play('powerFail'); return; }
-        sv.ecos = ecos - it.cost; audio.play('unlock');
-        if (it.id === 'portal') inv.portal = (inv.portal || 0) + 1; else if (it.id === 'corazon') sv.extraHearts = xh + 1;
-        if (sv === save) { writeSave(save); applyAbilities(); if (it.id === 'corazon') player.hp = player.maxHp; updateHUD(); } else writeSaveRaw(sv);
-        buildArmeria();
-      };
-      grid.appendChild(b);
-    }
-    return;
-  }
-  for (const it of armUI.tab === 'arma' ? WEAPONS : ARMORS) {
-    const own = g.owned.includes(it.id), on = g[armUI.tab] === it.id, can = ecos >= it.cost, b = document.createElement('button');
-    b.className = 'powCard' + (own || can ? '' : ' locked') + (on ? ' on' : '');
-    b.innerHTML = `<span class="ic">${it.icon}</span><b>${it.name}</b><small>${it.desc}</small><em>${on ? 'Equipado' : own ? 'Tuyo · pulsa para equipar' : `✧ ${it.cost} Ecos${can ? ' · pulsa para comprar' : ` (te faltan ${it.cost - ecos})`}`}</em>${on ? '<span class="slotTag">Puesto</span>' : ''}`;
-    b.onclick = () => {
-      if (!own) {
-        if (!can) { audio.play('powerFail'); return; }
-        sv.ecos = ecos - it.cost; g.owned.push(it.id); audio.play('unlock'); music.stinger('hallazgo');
-      } else audio.play('open');
-      g[armUI.tab] = it.id;
-      if (sv === save) { writeSave(save); applyHero(); applyAbilities(); player.hp = Math.min(player.hp, player.maxHp); updateHUD(); }
-      else writeSaveRaw(sv);
-      buildArmeria();
-    };
+  const list = armUI.tab === 'objetos' ? shopItems(sv) : armUI.tab === 'arma' ? WEAPONS : ARMORS;
+  for (const it of list) {
+    const objeto = armUI.tab === 'objetos', own = !objeto && g.owned.includes(it.id), on = !objeto && g[armUI.tab] === it.id, b = document.createElement('button');
+    b.className = 'powCard' + (on ? ' on' : '');
+    const tag = objeto ? (it.can ? `✧ ${it.cost} Ecos` : 'Máximo alcanzado') : on ? 'Equipado' : own ? 'Tuyo' : it.cost ? `✧ ${it.cost} Ecos` : 'Gratis';
+    b.innerHTML = `<span class="ic">${it.icon}</span><b>${it.name}</b><small>${objeto ? it.have : it.desc}</small><em>${tag}</em>${on ? '<span class="slotTag">Puesto</span>' : ''}`;
+    b.onclick = () => { audio.play('open'); openShopDetail(armUI.tab, it.id); };
     grid.appendChild(b);
   }
 }
-$('bArmBack').onclick = () => { $('armeria').classList.add('hidden'); $(armUI.from).classList.remove('hidden'); if (armUI.from === 'arenaMenu') refreshArenaMenu(); };
+// ---- ficha de un artículo: se ve flotando y girando, y se compra con un botón ----
+let sp = null;
+function shopStats(kind, it) {
+  const m = it.mods || {}, out = [];
+  if (m.dmg) out.push(`+${m.dmg} de daño`);
+  if (m.hp) out.push(`+${m.hp} corazón${m.hp > 1 ? 'es' : ''}`);
+  if (m.air) out.push('Más aire bajo el agua');
+  if (m.glide) out.push(`Planeo +${Math.round((m.glide - 1) * 100)} %`);
+  if (m.speed) out.push(`Velocidad +${Math.round((m.speed - 1) * 100)} %`);
+  if (it.fx === 'burn') out.push('🔥 Quema'); if (it.fx === 'freeze') out.push('❄ Congela'); if (it.fx === 'wave') out.push('✦ Onda de luz');
+  if (kind !== 'objetos' && !out.length) out.push('Básico');
+  return out;
+}
+function openShopDetail(kind, id) {
+  armUI.detail = { kind, id }; $('armDetail').classList.remove('hidden'); fillShopDetail(); startShopStage(); setShopModel();
+}
+function closeShopDetail() { $('armDetail').classList.add('hidden'); armUI.detail = null; stopShopStage(); buildArmeria(); }
+function fillShopDetail() {
+  const { kind, id } = armUI.detail, sv = armUI.sv, g = gearOf(sv), ecos = sv.ecos || 0;
+  const it = kind === 'objetos' ? shopItems(sv).find(x => x.id === id) : (kind === 'arma' ? WEAPONS : ARMORS).find(x => x.id === id);
+  const objeto = kind === 'objetos', own = !objeto && g.owned.includes(id), on = !objeto && g[kind] === id, afford = ecos >= it.cost;
+  $('adKind').textContent = objeto ? 'Objeto' : kind === 'arma' ? 'Arma' : 'Armadura';
+  $('adName').textContent = it.name; $('adDesc').textContent = it.desc;
+  $('adStats').innerHTML = [...shopStats(kind, it), ...(objeto ? [it.have] : [])].map(t => `<span>${t}</span>`).join('');
+  $('adPrice').innerHTML = on ? 'Equipado' : own ? 'Ya es tuyo' : objeto && !it.can ? 'Máximo alcanzado' : it.cost ? `✧ ${it.cost} Ecos <small>· tienes ${ecos}</small>` : 'Gratis';
+  const bt = $('adBuy');
+  if (on) { bt.textContent = 'Equipado'; bt.disabled = true; }
+  else if (own) { bt.textContent = 'Equipar'; bt.disabled = false; }
+  else if (objeto && !it.can) { bt.textContent = 'Máximo alcanzado'; bt.disabled = true; }
+  else if (!afford) { bt.textContent = `Te faltan ${it.cost - ecos} Ecos`; bt.disabled = true; }
+  else { bt.innerHTML = `🛒 Adquirir${it.cost ? ` · ✧ ${it.cost}` : ''}`; bt.disabled = false; }
+  bt.onclick = () => {
+    if (bt.disabled) return;
+    if (objeto) {
+      sv.ecos = ecos - it.cost; const inv = sv.items; if (id === 'portal') inv.portal = (inv.portal || 0) + 1; else if (id === 'corazon') sv.extraHearts = (sv.extraHearts || 0) + 1;
+      audio.play('unlock'); if (sv === save) { writeSave(save); applyAbilities(); if (id === 'corazon') player.hp = player.maxHp; updateHUD(); } else writeSaveRaw(sv);
+      toast(`¡${it.name} comprado!`);
+    } else {
+      if (!own) { sv.ecos = ecos - it.cost; g.owned.push(id); audio.play('unlock'); music.stinger('hallazgo'); toast(`¡${it.name} es tuyo!`); } else audio.play('open');
+      g[kind] = id;
+      if (sv === save) { writeSave(save); applyHero(); applyAbilities(); player.hp = Math.min(player.hp, player.maxHp); updateHUD(); } else writeSaveRaw(sv);
+      if (sp) sp.burst = 1;
+    }
+    $('armSub').innerHTML = `Tienes <b class="ecoTag">✧ ${sv.ecos || 0} Ecos</b>. Toca un artículo para verlo de cerca.`;
+    fillShopDetail();
+  };
+}
+function startShopStage() {
+  if (sp) return;
+  const old = $('armCanvas'), cv = old.cloneNode(false); old.replaceWith(cv);
+  const r = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true }); r.setPixelRatio(Math.min(devicePixelRatio, 2)); r.outputColorSpace = THREE.SRGBColorSpace;
+  const sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight(0xffffff, 0x4a5a8a, 1.5));
+  const d1 = new THREE.DirectionalLight(0xfff1d6, 2.2); d1.position.set(2, 4, 3); sc.add(d1); const d2 = new THREE.DirectionalLight(0x8ab0ff, 1.2); d2.position.set(-3, 2, -2); sc.add(d2);
+  const cam = new THREE.PerspectiveCamera(32, 1, 0.1, 50); cam.position.set(0, 1.4, 5.6); cam.lookAt(0, 1.05, 0);
+  // pedestal con aro de luz y chispas que suben
+  const ped = new THREE.Group(); sc.add(ped);
+  { const base = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.3, 0.22, 48), new THREE.MeshStandardMaterial({ color: 0x2a3470, roughness: 0.4, metalness: 0.5 })); base.position.y = -0.11; ped.add(base); }
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.18, 0.035, 8, 64), new THREE.MeshBasicMaterial({ color: 0xffd24a })); ring.rotation.x = Math.PI / 2; ring.position.y = 0.01; ped.add(ring);
+  const glow = new THREE.Mesh(new THREE.CircleGeometry(1.1, 40), new THREE.MeshBasicMaterial({ color: 0x8ab8ff, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false })); glow.rotation.x = -Math.PI / 2; glow.position.y = 0.02; ped.add(glow);
+  const N = 40, pg = new THREE.BufferGeometry(), pp = new Float32Array(N * 3); for (let k = 0; k < N; k++) { const a = Math.random() * 6.28, rr = Math.random() * 1.05; pp[k * 3] = Math.cos(a) * rr; pp[k * 3 + 1] = Math.random() * 2.6; pp[k * 3 + 2] = Math.sin(a) * rr; }
+  pg.setAttribute('position', new THREE.BufferAttribute(pp, 3)); const pts = new THREE.Points(pg, new THREE.PointsMaterial({ color: 0xffe9a0, size: 0.06, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false })); sc.add(pts);
+  const holder = new THREE.Group(); sc.add(holder);
+  sp = { r, sc, cam, holder, pts, ring, glow, rot: 0.5, drag: null, clock: new THREE.Clock(), raf: 0, t: 0, burst: 0, mixer: null };
+  cv.onpointerdown = e => { sp.drag = e.clientX; cv.setPointerCapture(e.pointerId); };
+  cv.onpointermove = e => { if (sp && sp.drag != null) { sp.rot += (e.clientX - sp.drag) * 0.012; sp.drag = e.clientX; } };
+  cv.onpointerup = cv.onpointercancel = () => { if (sp) sp.drag = null; };
+  const loop = () => {
+    if (!sp) return; sp.raf = requestAnimationFrame(loop);
+    const w = cv.clientWidth || 300, h = cv.clientHeight || 300; if (cv.width !== Math.round(w * r.getPixelRatio())) { r.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }
+    const dt = Math.min(0.05, sp.clock.getDelta()); sp.t += dt; if (sp.drag == null) sp.rot += dt * 0.7;
+    holder.rotation.y = sp.rot; holder.position.y = (sp.float ? 0.12 + Math.sin(sp.t * 1.8) * 0.08 : 0);
+    if (sp.mixer) sp.mixer.update(dt);
+    const P = pts.geometry.attributes.position; for (let k = 0; k < N; k++) { let y = P.getY(k) + dt * (0.35 + sp.burst * 3); if (y > 2.6) y = 0; P.setY(k, y); } P.needsUpdate = true;
+    sp.burst = Math.max(0, sp.burst - dt * 0.8); ring.material.color.setHSL(0.13 - sp.burst * 0.05, 1, 0.6 + sp.burst * 0.3); glow.material.opacity = 0.3 + Math.sin(sp.t * 2) * 0.08 + sp.burst * 0.4;
+    if (sp.spin) sp.spin(dt, sp.t);
+    r.render(sc, cam);
+  };
+  loop();
+}
+function stopShopStage() { if (!sp) return; cancelAnimationFrame(sp.raf); sp.r.dispose(); sp.r.forceContextLoss(); sp = null; }
+// modelo del artículo: el arma sola, la armadura puesta en tu personaje, o el objeto
+function setShopModel() {
+  if (!sp) return; const { kind, id } = armUI.detail, H = sp.holder;
+  while (H.children.length) H.remove(H.children[0]); sp.mixer = null; sp.spin = null; sp.float = true;
+  const fit = (obj, size, y) => { const b = new THREE.Box3().setFromObject(obj), sz = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3()), k = size / Math.max(sz.x, sz.y, sz.z, 0.001);
+    const g = new THREE.Group(); obj.position.sub(c); g.add(obj); g.scale.setScalar(k); g.position.y = y; return g; };
+  if (kind === 'arma') {
+    const w = buildWeapon(id); if (!w) return; w.rotation.set(0, 0, 0.35); H.add(fit(w, 1.65, 1.15));
+  } else if (kind === 'armadura') {
+    if (!charLib) return;
+    const sv = armUI.sv, ch = createCharacter(charLib, heroLook(sv.hero || 'lia', sv.custom)); buildArmor(id, ch.model);
+    const a = ch.actions.Idle || Object.values(ch.actions)[0]; if (a) { a.setEffectiveWeight(1); a.play(); } sp.mixer = ch.mixer;
+    const b = new THREE.Box3().setFromObject(ch.root), hgt = b.max.y - b.min.y, k = 2.25 / Math.max(hgt, 0.01); ch.root.scale.multiplyScalar(k); ch.root.position.y = -b.min.y * k;
+    H.add(ch.root); sp.float = false;
+  } else if (id === 'portal') {
+    const g = new THREE.Group(), cv = document.createElement('canvas'); cv.width = cv.height = 256; const c = cv.getContext('2d');
+    const gr = c.createRadialGradient(128, 128, 10, 128, 128, 128); gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.35, '#8ad8ff'); gr.addColorStop(0.75, '#6a4aff'); gr.addColorStop(1, 'rgba(40,20,120,0)'); c.fillStyle = gr; c.fillRect(0, 0, 256, 256);
+    c.strokeStyle = 'rgba(255,255,255,.7)'; c.lineWidth = 6; for (let k = 0; k < 3; k++) { c.beginPath(); for (let a = 0; a < 9; a += 0.1) { const rr = a * 13; c.lineTo(128 + Math.cos(a + k * 2.09) * rr, 128 + Math.sin(a + k * 2.09) * rr); } c.stroke(); }
+    const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace;
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(0.85, 48), new THREE.MeshBasicMaterial({ map: tx, transparent: true, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })); g.add(disc);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.88, 0.1, 12, 48), new THREE.MeshStandardMaterial({ color: 0xffd24a, metalness: 0.7, roughness: 0.25, emissive: 0x6a4a00, emissiveIntensity: 0.5 })); g.add(rim);
+    for (let k = 0; k < 6; k++) { const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.09), new THREE.MeshStandardMaterial({ color: 0x8ad8ff, emissive: 0x2a8aff, emissiveIntensity: 0.8 })); const a = k / 6 * Math.PI * 2; gem.position.set(Math.cos(a) * 0.88, Math.sin(a) * 0.88, 0.08); g.add(gem); }
+    g.position.y = 1.2; H.add(g); sp.spin = dt => { disc.rotation.z -= dt * 2.2; };
+  } else {
+    const sh = new THREE.Shape(); sh.moveTo(0, -0.9); sh.bezierCurveTo(-0.2, -0.65, -1, -0.2, -1, 0.3); sh.bezierCurveTo(-1, 0.75, -0.55, 1, -0.3, 1); sh.bezierCurveTo(-0.1, 1, 0, 0.85, 0, 0.7); sh.bezierCurveTo(0, 0.85, 0.1, 1, 0.3, 1); sh.bezierCurveTo(0.55, 1, 1, 0.75, 1, 0.3); sh.bezierCurveTo(1, -0.2, 0.2, -0.65, 0, -0.9);
+    const geo = new THREE.ExtrudeGeometry(sh, { depth: 0.45, bevelEnabled: true, bevelThickness: 0.16, bevelSize: 0.14, bevelSegments: 6, curveSegments: 24 }); geo.center();
+    const heart = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xff3a4a, roughness: 0.25, metalness: 0.1, emissive: 0x5a0010, emissiveIntensity: 0.4 }));
+    const g = new THREE.Group(); g.add(heart); g.scale.setScalar(0.8); g.position.y = 1.25; H.add(g); sp.spin = (dt, t) => { const s = 0.8 + Math.max(0, Math.sin(t * 5)) * 0.06; g.scale.setScalar(s); };
+  }
+}
+$('adBack').onclick = () => { audio.play('uiMove'); closeShopDetail(); };
+$('bArmBack').onclick = () => { stopShopStage(); $('armDetail').classList.add('hidden'); $('armeria').classList.add('hidden'); $(armUI.from).classList.remove('hidden'); if (armUI.from === 'arenaMenu') refreshArenaMenu(); };
 $('bArmPause').onclick = () => openArmeria('pause');
 $('bHubArm').onclick = () => openArmeria('title');
 

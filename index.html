@@ -325,6 +325,23 @@
   .tbtn.pw { width: 48px; height: 48px; font-size: 20px; border-color: rgba(255,210,122,.7); }
   #tP1 { right: calc(176px + env(safe-area-inset-right)); bottom: 184px; } #tP2 { right: calc(116px + env(safe-area-inset-right)); bottom: 200px; } #tP3 { right: calc(56px + env(safe-area-inset-right)); bottom: 216px; }
   .powGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; width: min(900px, 94vw); }
+  #armDetail { position: fixed; inset: 0; z-index: 30; display: flex; gap: 14px; align-items: center; justify-content: center; padding: 18px; box-sizing: border-box; background: radial-gradient(ellipse at 32% 55%, #3a4aa0 0%, #1a2050 55%, #0e1230 100%); }
+  #armDetail.hidden { display: none; }
+  #armDetail .adStage { position: relative; flex: 1 1 52%; height: min(78vh, 520px); max-width: 560px; }
+  #armDetail canvas { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+  #armDetail .adHint { position: absolute; bottom: 4px; left: 0; right: 0; text-align: center; font-size: 12px; opacity: .5; }
+  #armDetail .adInfo { flex: 1 1 40%; max-width: 380px; color: #fff; text-align: left; }
+  #armDetail .adKind { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; opacity: .7; }
+  #armDetail h3 { margin: 4px 0 6px; font-size: clamp(22px, 4.2vh, 32px); }
+  #armDetail p { margin: 0 0 10px; opacity: .88; line-height: 1.35; }
+  #armDetail #adStats { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  #armDetail #adStats span { background: rgba(255,255,255,.12); border-radius: 999px; padding: 4px 10px; font-size: 13px; }
+  #armDetail .adPrice { font-size: 22px; font-weight: 800; color: #ffd24a; margin-bottom: 10px; }
+  #armDetail .adPrice small { font-size: 13px; color: #fff; opacity: .7; font-weight: 600; }
+  #armDetail .adBtns { display: flex; gap: 8px; flex-wrap: wrap; }
+  #armDetail #adBuy:disabled { opacity: .55; }
+  @media (max-height: 520px) { #armDetail { padding: 8px 14px; } #armDetail .adStage { height: 88vh; } #armDetail p { font-size: 14px; } }
+  @media (max-width: 600px) and (min-height: 521px) { #armDetail { flex-direction: column; } #armDetail .adStage { height: 46vh; flex: none; width: 100%; } }
   .powCard { font: inherit; text-align: left; color: #fff; padding: 12px; border-radius: 16px; border: 2px solid rgba(255,255,255,.12); background: rgba(255,255,255,.07); cursor: pointer; display: grid; grid-template-columns: 46px 1fr; gap: 4px 10px; position: relative; }
   .powCard .ic { grid-row: span 3; width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; font-size: 26px; background: radial-gradient(circle, rgba(255,210,122,.35), rgba(255,255,255,.05)); }
   .powCard b { font-size: 16px; } .powCard small { font-size: 12.5px; opacity: .8; line-height: 1.3; } .powCard em { font-style: normal; font-size: 11.5px; color: #9fe3ff; }
@@ -573,60 +590,60 @@
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-  "./js/arena.js": "./js/arena.js?v=2611250047",
-  "./js/audio.js": "./js/audio.js?v=2611250047",
-  "./js/autonav.js": "./js/autonav.js?v=2611250047",
-  "./js/camera.js": "./js/camera.js?v=2611250047",
-  "./js/characters.js": "./js/characters.js?v=2611250047",
-  "./js/combat.js": "./js/combat.js?v=2611250047",
-  "./js/credits.js": "./js/credits.js?v=2611250047",
-  "./js/endless.js": "./js/endless.js?v=2611250047",
-  "./js/fx.js": "./js/fx.js?v=2611250047",
-  "./js/garage.js": "./js/garage.js?v=2611250047",
-  "./js/gear.js": "./js/gear.js?v=2611250047",
-  "./js/glbload.js": "./js/glbload.js?v=2611250047",
-  "./js/hazards.js": "./js/hazards.js?v=2611250047",
-  "./js/hd.js": "./js/hd.js?v=2611250047",
-  "./js/heroes.js": "./js/heroes.js?v=2611250047",
-  "./js/icons.js": "./js/icons.js?v=2611250047",
-  "./js/input.js": "./js/input.js?v=2611250047",
-  "./js/intro.js": "./js/intro.js?v=2611250047",
-  "./js/logros.js": "./js/logros.js?v=2611250047",
-  "./js/main.js": "./js/main.js?v=2611250047",
-  "./js/music.js": "./js/music.js?v=2611250047",
-  "./js/net.js": "./js/net.js?v=2611250047",
-  "./js/physics.js": "./js/physics.js?v=2611250047",
-  "./js/piezas.js": "./js/piezas.js?v=2611250047",
-  "./js/player.js": "./js/player.js?v=2611250047",
-  "./js/powers.js": "./js/powers.js?v=2611250047",
-  "./js/props.js": "./js/props.js?v=2611250047",
-  "./js/race.js": "./js/race.js?v=2611250047",
-  "./js/racehaz.js": "./js/racehaz.js?v=2611250047",
-  "./js/raceitems.js": "./js/raceitems.js?v=2611250047",
-  "./js/reef.js": "./js/reef.js?v=2611250047",
-  "./js/report.js": "./js/report.js?v=2611250047",
-  "./js/rig.js": "./js/rig.js?v=2611250047",
-  "./js/save.js": "./js/save.js?v=2611250047",
-  "./js/sea.js": "./js/sea.js?v=2611250047",
-  "./js/seafoes.js": "./js/seafoes.js?v=2611250047",
-  "./js/showroom.js": "./js/showroom.js?v=2611250047",
-  "./js/songs.js": "./js/songs.js?v=2611250047",
-  "./js/traps.js": "./js/traps.js?v=2611250047",
-  "./js/vfx.js": "./js/vfx.js?v=2611250047",
-  "./js/world.js": "./js/world.js?v=2611250047",
-  "./js/worldnet.js": "./js/worldnet.js?v=2611250047",
-  "./js/zones/abismo_mareth.js": "./js/zones/abismo_mareth.js?v=2611250047",
-  "./js/zones/bosque_colgante.js": "./js/zones/bosque_colgante.js?v=2611250047",
-  "./js/zones/ciudad_engranajes.js": "./js/zones/ciudad_engranajes.js?v=2611250047",
-  "./js/zones/ciudadela_orden.js": "./js/zones/ciudadela_orden.js?v=2611250047",
-  "./js/zones/desafios.js": "./js/zones/desafios.js?v=2611250047",
-  "./js/zones/eco_olvidado.js": "./js/zones/eco_olvidado.js?v=2611250047",
-  "./js/zones/forja_ignis.js": "./js/zones/forja_ignis.js?v=2611250047",
-  "./js/zones/glaciar_eco.js": "./js/zones/glaciar_eco.js?v=2611250047",
-  "./js/zones/puerto_bruma.js": "./js/zones/puerto_bruma.js?v=2611250047",
-  "./js/zones/routegen.js": "./js/zones/routegen.js?v=2611250047",
-  "./js/zones/ruinas_vidrio.js": "./js/zones/ruinas_vidrio.js?v=2611250047",
-  "./js/zones/senderos.js": "./js/zones/senderos.js?v=2611250047"
+  "./js/arena.js": "./js/arena.js?v=2611250159",
+  "./js/audio.js": "./js/audio.js?v=2611250159",
+  "./js/autonav.js": "./js/autonav.js?v=2611250159",
+  "./js/camera.js": "./js/camera.js?v=2611250159",
+  "./js/characters.js": "./js/characters.js?v=2611250159",
+  "./js/combat.js": "./js/combat.js?v=2611250159",
+  "./js/credits.js": "./js/credits.js?v=2611250159",
+  "./js/endless.js": "./js/endless.js?v=2611250159",
+  "./js/fx.js": "./js/fx.js?v=2611250159",
+  "./js/garage.js": "./js/garage.js?v=2611250159",
+  "./js/gear.js": "./js/gear.js?v=2611250159",
+  "./js/glbload.js": "./js/glbload.js?v=2611250159",
+  "./js/hazards.js": "./js/hazards.js?v=2611250159",
+  "./js/hd.js": "./js/hd.js?v=2611250159",
+  "./js/heroes.js": "./js/heroes.js?v=2611250159",
+  "./js/icons.js": "./js/icons.js?v=2611250159",
+  "./js/input.js": "./js/input.js?v=2611250159",
+  "./js/intro.js": "./js/intro.js?v=2611250159",
+  "./js/logros.js": "./js/logros.js?v=2611250159",
+  "./js/main.js": "./js/main.js?v=2611250159",
+  "./js/music.js": "./js/music.js?v=2611250159",
+  "./js/net.js": "./js/net.js?v=2611250159",
+  "./js/physics.js": "./js/physics.js?v=2611250159",
+  "./js/piezas.js": "./js/piezas.js?v=2611250159",
+  "./js/player.js": "./js/player.js?v=2611250159",
+  "./js/powers.js": "./js/powers.js?v=2611250159",
+  "./js/props.js": "./js/props.js?v=2611250159",
+  "./js/race.js": "./js/race.js?v=2611250159",
+  "./js/racehaz.js": "./js/racehaz.js?v=2611250159",
+  "./js/raceitems.js": "./js/raceitems.js?v=2611250159",
+  "./js/reef.js": "./js/reef.js?v=2611250159",
+  "./js/report.js": "./js/report.js?v=2611250159",
+  "./js/rig.js": "./js/rig.js?v=2611250159",
+  "./js/save.js": "./js/save.js?v=2611250159",
+  "./js/sea.js": "./js/sea.js?v=2611250159",
+  "./js/seafoes.js": "./js/seafoes.js?v=2611250159",
+  "./js/showroom.js": "./js/showroom.js?v=2611250159",
+  "./js/songs.js": "./js/songs.js?v=2611250159",
+  "./js/traps.js": "./js/traps.js?v=2611250159",
+  "./js/vfx.js": "./js/vfx.js?v=2611250159",
+  "./js/world.js": "./js/world.js?v=2611250159",
+  "./js/worldnet.js": "./js/worldnet.js?v=2611250159",
+  "./js/zones/abismo_mareth.js": "./js/zones/abismo_mareth.js?v=2611250159",
+  "./js/zones/bosque_colgante.js": "./js/zones/bosque_colgante.js?v=2611250159",
+  "./js/zones/ciudad_engranajes.js": "./js/zones/ciudad_engranajes.js?v=2611250159",
+  "./js/zones/ciudadela_orden.js": "./js/zones/ciudadela_orden.js?v=2611250159",
+  "./js/zones/desafios.js": "./js/zones/desafios.js?v=2611250159",
+  "./js/zones/eco_olvidado.js": "./js/zones/eco_olvidado.js?v=2611250159",
+  "./js/zones/forja_ignis.js": "./js/zones/forja_ignis.js?v=2611250159",
+  "./js/zones/glaciar_eco.js": "./js/zones/glaciar_eco.js?v=2611250159",
+  "./js/zones/puerto_bruma.js": "./js/zones/puerto_bruma.js?v=2611250159",
+  "./js/zones/routegen.js": "./js/zones/routegen.js?v=2611250159",
+  "./js/zones/ruinas_vidrio.js": "./js/zones/ruinas_vidrio.js?v=2611250159",
+  "./js/zones/senderos.js": "./js/zones/senderos.js?v=2611250159"
 } }
 </script>
 </head>
@@ -758,7 +775,7 @@
       <button class="btn alt" id="bHubArena">⚔ Arena multijugador</button><button class="btn alt" id="bHubRace">🏁 Carreras</button>
       <button class="btn alt" id="bHubEndless">∞ Aethra sin fin: el mapa que nunca se acaba</button>
       <button class="btn alt" id="bHubCh">Desafíos: Cristales del Cielo</button>
-      <div class="row2"><button class="btn alt small" id="bHubHeroes">Héroes</button><button class="btn alt small" id="bHubPow">Poderes</button><button class="btn alt small" id="bHubMis">Misiones</button><button class="btn alt small" id="bHubArm">Tienda</button></div>
+      <div class="row2"><button class="btn alt small" id="bHubHeroes">Héroes</button><button class="btn alt small" id="bHubPow">Poderes</button><button class="btn alt small" id="bHubMis">Misiones</button><button class="btn alt small" id="bHubArm">🛒 Tienda</button></div>
       <div class="row2"><button class="btn alt small" id="bHubLogros">Logros</button><button class="btn alt small" id="bHubCustom">Aspecto</button></div>
       <div class="row2 hidden" id="hubExtras"></div>
       <div class="row2"><button class="btn warn small" id="bHubDelete">Borrar partida</button><button class="btn alt small" id="bHubBack">Volver</button></div>
@@ -864,11 +881,22 @@
   <div class="tallFoot"><span id="tallSum"></span><button class="btn" id="bTallBack">✔ Listo</button></div>
 </div>
 <div class="overlay hidden" id="armeria">
-  <h2>⚒ Armería y Tienda</h2>
+  <h2>🛒 Tienda</h2>
   <div class="sub" id="armSub"></div>
   <div class="powSlots" id="armTabs"></div>
   <div class="powGrid" id="armGrid"></div>
   <button class="btn alt small" id="bArmBack" style="margin-top:14px">Volver</button>
+  <div id="armDetail" class="hidden">
+    <div class="adStage"><canvas id="armCanvas"></canvas><div class="adHint">Arrastra para girar</div></div>
+    <div class="adInfo">
+      <div class="adKind" id="adKind"></div>
+      <h3 id="adName"></h3>
+      <p id="adDesc"></p>
+      <div id="adStats"></div>
+      <div class="adPrice" id="adPrice"></div>
+      <div class="adBtns"><button class="btn" id="adBuy"></button><button class="btn alt" id="adBack">Volver</button></div>
+    </div>
+  </div>
 </div>
 
 <div class="overlay hidden" id="poderes">
@@ -916,7 +944,7 @@
     <button class="btn alt hidden" id="bRestartCh">Reiniciar desafío</button>
     <button class="btn alt" id="bHeroesPause">Cambiar de héroe</button>
     <button class="btn alt" id="bCustomPause">Aspecto</button>
-    <button class="btn alt" id="bArmPause">⚒ Tienda</button>
+    <button class="btn alt" id="bArmPause">🛒 Tienda</button>
     <button class="btn alt" id="bPowPause">Poderes especiales</button>
     <button class="btn alt" id="bMisPause">Misiones y piezas</button>
     <button class="btn alt" id="bArenaPause">Arena multijugador</button><button class="btn alt" id="bRacePauseMenu">🏁 Carreras</button>
@@ -981,6 +1009,6 @@
   </div>
 </div>
 
-<script type="module" src="js/main.js?v=2611250047"></script>
+<script type="module" src="js/main.js?v=2611250159"></script>
 </body>
 </html>
