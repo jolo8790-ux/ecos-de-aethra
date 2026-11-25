@@ -33,6 +33,7 @@ import { LOGROS, storeOf, unlock, bump as bumpL, addTo as addToL } from './logro
 import { runCredits } from './credits.js';
 import { applySenderos, SENDEROS } from './zones/senderos.js';
 import { installIcons, icon } from './icons.js';
+import { installReporting, openReport, crumb, reportError } from './report.js';
 installIcons();
 import { HEROES, heroById, heroLook, heroUnlocked } from './heroes.js';
 import { ZONE_PIECES, MISIONES, PIECE_TOTAL, piecesOf, pieceCount, pieceHearts, pieceBreakable, newlyDone, givePiece, bumpMax as bumpMaxL } from './piezas.js';
@@ -181,6 +182,7 @@ let bossActive = false, deadT = 0, hintClang = false, hintStun = false, hintAura
 const pulseFx = [];
 
 let settings = loadSettings();
+settings.debug = /[?&]debug\b/.test(location.search); // los datos técnicos sólo con ?debug en la dirección
 let save = null;
 let navI = 0, navSig = ''; // navegación de menús con mando
 let lossStreak = 0; // rondas de vidas perdidas sin avanzar (para ofrecer bajar la dificultad)
@@ -310,6 +312,7 @@ Promise.all([
 
 // ---------- zonas ----------
 function loadZone(id, checkpointId) {
+  crumb('zona ' + id);
   if (flyover) { flyover = null; document.body.classList.remove('cine'); }
   zone = ZONES[id];
   audio.surface = surfaceOf(zone);
@@ -2189,6 +2192,12 @@ function pause() {
 function resume() { state = dialog ? 'dialog' : 'play'; showOverlay(null); }
 $('bResume').onclick = resume;
 $('bSettings').onclick = () => showPausePanel('settings');
+$('bReportPause').onclick = () => openReport(m => m && toast(m));
+$('bRaceReport').onclick = () => openReport(m => m && toast(m));
+installReporting({
+  getCtx: () => ({ estado: state, zona: zone && zone.id, fps, calidad: settings.quality, enLinea: settings.online !== false, carrera: race && race.active ? { pista: race.def && race.def.name, fase: race.phase, vuelta: race.me && race.me.lap, rivales: race.racers.length, red: !!race.net } : null }),
+  shot: () => { try { renderer.render(scene, camera); } catch (e) {} return renderer.domElement; },
+});
 $('bControls').onclick = () => showPausePanel('controls');
 $('bControlsBack').onclick = () => showPausePanel('main');
 $('bLogrosPause').onclick = () => openTrophies('pause');
@@ -2252,7 +2261,7 @@ $('bImport').onclick = () => {
 function applySettings() {
   cam.settings.sens = settings.sens; cam.settings.invert = settings.invert; audio.volume = settings.volume; music.setVolume(settings.music ?? 0.6);
   if (!challenge) applyPartida();
-  $('sSens').value = settings.sens; $('sInv').checked = settings.invert; if ($('sOnline')) $('sOnline').checked = settings.online !== false; $('sVol').value = settings.volume; $('sMus').value = settings.music ?? 0.6; $('sDbg').checked = settings.debug;
+  $('sSens').value = settings.sens; $('sInv').checked = settings.invert; if ($('sOnline')) $('sOnline').checked = settings.online !== false; $('sVol').value = settings.volume; $('sMus').value = settings.music ?? 0.6; if ($('sDbg')) $('sDbg').checked = settings.debug;
   $('debug').classList.toggle('hidden', !settings.debug);
   $('sQual').value = settings.quality || 'auto'; applyQuality();
 }
@@ -2336,7 +2345,7 @@ function autoQualityTick(realDt) {
 }
 $('sQual').onchange = e => { settings.quality = e.target.value; if (e.target.value === 'auto') delete settings.autoQ; writeSettings(settings); applyQuality(); };
 $('sMus').oninput = e => { settings.music = +e.target.value; writeSettings(settings); applySettings(); };
-$('sDbg').onchange = e => { settings.debug = e.target.checked; writeSettings(settings); applySettings(); };
+if ($('sDbg')) $('sDbg').onchange = e => { settings.debug = e.target.checked; writeSettings(settings); applySettings(); };
 
 // ---------- bucle ----------
 const clock = new THREE.Clock();
@@ -2355,7 +2364,8 @@ function frame() {
     if (state !== 'credits') renderScene();
   } catch (e) { // un error en un fotograma no debe congelar el juego
     if (frameErrors++ < 5) console.error('Error en el fotograma', e);
-    if (state === 'race' && $('raceErr').classList.contains('hidden')) { $('raceErrMsg').textContent = `Algo falló (${String(e && e.message || e).slice(0, 80)}).`; $('raceErr').classList.remove('hidden'); }
+    reportError('fotograma:' + state, e);
+    if (state === 'race' && $('raceErr').classList.contains('hidden')) { $('raceErrMsg').textContent = 'Algo falló en la carrera. Ya nos llegó el aviso.'; $('raceErr').classList.remove('hidden'); }
     if (frameErrors === 3) toast('Algo falló; si se queda quieto, pulsa Esc y carga la partida');
   }
   input.endFrame();
@@ -2580,7 +2590,6 @@ function buildArmeria() {
     const SHOP = [
       { id: 'portal', icon: '🌀', name: 'Portal de rescate', desc: `Al caer al vacío, te lleva por un portal al siguiente lugar seguro. Tienes ${inv.portal || 0}. (También aparecen en vasijas.)`, cost: 30, can: true },
       { id: 'corazon', icon: '❤', name: 'Corazón extra', desc: `Un corazón más para siempre (empiezas con 5). Tienes ${xh} de 5 extra.`, cost: 100 + 60 * xh, can: xh < 5 },
-      { id: 'soplador', icon: '🌬', name: 'Soplador de bruma', desc: 'Dispersa la bruma que cubre las plataformas. Muy pronto.', cost: 0, can: false, soon: true },
     ];
     for (const it of SHOP) {
       const b = document.createElement('button'), afford = ecos >= it.cost;
@@ -2965,7 +2974,7 @@ $('bHubArena').onclick = () => { audio.unlock(); openArena('title'); };
 const race = new Race({
   scene, camera, world, audio, music, input, player, toast, renderer,
   charLib: () => charLib, getSave: () => save, save: () => { if (save) writeSave(save); }, unlocksAfter: () => save ? newUnlocks(save) : [],
-  onError: (where, e) => { const el = $('raceErr'); if (!el) return; $('raceErrMsg').textContent = `Algo falló (${where}: ${String(e && e.message || e).slice(0, 80)}).`; el.classList.remove('hidden'); },
+  onError: (where, e) => { reportError('carrera:' + where, e); const el = $('raceErr'); if (!el) return; $('raceErrMsg').textContent = 'Algo falló en la carrera. Ya nos llegó el aviso.'; el.classList.remove('hidden'); },
   addEcos: n => { addEcos(n); if (save) writeSave(save); },
   loadRaceZone(Z) {
     if (flyover) flyover = null; document.body.classList.remove('cine');
