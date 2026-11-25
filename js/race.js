@@ -337,6 +337,66 @@ export function seatDriver(parent, lib, look, art = true) {
     return ch;
   } catch (e) { console.warn('piloto', e); return null; }
 }
+// ---------- manos al volante ----------
+// pone un volante delante del piloto y lleva sus brazos hasta él (cinemática inversa de dos huesos); al girar,
+// el volante rota y las manos lo siguen
+const _v = [0, 1, 2, 3, 4, 5, 6, 7].map(() => new THREE.Vector3()), _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion();
+const fb = (m, n) => { let b = null; m.traverse(o => { if (!b && o.isBone && o.name === n) b = o; }); return b; };
+function aimBone(bone, childPos, want) {
+  const p = bone.getWorldPosition(_v[6]), cur = _v[7].copy(childPos).sub(p).normalize(), dir = want.clone().sub(p).normalize();
+  _q1.setFromUnitVectors(cur, dir); bone.getWorldQuaternion(_q2); _q2.premultiply(_q1);
+  bone.parent.getWorldQuaternion(_q3).invert(); bone.quaternion.copy(_q3.multiply(_q2)); bone.updateMatrixWorld(true);
+}
+export function rigWheel(ch, parent, oldWheel) {
+  if (!ch) return null;
+  const m = ch.model, arms = ['l', 'r'].map(s => ({ up: fb(m, 'upperarm' + s), lo: fb(m, 'lowerarm' + s), ha: fb(m, 'hand' + s) || fb(m, 'wrist' + s) }));
+  const hips = fb(m, 'hips'), foot = fb(m, 'footl') || fb(m, 'lowerlegl');
+  if (arms.some(a => !a.up || !a.lo || !a.ha) || !hips || !foot) return null;
+  parent.updateMatrixWorld(true);
+  for (const a of arms) { a.q0 = a.up.quaternion.clone(); a.q1 = a.lo.quaternion.clone(); const S = a.up.getWorldPosition(new THREE.Vector3()), E = a.lo.getWorldPosition(new THREE.Vector3()), H = a.ha.getWorldPosition(new THREE.Vector3()); a.L1 = S.distanceTo(E); a.L2 = E.distanceTo(H); }
+  const toL = w => parent.worldToLocal(w.clone());
+  const sL = toL(arms[0].up.getWorldPosition(new THREE.Vector3())), sR = toL(arms[1].up.getWorldPosition(new THREE.Vector3()));
+  const hp = toL(hips.getWorldPosition(new THREE.Vector3())), fp = toL(foot.getWorldPosition(new THREE.Vector3()));
+  // hacia delante: perpendicular a la línea de los hombros, del lado de los pies
+  const fwd = new THREE.Vector3(sR.z - sL.z, 0, sL.x - sR.x).normalize(), up = new THREE.Vector3(0, 1, 0);
+  if (fwd.x * (fp.x - hp.x) + fwd.z * (fp.z - hp.z) < 0) fwd.negate();
+  const mid = sL.clone().add(sR).multiplyScalar(0.5), reach = (arms[0].L1 + arms[0].L2), span = sL.distanceTo(sR);
+  const center = mid.clone().addScaledVector(fwd, reach * 0.66).addScaledVector(up, -reach * 0.42);
+  const rad = Math.max(Math.min(span * 0.5, reach * 0.42), 0.1), normal = fwd.clone().multiplyScalar(-1).addScaledVector(up, 0.5).normalize();
+  const lr = sR.clone().sub(sL), right = lr.sub(normal.clone().multiplyScalar(normal.dot(lr))).normalize(); // hacia el hombro derecho
+  let vUp = new THREE.Vector3().crossVectors(normal, right).normalize(); const flip = vUp.y < 0; if (flip) vUp.negate();
+  // el volante
+  const g = new THREE.Group(), dark = new THREE.MeshStandardMaterial({ color: 0x24242c, roughness: 0.5 }), gold = new THREE.MeshStandardMaterial({ color: 0xffc83a, metalness: 0.6, roughness: 0.3 });
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(rad, rad * 0.13, 8, 26), dark); g.add(rim);
+  for (const a of [0, 2.09, 4.19]) { const sp = new THREE.Mesh(new THREE.BoxGeometry(rad * 0.95, rad * 0.12, rad * 0.08), dark); sp.position.set(Math.cos(a) * rad * 0.47, Math.sin(a) * rad * 0.47, 0); sp.rotation.z = a; g.add(sp); }
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(rad * 0.24, rad * 0.24, rad * 0.16, 14), gold); hub.rotation.x = Math.PI / 2; g.add(hub);
+  const col = new THREE.Mesh(new THREE.CylinderGeometry(rad * 0.09, rad * 0.11, reach * 0.55, 8), dark); col.position.z = -reach * 0.28; col.rotation.x = Math.PI / 2; g.add(col);
+  const holder = new THREE.Group(); holder.position.copy(center); holder.quaternion.setFromRotationMatrix(flip ? new THREE.Matrix4().makeBasis(right.clone().negate(), vUp, normal) : new THREE.Matrix4().makeBasis(right, vUp, normal)); holder.add(g); parent.add(holder);
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  if (oldWheel) oldWheel.visible = false;
+  const W = { arms, holder, wheel: g, rad, right, vUp, normal, center, parent, fwd, up, steer: 0 };
+  W.update = (steer) => {
+    const ang = -steer * 1.25; g.rotation.z = ang;
+    for (let k = 0; k < 2; k++) {
+      const a = arms[k], sg = k ? 1 : -1, ca = Math.cos(ang), sa = Math.sin(ang);
+      // la mano a las «9 y cuarto»: a los lados del aro, un poco arriba, girando con el volante
+      const lx = sg * rad * 0.94, ly = rad * 0.28, rx = lx * ca - ly * sa, ry = lx * sa + ly * ca;
+      const tgtL = center.clone().addScaledVector(right, rx).addScaledVector(vUp, ry).addScaledVector(normal, rad * 0.1);
+      a.up.quaternion.copy(a.q0); a.lo.quaternion.copy(a.q1); a.up.updateMatrixWorld(true);
+      const T = parent.localToWorld(tgtL), S = a.up.getWorldPosition(_v[0]).clone();
+      const d = T.clone().sub(S), dist = clamp(d.length(), 0.01, (a.L1 + a.L2) * 0.999); d.normalize();
+      const cosA = clamp((a.L1 * a.L1 + dist * dist - a.L2 * a.L2) / (2 * a.L1 * dist), -1, 1), sinA = Math.sqrt(1 - cosA * cosA);
+      // los codos hacia fuera y hacia abajo
+      const pole = parent.localToWorld(center.clone().addScaledVector(right, sg * rad * 3).addScaledVector(up, -reach * 0.6).addScaledVector(fwd, -reach * 0.3)).sub(S);
+      const perp = pole.sub(d.clone().multiplyScalar(pole.dot(d))).normalize();
+      const elbow = S.clone().addScaledVector(d, a.L1 * cosA).addScaledVector(perp, a.L1 * sinA);
+      aimBone(a.up, a.lo.getWorldPosition(_v[1]), elbow);
+      aimBone(a.lo, a.ha.getWorldPosition(_v[2]), S.clone().addScaledVector(d, dist));
+    }
+  };
+  W.update(0);
+  return W;
+}
 export const driverLook = (sv, id) => { const D = DRIVERS.find(d => d.id === id) || DRIVERS[0]; return D.look === 'mine' ? heroLook((sv && sv.hero) || 'lia', (sv && sv.custom) || {}) : heroLook(D.look, {}); };
 // kart listo para mostrar: el modelo de Artlist (con la carrocería repintada si paint no es null) o el hecho con formas
 export function makeKart(kartId, paint = null, fallback = 0x3aa0ff) {
@@ -896,6 +956,7 @@ class Racer {
     // piloto: el héroe sentado en el kart
     const lib = C.charLib();
     if (lib) this.ch = seatDriver(this.body, lib, this.look, this.artKart);
+    try { this.wheelRig = this.ch ? rigWheel(this.ch, this.body, this.kart.userData.wheel) : null; } catch (e) { this.wheelRig = null; }
     // sombra redonda bajo el kart
     this.shadow = new THREE.Mesh(new THREE.CircleGeometry(1.5, 20), new THREE.MeshBasicMaterial({ color: 0, transparent: true, opacity: 0.28, depthWrite: false }));
     this.shadow.rotation.x = -Math.PI / 2; this.shadow.scale.set(0.75, 1.15, 1); race.root.add(this.shadow);
@@ -1361,6 +1422,7 @@ export class Race {
       if (R.ch) { // el piloto se inclina en las curvas
         R.ch.root.rotation.set(0, Math.PI + R.slip * 0.4 + R.spinA, -(R.steerVis || 0) * 0.18);
         const b = R.ch.bones; if (b.head) b.head.rotation.y = -(R.steerVis || 0) * 0.25;
+        if (R.wheelRig && R.root.visible && (R.you || Math.hypot(cp.x - R.pos.x, cp.z - R.pos.z) < 70)) { R.ch.root.updateMatrixWorld(true); R.wheelRig.update(clamp(R.steerVis || 0, -1, 1)); }
       }
       R.shadow.position.set(R.pos.x, R.pos.y + 0.05, R.pos.z); R.shadow.rotation.z = -R.yaw; R.shadow.visible = !T.tube;
       if (R.rainbow) R.flameMat.color.setHSL((this.clock * 1.5) % 1, 1, 0.6);

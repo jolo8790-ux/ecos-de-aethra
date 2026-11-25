@@ -200,6 +200,10 @@ export class RaceItems {
         S.g.userData.flame.scale.set(1, 0.8 + Math.random() * 0.5, 1);
         if ((S.puff = (S.puff || 0) - dt) <= 0) { S.puff = 0.025; this._smoke(S.g.position.clone().addScaledVector(new THREE.Vector3(Math.sin(S.yaw), 0, Math.cos(S.yaw)), -1.2), S.kind === 'guiado' ? 0xd8c0ff : 0xf0e8e0); }
       }
+      // un misil o una bomba que pasa por una caja también la rompe (sin dar objeto a nadie)
+      for (const B of this.boxes) { if (B.t > 0) continue; const by = B.m.position.y, sy = S.g.position.y;
+        if (Math.hypot(B.m.position.x - S.pos.x, B.m.position.z - S.pos.z) < 1.7 && Math.abs(by - sy) < 2.2) { B.t = B.gold ? 6 : 3; this._pop(B.m.position, 0xffd24a, 1.2); this._shards(B.m.position);
+          const me = race.me; if (me && Math.hypot(me.pos.x - S.pos.x, me.pos.z - S.pos.z) < 40) race.ctx.audio.play('crack'); } }
       let hit = null;
       if (T.tube) { if (Math.abs(F.lat) > T.hw) { const r = T.r[S.i], sh = -Math.sign(F.lat) * 2 * T.hw; S.pos.x += r.x * sh; S.pos.z += r.z * sh; } }
       else if (Math.abs(F.lat) > T.hw - 0.4) { if (S.kind === 'bomba') { const r = T.r[S.i], sg = Math.sign(F.lat); S.pos.x -= r.x * sg * 0.6; S.pos.z -= r.z * sg * 0.6; S.yaw = Math.atan2(T.t[S.i].x, T.t[S.i].z); } else hit = 'wall'; }

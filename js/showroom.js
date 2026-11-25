@@ -1,7 +1,7 @@
 // Vitrina del Taller: el kart flota y gira sobre un pedestal de luz para verlo en detalle.
 // Se puede girar arrastrando con el dedo o el ratón. Al pintar o mejorar, cambia en vivo.
 import * as THREE from 'three';
-import { makeKart, seatDriver } from './race.js';
+import { makeKart, seatDriver, rigWheel } from './race.js';
 const DARK = new THREE.MeshStandardMaterial({ color: 0x0c0a18, roughness: 1, metalness: 0, emissive: 0x150a30, emissiveIntensity: 0.6 });
 
 export class Showroom {
@@ -48,7 +48,7 @@ export class Showroom {
       this.key = key;
       if (this.kart) this.holder.remove(this.kart);
       const made = makeKart(kartId, opts.locked ? null : paint); this.kart = made.kart; this.holder.add(this.kart);
-      if (opts.lib && opts.look) { const ch = seatDriver(this.kart, opts.lib, opts.look, made.art); if (ch && opts.lockedDriver) ch.root.traverse(m => { if (m.isMesh) m.material = DARK; }); }
+      if (opts.lib && opts.look) { const ch = seatDriver(this.kart, opts.lib, opts.look, made.art); try { rigWheel(ch, this.kart, this.kart.userData.wheel); } catch (e) {} if (ch && opts.lockedDriver) ch.root.traverse(m => { if (m.isMesh) m.material = DARK; }); }
       if (opts.locked) this.kart.traverse(m => { if (m.isMesh) m.material = DARK; });
       for (const f of this.flames) this.kart.add(f);
       this.spin = 1; // pequeño giro de presentación
