@@ -2627,7 +2627,8 @@ function fillShopDetail() {
   $('adKind').textContent = objeto ? 'Objeto' : kind === 'arma' ? 'Arma' : 'Armadura';
   $('adName').textContent = it.name; $('adDesc').textContent = it.desc;
   $('adStats').innerHTML = [...shopStats(kind, it), ...(objeto ? [it.have] : [])].map(t => `<span>${t}</span>`).join('');
-  $('adPrice').innerHTML = on ? 'Equipado' : own ? 'Ya es tuyo' : objeto && !it.can ? 'Máximo alcanzado' : it.cost ? `✧ ${it.cost} Ecos <small>· tienes ${ecos}</small>` : 'Gratis';
+  const left = `<small class="adLeft">Tienes ✧ <b id="adEcos">${ecos}</b> Ecos</small>`;
+  $('adPrice').innerHTML = (on ? 'Equipado' : own ? 'Ya es tuyo' : objeto && !it.can ? 'Máximo alcanzado' : it.cost ? `✧ ${it.cost} Ecos` : 'Gratis') + left;
   const bt = $('adBuy');
   if (on) { bt.textContent = 'Equipado'; bt.disabled = true; }
   else if (own) { bt.textContent = 'Equipar'; bt.disabled = false; }
@@ -2646,9 +2647,21 @@ function fillShopDetail() {
       if (sv === save) { writeSave(save); applyHero(); applyAbilities(); player.hp = Math.min(player.hp, player.maxHp); updateHUD(); } else writeSaveRaw(sv);
       if (sp) sp.burst = 1;
     }
-    $('armSub').innerHTML = `Tienes <b class="ecoTag">✧ ${sv.ecos || 0} Ecos</b>. Toca un artículo para verlo de cerca.`;
+    const after = sv.ecos || 0;
+    $('armSub').innerHTML = `Tienes <b class="ecoTag">✧ <span id="armEcos">${ecos}</span> Ecos</b>. Toca un artículo para verlo de cerca.`;
     fillShopDetail();
+    if (after !== ecos) countEcos(ecos, after);
   };
+}
+// la resta se ve en vivo: el saldo baja número a número y sale «−precio» flotando
+function countEcos(from, to) {
+  const els = [$('adEcos'), $('armEcos')].filter(Boolean), t0 = performance.now(), dur = 1100;
+  const fl = document.createElement('div'); fl.className = 'ecoFloat'; fl.textContent = `−${from - to} ✧`; const box = $('adPrice'); box.appendChild(fl);
+  setTimeout(() => fl.remove(), 1500);
+  const step = now => { const u = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - u, 3), v = Math.round(from + (to - from) * e);
+    for (const el of els) { el.textContent = v; el.parentElement.classList.toggle('counting', u < 1); }
+    if (u < 1) requestAnimationFrame(step); else audio.play('crystal'); };
+  requestAnimationFrame(step);
 }
 function startShopStage() {
   if (sp) return;
