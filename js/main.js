@@ -2963,7 +2963,7 @@ $('bHubArena').onclick = () => { audio.unlock(); openArena('title'); };
 
 // ---------- Carreras ----------
 const race = new Race({
-  scene, camera, world, audio, music, input, player, toast,
+  scene, camera, world, audio, music, input, player, toast, renderer,
   charLib: () => charLib, getSave: () => save, save: () => { if (save) writeSave(save); }, unlocksAfter: () => save ? newUnlocks(save) : [],
   onError: (where, e) => { const el = $('raceErr'); if (!el) return; $('raceErrMsg').textContent = `Algo falló (${where}: ${String(e && e.message || e).slice(0, 80)}).`; el.classList.remove('hidden'); },
   addEcos: n => { addEcos(n); if (save) writeSave(save); },

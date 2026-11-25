@@ -971,6 +971,8 @@ export class Race {
     this.items = new RaceItems(this);
     if (T.tube) for (const o of this.root.children) if (o.userData.grid) T.bend(o);
     buildHazards(this, level);
+    // prepara de antemano los materiales de la escena: si no, se compilan en plena presentación y la cámara da tirones
+    try { if (this.ctx.renderer) this.ctx.renderer.compile(this.ctx.scene, this.ctx.camera); } catch (e) {}
     // salida: presentación de la parrilla, semáforo de cinco luces y ¡fuera! (en línea, la misma espera para todos)
     this.phase = 'count'; this.st = 0; this.t = 1; this.track.setLights(0);
     this.hold = 0.5 + ((opts.ep || Math.floor(Math.random() * 1e6)) % 700) / 1000; this._pairT = {}; this.clock = 0; this.results = []; this._lastCount = null; this._altSeen = false; this._skySeen = false; this._skyHint = false;
@@ -1036,7 +1038,7 @@ export class Race {
     const brake = (k.KeyS || k.ArrowDown || I._padDodge || this.tBrake || (!touch && I.move.y < -0.5)) ? 1 : 0;
     const drift = !!(k.Space || k.ShiftLeft || k.ShiftRight || I._padShield || this.tDrift);
     this.lookBack = !!(k.KeyC || k.KeyQ);
-    const use = I.pressed('attack') || I.pressed('interact') || I.pressed('grapple') || this.tUseP; this.tUseP = false;
+    const use = !!(this.tUseP || ((!touch || I.usingGamepad) && (I.pressed('interact') || I.pressed('grapple') || (I.pressed('attack') && (I.usingGamepad || k.KeyJ))))); this.tUseP = false;
     const back = !!(k.KeyS || k.ArrowDown || I._padDodge || this.tBrake || I.move.y < -0.5);
     return { steer, throttle, brake: use && back ? 0 : brake, drift, use, back };
   }
@@ -1390,10 +1392,11 @@ export class Race {
       // presentación: cámara de frente a la parrilla que barre de un lado a otro, y luego se pasa detrás de tu kart
       const T = this.track, N = T.N, rows = Math.ceil(this.racers.length / 2), u = clamp(this.st / (INTRO - 1), 0, 1), ue = u * u * (3 - 2 * u);
       // la cámara recorre la parrilla de adelante hacia atrás, mirando a los karts de frente
-      const iA = N - 6 + 12, iB = N - 6 - (rows - 1) * 13 + 2, fi = iA + (iB - iA) * ue, ci = ((Math.round(fi) % N) + N) % N, li = ((Math.round(Math.max(fi - 11, N - 6 - (rows - 1) * 13 - 2)) % N) + N) % N;
-      const c = T.c[ci], r = T.r[ci], sw = Math.sin(u * Math.PI * 1.5) * 0.55;
+      const iA = N - 6 + 12, iB = N - 6 - (rows - 1) * 13 + 2, fi = iA + (iB - iA) * ue, lf = Math.max(fi - 11, N - 6 - (rows - 1) * 13 - 2);
+      const at = (arr, f) => { const a = Math.floor(f), w = f - a, A = arr[((a % N) + N) % N], B2 = arr[(((a + 1) % N) + N) % N]; return A.clone().lerp(B2, w); };
+      const c = at(T.c, fi), r = at(T.r, fi), sw = Math.sin(u * Math.PI * 1.5) * 0.55;
       const front = new THREE.Vector3(c.x + r.x * T.hw * sw, c.y + 2.0 + Math.sin(u * Math.PI) * 0.8, c.z + r.z * T.hw * sw);
-      const mid = T.c[li].clone().setY(T.c[li].y + 0.7);
+      const mid = at(T.c, lf); mid.y += 0.7;
       const k = clamp((this.st - (INTRO - 1.2)) / 1.6, 0, 1), e = k * k * (3 - 2 * k);
       const fp = front.lerp(want, e); this._camSet(fp, mid.lerp(look, e), R);
       this.camPos = fp.clone();
@@ -1435,7 +1438,7 @@ export class Race {
     }
     this.tDrift = this.tBrake = false; if (this.ctx.input.resetTouch) this.ctx.input.resetTouch();
     const tip = this.ctx.input.isTouch ? 'Acelera solo · palanca: girar · DERRAPE en curvas · toca el objeto para usarlo (con FRENO, hacia atrás)' : 'W/↑ acelerar · S/↓ frenar · A/D girar · Espacio: derrape · E/J: usar objeto (con S, hacia atrás) · C: mirar atrás';
-    $('raceTip').textContent = tip; $('raceTip').classList.remove('fade'); this._itemKey = null;
+    $('raceTip').textContent = ''; $('raceTip').classList.add('hidden'); void tip; this._itemKey = null;
   }
   _hudTick() {
     const R = this.me, n = this.racers.length;

@@ -31,14 +31,18 @@ export class Input {
     // ratón: arrastrar para girar
     // un clic sin arrastrar = atacar; arrastrar = girar la cámara; clic derecho = esquivar
     let drag = false, lx = 0, ly = 0, moved = 0;
+    // los móviles «imitan» un clic de ratón después de cada toque: se ignoran para que un toque no cuente como atacar
+    let lastTouch = -1e9; addEventListener('touchstart', () => { lastTouch = performance.now(); }, { capture: true, passive: true }); addEventListener('touchend', () => { lastTouch = performance.now(); }, { capture: true, passive: true });
+    const fakeMouse = () => performance.now() - lastTouch < 900;
     canvas.addEventListener('mousedown', e => {
+      if (fakeMouse()) return;
       if (e.button === 1) { e.preventDefault(); this._pressed.add('grapple'); return; }
       if (e.button === 2) { this._pressed.add('dodge'); this.usingGamepad = false; return; }
       drag = true; moved = 0; lx = e.clientX; ly = e.clientY;
     });
     canvas.addEventListener('contextmenu', e => e.preventDefault());
     addEventListener('mouseup', e => {
-      if (drag && e.button === 0 && moved < 6) { this._pressed.add('attack'); }
+      if (drag && e.button === 0 && moved < 6 && !fakeMouse()) { this._pressed.add('attack'); }
       drag = false;
     });
     addEventListener('mousemove', e => {
