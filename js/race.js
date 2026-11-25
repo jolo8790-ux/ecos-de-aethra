@@ -1456,7 +1456,7 @@ export class Race {
     if (this.phase === 'race' && this.clock > 7) $('raceTip').classList.add('fade');
     const el = $('raceItem'), id = R.roll > 0 ? Object.keys(ITEMS)[Math.floor(this.clock * 14) % 6] : R.item;
     const txt = id ? ITEMS[id].icon : '', key = (R.roll > 0 ? 'r' : '') + txt + (R.uses || 0);
-    if (key !== this._itemKey) { this._itemKey = key; el.innerHTML = id ? `<span>${R.item === 'nitro3' && R.roll <= 0 ? '🔥'.repeat(R.uses) : txt}</span><small>${R.roll > 0 ? '…' : ITEMS[id].name}</small>` : '<small>Caja ?</small>'; el.classList.toggle('full', !!id && R.roll <= 0); }
+    if (key !== this._itemKey) { this._itemKey = key; el.innerHTML = id ? `<span>${R.item === 'nitro3' && R.roll <= 0 ? '🔥'.repeat(R.uses) : txt}</span><small>${R.roll > 0 ? '…' : ITEMS[id].name}</small>` : '<span class="q">?</span>'; el.classList.toggle('full', !!id && R.roll <= 0); }
   }
   _hudLights(n) {
     const el = $('raceLights'); if (!el) return;
