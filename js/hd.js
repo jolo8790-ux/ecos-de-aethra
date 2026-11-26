@@ -623,11 +623,11 @@ export function waterMaterial({ shallow = 0x3fc2d8, deep = 0x0d4f7a, sky = 0xcfe
 // Registro: cada modelo generado reemplaza a un modelo de KayKit (y a todas sus variantes de color) en la versión HD.
 export const HD_CHARS = [
   { id: 'heroina', replaces: 'lia' },      // la exploradora (protagonista)
-  { id: 'kael_hd', replaces: 'kael' },     // Kael y el estilo «Encapuchada»
+  { id: 'kael_hd', replaces: 'kael' },     // Kael, el Eco Sombrío y el estilo «Encapuchado»
   { id: 'marta_hd', replaces: 'marta' },   // Marta, Nerea, Brasa y el estilo «Maga»
-  { id: 'tomas_hd', replaces: 'tomas' },   // el estilo «Caballera» de tu heroína
-  { id: 'kael_m', replaces: 'kaelM', rig: 'kael' },    // Kael y el Eco Sombrío (encapuchado)
-  { id: 'tomas_m', replaces: 'tomasM', rig: 'tomas' }, // Tomás, el abuelo Ilan y Vaelor (caballero)
+  { id: 'tomas_hd', replaces: 'tomas' },   // Tomás, Ilan, Vaelor y el estilo «Caballero»
+  // Guardados para más adelante: Kael y Tomás ya crecidos (su evolución). Para usarlos, agregar
+  // { id: 'kael_m', replaces: 'kaelEvo', rig: 'kael' } y { id: 'tomas_m', replaces: 'tomasEvo', rig: 'tomas' }.
 ];
 // Mide las articulaciones sobre la malla (personaje en cruz, pies en y=0, alto 1.9, mira a +z):
 // hombro = donde el torso se angosta y empieza el brazo; codo, muñeca y mano en proporción del brazo;

@@ -616,7 +616,7 @@ const PERSONA = {
     win: ['Ya descansa, criatura.', 'Ah, todavía me queda fuerza en el bastón.', 'Igual que en los viejos tiempos.'],
     sello: ['Las rodillas me crujen... pero el sendero es mío.'] },
   // estilos de tu heroína
-  encapuchada: { inter: ['Shh...', 'Mmm.', 'En silencio.', 'Bien.'],
+  encapuchado: { inter: ['Shh...', 'Mmm.', 'En silencio.', 'Bien.'],
     intro: ['Entre sombras se ve lo que otros no ven.', 'Nadie sabe quién soy. Mejor así.', 'La capucha bien puesta. Vamos.'],
     boss: ['No me verás venir.', 'Las sombras están de mi lado.', 'Un golpe certero basta.'],
     win: ['Desaparece como una sombra al mediodía.', 'Silencio otra vez. Perfecto.', 'Hecho. Nadie lo sabrá.'],
@@ -626,13 +626,13 @@ const PERSONA = {
     boss: ['Conozco el hechizo perfecto para ti.', 'Teoría aprendida. Ahora, la práctica.', '¡Por la luz del Eco!'],
     win: ['Exactamente como predijeron mis cálculos.', 'La magia nunca falla si se estudia.', 'Un experimento muy exitoso.'],
     sello: ['Una secuencia de saltos perfectamente calculada.'] },
-  caballera: { inter: ['¡Por Aethra!', 'Con honor.', 'Firme.', '¡A la carga!'],
-    intro: ['Mi armadura brilla y mi juramento también: protegeré esta isla.', 'Ninguna amenaza quedará en pie mientras yo esté aquí.', 'Caballera de Aethra, a su servicio.'],
+  caballero: { inter: ['¡Por Aethra!', 'Con honor.', 'Firme.', '¡A la carga!'],
+    intro: ['Mi armadura brilla y mi juramento también: protegeré esta isla.', 'Ninguna amenaza quedará en pie mientras yo esté aquí.', 'Caballero de Aethra, a su servicio.'],
     boss: ['¡En guardia, bestia!', '¡Por mi honor, caerás!', 'Mi escudo no retrocede.'],
     win: ['¡Victoria con honor!', 'Una batalla digna de canciones.', 'Descansa, criatura. Has luchado bien.'],
-    sello: ['Un sendero digno de una caballera.'] },
+    sello: ['Un sendero digno de un caballero.'] },
 };
-const STYLE_PERSONA = { kael: 'encapuchada', marta: 'maga', tomas: 'caballera' };
+const STYLE_PERSONA = { kael: 'encapuchado', marta: 'maga', tomas: 'caballero' };
 function heroPersona() {
   if (!save) return null;
   if (save.hero && save.hero !== 'lia') return PERSONA[save.hero] ? { p: PERSONA[save.hero], name: HERO_SWAP[save.hero] ? HERO_SWAP[save.hero].name : 'Lía' } : null;
