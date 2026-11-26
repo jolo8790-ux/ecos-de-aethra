@@ -15,7 +15,7 @@ const httpURL = p => SERVER.replace(/^wss:/, 'https:').replace(/^ws:/, 'http:') 
 // carrocerías 3D (generadas con Artlist): se cargan al entrar a la arena; si no llegan, se usan las de piezas
 const GLB = {}; let glbLoading = null;
 export function loadVehicleModels() {
-  return glbLoading || (glbLoading = Promise.all(['chatarra', 'monstruo', 'ariete', 'pincho'].map(async id => {
+  return glbLoading || (glbLoading = Promise.all(VEHICLES.map(v => v.id).map(async id => {
     try { const g = await new GLTFLoader().parseAsync(await glbBuffer(new URL(`../assets/vehicles/${id}.glb.js`, import.meta.url)), '');
       if (LOW_MEM) shrinkTextures(g.scene, 512);
       g.scene.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = false; if (m.material) { m.material.metalness = 0.15; m.material.roughness = 0.75; } } });
@@ -28,6 +28,9 @@ const FIT = {
   monstruo: { L: 5.0, zf: 1.5, zr: -1.27, wr: 1.02, wy: 0.0, seat: [0.66, 0.35], gun: [1.45, -0.85], out: 0.3 },
   ariete: { L: 4.6, zf: 0.82, zr: -1.5, wr: 0.66, wy: 0.14, seat: [0.95, -0.05], gun: [1.6, -0.95], out: 0.02 },
   pincho: { L: 4.4, zf: 1.24, zr: -1.1, wr: 0.58, wy: 0.14, seat: [0.32, 0.12], gun: [0.95, -0.15], out: 0.05 },
+  excavadora: { L: 5.0, tracks: true, seat: [1.6, -0.6], gun: [2.8, -0.9] },
+  cisterna: { L: 5.2, zf: 1.51, zr: -1.47, wr: 0.66, wy: 0.15, seat: [1.0, 1.2], gun: [2.15, 1.1], out: 0.04 },
+  tanque: { L: 4.6, tracks: true, seat: [2.0, -0.6], gun: [2.4, 2.0], noGun: true },
 };
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -46,8 +49,16 @@ export const VEHICLES = [
   { id: 'monstruo', name: 'Monstruo del Desierto', icon: '🚚', desc: 'Ruedas gigantes que aplastan y saltan más alto.', hp: 130, spd: 27, acc: 17, turn: 1.95, mass: 1.5, ram: 1.35, wr: 1.2, color: 0x4a8a3a },
   { id: 'ariete', name: 'Ariete Blindado', icon: '⛨', desc: 'Pala de acero al frente: sus embestidas destrozan.', hp: 165, spd: 24.5, acc: 15, turn: 1.75, mass: 1.9, ram: 1.9, wr: 0.88, color: 0x6a7684 },
   { id: 'pincho', name: 'Escorpión de Púas', icon: '⚡', desc: 'Bólido con púas en las ruedas. El más rápido y el más frágil.', hp: 80, spd: 33, acc: 24, turn: 2.5, mass: 0.9, ram: 1.25, wr: 0.74, color: 0xd8a820 },
+  // se ganan jugando: cada uno con una habilidad propia
+  { id: 'excavadora', name: 'Excavadora Demoledora', icon: '⚒', desc: 'Orugas y pala de púas: arrasa con todo y ni los choques ni las explosiones la mueven.', hp: 195, spd: 21.5, acc: 13, turn: 1.6, mass: 2.6, ram: 2.3, wr: 0.6, color: 0xd8a020, tracks: true,
+    perk: 'Inamovible', lock: { text: 'Destroza 15 vehículos en la arena', ok: d => (d.kills || 0) >= 15 } },
+  { id: 'cisterna', name: 'Cisterna de Fuego', icon: '🔥', desc: 'Lanzallamas más largos y, al estallar, su tanque explota y quema a todos alrededor.', hp: 150, spd: 26, acc: 16, turn: 1.85, mass: 2.0, ram: 1.5, wr: 0.66, color: 0xc03020, boom: true,
+    perk: 'Tanque explosivo', lock: { text: 'Gana 3 partidas en la arena', ok: d => (d.wins || 0) >= 3 } },
+  { id: 'tanque', name: 'Tanque de Chatarra', icon: '🎯', desc: 'Cañón propio: sin arma de caja, USAR dispara un cañonazo cada 3 segundos.', hp: 180, spd: 22, acc: 14, turn: 1.75, mass: 2.2, ram: 1.6, wr: 0.6, color: 0x6a6a3a, tracks: true, cannon: true,
+    perk: 'Cañón', lock: { text: 'Destroza 40 vehículos en la arena', ok: d => (d.kills || 0) >= 40 } },
 ];
 export const vehicleById = id => VEHICLES.find(v => v.id === id) || VEHICLES[0];
+export const vehicleOk = (sv, V) => !V.lock || V.lock.ok((sv && sv.derby) || {});
 // taller: mejoras por vehículo (tres niveles cada una) y pintura
 export const UPGRADES = [
   { id: 'blindaje', icon: '⛨', name: 'Blindaje', desc: '+12 % de vida por nivel', cost: [150, 300, 500] },
@@ -128,29 +139,31 @@ function buildVehicle3D(V, paint) {
   const F = FIT[V.id], root = new THREE.Group(), body = new THREE.Group(); root.add(body);
   const shell = GLB[V.id].clone(true); shell.traverse(m => { if (m.isMesh) { m.material = m.material.clone(); if (paint != null) m.material.color.setHex(paint).lerp(new THREE.Color(0xffffff), 0.45); } });
   const bb = new THREE.Box3().setFromObject(shell), size = bb.getSize(new THREE.Vector3()), sc = F.L / size.z;
-  shell.scale.setScalar(sc); const bottom = F.wr - F.wy;
+  shell.scale.setScalar(sc); const bottom = F.tracks ? 0 : F.wr - F.wy;
   shell.position.set(-(bb.min.x + bb.max.x) / 2 * sc, bottom - bb.min.y * sc, -(bb.min.z + bb.max.z) / 2 * sc); body.add(shell);
   const W = size.x * sc, H = size.y * sc, top = bottom + H;
   const wheels = [], wx = W / 2 - 0.12 + F.out;
-  for (const [x, z] of [[-wx, F.zf], [wx, F.zf], [-wx, F.zr], [wx, F.zr]]) {
+  if (!F.tracks) for (const [x, z] of [[-wx, F.zf], [wx, F.zf], [-wx, F.zr], [wx, F.zr]]) {
     const piv = new THREE.Group(); piv.position.set(x, F.wr, z); root.add(piv);
     const wh = wheel({ ...V, wr: F.wr }, V.id === 'pincho'); piv.add(wh); wheels.push({ piv, wh, front: z > 0 });
   }
   // piezas que se sueltan con los golpes: blindaje lateral, faros, púas, rueda de auxilio y caños
   const steel = M(0x8c949c, { map: rustTex(), r: 0.45, m: 0.75 }), dark = M(0x2a2826, { r: 0.7, m: 0.5 }), light = M(0xfff0b0, { e: 0xffd070, ei: 1.2 }), tint = M(paint ?? V.color, { map: rustTex(), r: 0.8, m: 0.35 });
-  for (const sd of [-1, 1]) { const pl = box(0.12, H * 0.32, F.L * 0.32, tint, sd * (W / 2 + 0.04), bottom + H * 0.32, -0.2, true); body.add(pl);
+  const heavy = !!(F.tracks || V.boom); // los nuevos ya vienen blindados: solo tornillos y rueda de auxilio
+  for (const sd of [-1, 1]) { const pl = heavy ? new THREE.Group() : box(0.12, H * 0.32, F.L * 0.32, tint, sd * (W / 2 + 0.04), bottom + H * 0.32, -0.2, true); body.add(pl);
     for (const z of [-0.6, 0.2]) { const r = cyl(0.07, 0.07, 0.06, steel, 6); r.rotation.z = Math.PI / 2; r.position.set(sd * (W / 2 + 0.12), bottom + H * 0.36, z); body.add(r); r.userData.part = true; } }
-  for (const x of [-0.6, 0, 0.6]) { const c = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.55, 8), steel); c.rotation.x = Math.PI / 2; c.position.set(x * W * 0.4, bottom + 0.3, F.L / 2 + 0.1); body.add(c); c.userData.part = true; }
+  if (!heavy) for (const x of [-0.6, 0, 0.6]) { const c = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.55, 8), steel); c.rotation.x = Math.PI / 2; c.position.set(x * W * 0.4, bottom + 0.3, F.L / 2 + 0.1); body.add(c); c.userData.part = true; }
   const spare = new THREE.Group(); spare.position.set(0, bottom + H * 0.45, -F.L / 2 - 0.05); spare.rotation.y = Math.PI / 2;
   const sw = wheel({ ...V, wr: 0.42 }, false); sw.scale.set(0.6, 1, 1); spare.add(sw); body.add(spare);
   spare.traverse(m => { if (m.isMesh) m.userData.part = false; }); const sp = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.14, 6, 14), dark); sp.position.copy(spare.position); body.add(sp); sp.userData.part = true; body.remove(spare);
   const gun = new THREE.Group(); gun.position.set(0, bottom + F.gun[0], F.gun[1]);
-  gun.add(box(0.5, 0.3, 0.6, dark)); for (const x of [-0.12, 0.12]) { const b = cyl(0.06, 0.06, 0.9, dark, 8); b.rotation.x = Math.PI / 2; b.position.set(x, 0.02, 0.6); gun.add(b); }
+  if (!F.noGun) { gun.add(box(0.5, 0.3, 0.6, dark)); for (const x of [-0.12, 0.12]) { const b = cyl(0.06, 0.06, 0.9, dark, 8); b.rotation.x = Math.PI / 2; b.position.set(x, 0.02, 0.6); gun.add(b); } } // el tanque dispara por su cañón
   body.add(gun);
   root.traverse(m => { if (m.isMesh) m.castShadow = true; });
-  return { root, body, wheels, gun, seat: [bottom + F.seat[0], F.seat[1]], top, shell, wr: F.wr };
+  return { root, body, wheels, gun, seat: [bottom + F.seat[0], F.seat[1]], top, shell, wr: F.wr || 0.6 };
 }
 function buildVehicleParts(V, paint = null) {
+  if (!FIT[V.id] || ['excavadora', 'cisterna', 'tanque'].includes(V.id)) V = { ...V, id: V.tracks ? 'ariete' : 'monstruo' }; // sin modelo 3D: se arma con piezas parecidas
   const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
   const col = paint ?? V.color, rust = M(col, { map: rustTex(), r: 0.8, m: 0.35 }), dark = M(0x2a2826, { r: 0.7, m: 0.5 }), steel = M(0x8c949c, { map: rustTex(), r: 0.45, m: 0.75 });
   const cage = M(0x222222, { r: 0.5, m: 0.7 }), light = M(0xfff0b0, { e: 0xffd070, ei: 1.2 });
@@ -317,7 +330,7 @@ export class Derby {
   }
   _addBot(id, d, k) {
     const sv = this.ctx.getSave() || {};
-    const b = new Car(this, { id, name: d.name, cpu: true, drv: d.id, vid: VEHICLES[k % VEHICLES.length].id, up: [0, 1, 2].map(() => Math.floor(Math.random() * 2.2)), paint: Math.random() < 0.5 ? DPAINTS[1 + Math.floor(Math.random() * (DPAINTS.length - 1))].c : null, look: driverLook(sv, d.id), skill: 0.82 + Math.random() * 0.15 });
+    const b = new Car(this, { id, name: d.name, cpu: true, drv: d.id, vid: VEHICLES[(k * 3 + Math.floor(Math.random() * VEHICLES.length)) % VEHICLES.length].id, up: [0, 1, 2].map(() => Math.floor(Math.random() * 2.2)), paint: Math.random() < 0.5 ? DPAINTS[1 + Math.floor(Math.random() * (DPAINTS.length - 1))].c : null, look: driverLook(sv, d.id), skill: 0.82 + Math.random() * 0.15 });
     this.cars.push(b); return b;
   }
   _spawn(c, first = false) {
@@ -474,6 +487,7 @@ export class Derby {
     c.hp = 0; c.dead = 3.2; c.deaths++; c.vx = c.vz = 0; c.fwdV = 0; c.boostT = 0;
     const by = c.lastBy && this.clock - (c.lastByT || 0) < 8 ? this.cars.find(o => o.id === c.lastBy) : null;
     this._explode(c.x, c.y + 1, c.z, 1.6);
+    if (c.V.boom && !c.remote) { this._explode(c.x, c.y + 1, c.z, 2.4); this._blast({ x: c.x, y: c.y + 1, z: c.z, r: 8, dmg: 40, owner: c, kind: 'cisterna', remote: false }, null); }
     for (const p of c.parts.slice(c.lost)) this._detach(c, p, 1.6); c.lost = c.parts.length;
     for (const w of c.B.wheels) this._detach(c, w.wh, 1.3, true);
     for (const { mt } of c.mats) mt.color.setHex(0x1a1614);
@@ -506,6 +520,10 @@ export class Derby {
 
   // ---------- armas ----------
   _use(c) {
+    if ((!c.item || c.n <= 0) && c.V.cannon) { // el tanque: cañonazo propio cada 3 s
+      if ((c.canT || 0) > 0) { if (c.you) this.ctx.audio.play('powerFail'); return; }
+      c.canT = 3; this._fire(c, 'cohete'); const S = this.shots[this.shots.length - 1]; if (S) { S.dmg = 20; S.speed = 85; S.r = 3; } this.shake = Math.max(this.shake || 0, c.you ? 0.25 : 0); return;
+    }
     if (!c.item || c.n <= 0) return;
     const id = c.item, A = this.ctx.audio;
     if (id === 'metralla') { c.burst = 7; c.burstT = 0; }
@@ -513,7 +531,7 @@ export class Derby {
     else if (id === 'misil') this._fire(c, 'misil');
     else if (id === 'minas') this._fire(c, 'mina');
     else if (id === 'bomba') this._fire(c, 'bomba');
-    else if (id === 'fuego') { c.fireT = 2.4; if (c.you) A.play('fire'); }
+    else if (id === 'fuego') { c.fireT = c.V.boom ? 3.6 : 2.4; if (c.you) A.play('fire'); }
     else if (id === 'reparar') { c.hp = Math.min(c.V.hp, c.hp + c.V.hp * 0.5); this._restoreSome(c); this._pop(c.x, c.y + 1, c.z, 0x7affa0, 3); if (c.you) A.play('heal'); }
     else if (id === 'escudo') { c.shieldT = 7; if (c.you) A.play('shieldUp'); }
     else if (id === 'nitro') { c.boostT = 2.2; if (c.you) { A.play('dash'); this.ctx.input.rumble(140, 0.5); } }
@@ -527,7 +545,7 @@ export class Derby {
   _weapons(dt) {
     for (const c of this.cars) {
       if (c.dead) { c.burst = 0; c.fireT = 0; continue; }
-      c.inv = Math.max(0, c.inv - dt); if (c.shieldT > 0) c.shieldT -= dt;
+      c.inv = Math.max(0, c.inv - dt); if (c.shieldT > 0) c.shieldT -= dt; if (c.canT > 0) c.canT -= dt;
       if (c.burst > 0 && (c.burstT -= dt) <= 0) { c.burstT = 0.07; c.burst--; this._fire(c, 'bala'); }
       if (c.fireT > 0) { // lanzallamas: cono de fuego hacia adelante
         c.fireT -= dt;
@@ -600,7 +618,7 @@ export class Derby {
   _blast(S, direct) {
     this._explode(S.x, S.y, S.z, S.r / 3.5);
     if (S.remote) return;
-    for (const o of this.cars) { if (o.dead) continue; const d = Math.hypot(o.x - S.x, o.z - S.z); if (o === direct || d < S.r) { const f = o === direct ? 1 : 1 - d / S.r * 0.6; this._damage(o, S.dmg * f, S.owner, S.kind); if (!o.remote) { o.vy = Math.max(o.vy, 7 * f); o.air = true; const a = Math.atan2(o.x - S.x, o.z - S.z); o.vx += Math.sin(a) * 8 * f; o.vz += Math.cos(a) * 8 * f; } } }
+    for (const o of this.cars) { if (o.dead) continue; const d = Math.hypot(o.x - S.x, o.z - S.z); if (o === direct || d < S.r) { const f = o === direct ? 1 : 1 - d / S.r * 0.6; this._damage(o, S.dmg * f, S.owner, S.kind); if (!o.remote && !o.V.tracks) { o.vy = Math.max(o.vy, 7 * f); o.air = true; const a = Math.atan2(o.x - S.x, o.z - S.z); o.vx += Math.sin(a) * 8 * f; o.vz += Math.cos(a) * 8 * f; } } }
     for (const o of this.F.barrels) if (!(o.t > 0) && Math.hypot(o.x - S.x, o.z - S.z) < S.r) this._barrelBoom(o, S.owner);
   }
   _barrelBoom(o, by) {
@@ -649,6 +667,7 @@ export class Derby {
     if (c.stuck > 1.2) c.rev = 1.0;
     if (c.rev > 0) { c.rev -= dt; ctl.throttle = 0; ctl.brake = 1; ctl.steer = 1; }
     // usar el arma
+    if (!c.item && c.V.cannon && !(c.canT > 0) && F) { const dx = F.x - c.x, dz = F.z - c.z; if (Math.hypot(dx, dz) < 50 && Math.abs(angD(Math.atan2(dx, dz), c.yaw)) < 0.12) ctl.use = true; }
     if (c.item && (c.botWait = (c.botWait || 0) - dt) <= 0 && F) {
       const dx = F.x - c.x, dz = F.z - c.z, d = Math.hypot(dx, dz), a = Math.abs(angD(Math.atan2(dx, dz), c.yaw)), behind = Math.abs(angD(Math.atan2(dx, dz), c.yaw + Math.PI)) < 0.6;
       const id = c.item; let go = false;
@@ -835,8 +854,8 @@ export class Derby {
     $('raceLap').innerHTML = `💥 ${me.kills}`;
     const t = Math.ceil(this.left); $('raceTime').textContent = `${Math.floor(Math.max(0, t) / 60)}:${String(Math.max(0, t) % 60).padStart(2, '0')}`;
     $('raceSpeed').innerHTML = `${Math.round(me.speed * 4)}<small> km/h</small>`;
-    const key = (me.item || '') + me.n;
-    if (key !== this._itemKey) { this._itemKey = key; const W = me.item && WEAPONS[me.item]; $('raceItem').innerHTML = W ? `<span class="ic">${W.icon}</span><small>${W.name}${me.n > 1 ? ' ×' + me.n : ''}</small>` : '<span class="q">?</span>'; $('raceItem').classList.toggle('has', !!W); }
+    const key = (me.item || '') + me.n + (me.V.cannon && !me.item ? (me.canT > 0 ? 'c' + Math.ceil(me.canT) : 'cok') : '');
+    if (key !== this._itemKey) { this._itemKey = key; const W = me.item && WEAPONS[me.item]; $('raceItem').innerHTML = W ? `<span class="ic">${W.icon}</span><small>${W.name}${me.n > 1 ? ' ×' + me.n : ''}</small>` : me.V.cannon ? `<span class="ic">🎯</span><small>${me.canT > 0 ? Math.ceil(me.canT) + ' s' : 'Cañón'}</small>` : '<span class="q">?</span>'; $('raceItem').classList.toggle('has', !!W || (me.V.cannon && !(me.canT > 0))); }
     if ((this._boardT = (this._boardT || 0) - 1) <= 0) { this._boardT = 15;
       $('raceBoard').innerHTML = sorted.slice(0, 8).map((c, k) => `<div class="${c.you ? 'me' : ''}"><b>${k + 1}</b> ${esc(c.name).slice(0, 14)} <em>💥${c.kills}</em></div>`).join(''); }
   }

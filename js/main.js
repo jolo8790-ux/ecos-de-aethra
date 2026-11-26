@@ -15,7 +15,7 @@ import { FX } from './fx.js';
 import { loadCharacterLibrary, createCharacter, customLook, CUSTOM, DEFAULT_CUSTOM, auraOf } from './characters.js';
 import { loadProps } from './props.js';
 import { Race, TRACKS, RACE_LAPS, driverLook } from './race.js';
-import { Derby, VEHICLES, UPGRADES, DPAINTS, derbyGarage, upOf, loadVehicleModels } from './derby.js';
+import { Derby, VEHICLES, UPGRADES, DPAINTS, derbyGarage, upOf, loadVehicleModels, vehicleOk } from './derby.js';
 import { KARTS, STATS, UP_COST, PAINTS, TRAILS, PARTS, DRIVERS, RETOS, retoOk, newUnlocks, garageOf, kartById, kartPoints } from './garage.js';
 import { loadPropIds } from './props.js';
 import { Showroom } from './showroom.js';
@@ -3277,11 +3277,11 @@ function derbyMenu(sv) {
   const tb = $('raceTracks'); tb.innerHTML = '';
   const row = document.createElement('div'); row.className = 'trackRow'; tb.appendChild(row);
   const bar = (v, max) => `<i class="stbar"><b style="width:${Math.round(v / max * 100)}%"></b></i>`;
-  for (const V of VEHICLES) { const b = document.createElement('button'); b.className = 'trackCard' + (raceUI.vehicle === V.id ? ' sel' : '');
-    b.innerHTML = `<img class="vThumb" src="assets/vehicles/${V.id}.webp" alt=""><b>${V.name}</b>`; b.onclick = () => { raceUI.vehicle = V.id; audio.play('uiMove'); refreshRaceMenu(); }; row.appendChild(b); }
+  for (const V of VEHICLES) { const ok = vehicleOk(sv, V), b = document.createElement('button'); b.className = 'trackCard' + (raceUI.vehicle === V.id ? ' sel' : '') + (ok ? '' : ' locked');
+    b.innerHTML = `<img class="vThumb" src="assets/vehicles/${V.id}.webp" alt=""><b>${ok ? '' : '🔒 '}${V.name}</b>${ok ? '' : `<small>${V.lock.text}</small>`}`; b.onclick = () => { raceUI.vehicle = V.id; audio.play('uiMove'); refreshRaceMenu(); }; row.appendChild(b); }
   const V = VEHICLES.find(v => v.id === raceUI.vehicle) || VEHICLES[0], d = (sv.derby || {});
   tb.insertAdjacentHTML('beforeend', `<div class="raceCard"><span class="ic">💥</span><div><b>${V.name}</b><small>${V.desc}</small>
-    <div class="dStats"><span>Blindaje</span>${bar(V.hp, 170)}<span>Velocidad</span>${bar(V.spd, 34)}<span>Embestida</span>${bar(V.ram, 2)}<span>Giro</span>${bar(V.turn, 2.6)}</div>
+    <div class="dStats"><span>Blindaje</span>${bar(V.hp, 200)}<span>Velocidad</span>${bar(V.spd, 34)}<span>Embestida</span>${bar(V.ram, 2.4)}<span>Giro</span>${bar(V.turn, 2.6)}</div>${V.perk ? `<div class="dPerk">★ ${V.perk}${vehicleOk(sv, V) ? '' : ` · 🔒 ${V.lock.text} (llevas ${V.lock.text.includes('Gana') ? (d.wins || 0) : (d.kills || 0)})`}</div>` : ''}
     <em>${d.games ? `${d.games} ${d.games === 1 ? 'partida' : 'partidas'} · ${d.kills || 0} ${d.kills === 1 ? 'destrozado' : 'destrozados'} · ${d.wins || 0} ${d.wins === 1 ? 'victoria' : 'victorias'}` : 'Arma de las cajas, embiste y destroza: gana quien destroce más en 3 minutos'}</em></div></div>
     <div class="dTaller"><div class="dUps"></div><div class="dPaints"></div></div>`);
   // taller: mejoras con Ecos y pintura
@@ -3308,6 +3308,7 @@ function derbyMenu(sv) {
 }
 async function startDerby() {
   const V = raceUI.vehicle; let net = null;
+  { const VV = VEHICLES.find(v => v.id === V); if (VV && !vehicleOk(save, VV)) { audio.play('powerFail'); toast(`🔒 ${VV.lock.text}`); return; } }
   if (raceUI.dWho !== 'cpu') {
     const code = raceUI.dWho === 'publica' ? 'publica' : (($('raceCode').value || raceUI.code || '').trim().toLowerCase() || randomCode());
     $('bRaceGo').textContent = 'Conectando…'; $('bRaceGo').disabled = true;
