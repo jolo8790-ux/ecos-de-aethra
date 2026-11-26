@@ -172,7 +172,8 @@ const SETS = {
 // elige tramos libres repartidos por la vuelta (distintos en cada pista)
 function sectors(T, n, rnd) {
   const N = T.N, R = T.sky, A = T.alt;
-  const free = i => i > 70 && i < N - 50 && !T.tunnels.some(([a, b]) => i > a - 18 && i < b + 18) && !T.ramps.some(r => Math.abs(r - i) < 30)
+  // nunca sobre la parrilla de salida (que ocupa el final de la vuelta)
+  const free = i => i > 70 && i < N - 160 && !T.tunnels.some(([a, b]) => i > a - 18 && i < b + 18) && !T.ramps.some(r => Math.abs(r - i) < 30)
     && !(A && i > A.a - 20 && i < A.b + 20) && !(R && i > R.r - 40 && i < R.r + 12) && !T.def.boosts.some(f => Math.abs(f * N - i) < 14);
   const out = [];
   for (let k = 0; k < n; k++) {

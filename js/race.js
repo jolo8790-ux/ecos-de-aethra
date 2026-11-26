@@ -1319,6 +1319,7 @@ export class Race {
         if (p <= 3) { r.podiums = (r.podiums || 0) + 1; (r.podiumAt = r.podiumAt || {})[t] = true; }
         if (p === 1) { r.wins = (r.wins || 0) + 1; (r.wonAt = r.wonAt || {})[t] = true; if (this.laps === 5) r.won5 = (r.won5 || 0) + 1; }
         this.newUnlocks = this.ctx.unlocksAfter ? this.ctx.unlocksAfter() : [];
+        if (this.ctx.onFinish) setTimeout(() => { try { this.ctx.onFinish(); } catch (e) {} }, 4000);
         if (this.newUnlocks.length) { $('raceEndSub').innerHTML += `<div class="raceUnl">${ICO.unlock}¡Desbloqueaste ${this.newUnlocks.map(u => u.name).join(', ')}!</div>`; C.audio.play('unlock'); }
         C.save && C.save();
       }

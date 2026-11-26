@@ -33,7 +33,7 @@ import { LOGROS, storeOf, unlock, bump as bumpL, addTo as addToL } from './logro
 import { runCredits } from './credits.js';
 import { applySenderos, SENDEROS } from './zones/senderos.js';
 import { installIcons, icon } from './icons.js';
-import { installReporting, openReport, crumb, reportError } from './report.js';
+import { installReporting, openReport, crumb, reportError, maybeAskOpinion } from './report.js';
 installIcons();
 import { HEROES, heroById, heroLook, heroUnlocked } from './heroes.js';
 import { ZONE_PIECES, MISIONES, PIECE_TOTAL, piecesOf, pieceCount, pieceHearts, pieceBreakable, newlyDone, givePiece, bumpMax as bumpMaxL } from './piezas.js';
@@ -2194,6 +2194,8 @@ $('bResume').onclick = resume;
 $('bSettings').onclick = () => showPausePanel('settings');
 $('bReportPause').onclick = () => openReport(m => m && toast(m));
 $('bRaceReport').onclick = () => openReport(m => m && toast(m));
+// pide opinión tras 12 minutos de juego (y al terminar una carrera, ver la carrera)
+setInterval(() => { if (state === 'play' && performance.now() > 12 * 60000) maybeAskOpinion('tiempo'); }, 60000);
 installReporting({
   getCtx: () => ({ estado: state, zona: zone && zone.id, fps, calidad: settings.quality, enLinea: settings.online !== false, carrera: race && race.active ? { pista: race.def && race.def.name, fase: race.phase, vuelta: race.me && race.me.lap, rivales: race.racers.length, red: !!race.net } : null }),
   shot: () => { try { renderer.render(scene, camera); } catch (e) {} return renderer.domElement; },
@@ -3078,6 +3080,7 @@ $('bHubArena').onclick = () => { audio.unlock(); openArena('title'); };
 const race = new Race({
   scene, camera, world, audio, music, input, player, toast, renderer,
   charLib: () => charLib, getSave: () => save, save: () => { if (save) writeSave(save); }, unlocksAfter: () => save ? newUnlocks(save) : [],
+  onFinish: () => maybeAskOpinion('carrera'),
   onError: (where, e) => { reportError('carrera:' + where, e); const el = $('raceErr'); if (!el) return; $('raceErrMsg').textContent = 'Algo falló en la carrera. Ya nos llegó el aviso.'; el.classList.remove('hidden'); },
   addEcos: n => { addEcos(n); if (save) writeSave(save); },
   loadRaceZone(Z) {
