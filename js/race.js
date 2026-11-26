@@ -1520,7 +1520,7 @@ export class Race {
       const u = $('rtUse'); const fire = e => { e.preventDefault(); this.tUseP = true; u.classList.add('on'); setTimeout(() => u.classList.remove('on'), 120); };
       u.addEventListener('touchstart', fire, { passive: false }); u.addEventListener('mousedown', fire);
     }
-    this.tDrift = this.tBrake = false; if (this.ctx.input.resetTouch) this.ctx.input.resetTouch();
+    this.tDrift = this.tBrake = false; if (this.ctx.input.resetTouch) this.ctx.input.resetTouch(); this._wrongOn = false; this._wrongSince = 0; { const w = $('raceWrong'); if (w) w.classList.remove('on'); }
     const tip = this.ctx.input.isTouch ? 'Acelera solo · palanca: girar · DERRAPE en curvas · toca el objeto para usarlo (con FRENO, hacia atrás)' : 'W/↑ acelerar · S/↓ frenar · A/D girar · Espacio: derrape · E/J: usar objeto (con S, hacia atrás) · C: mirar atrás';
     $('raceTip').textContent = ''; $('raceTip').classList.add('hidden'); void tip; this._itemKey = null;
   }
@@ -1534,6 +1534,12 @@ export class Race {
     $('raceSpeed').innerHTML = `${kmh}<small> km/h</small>`;
     const lv = R.drift ? (R.charge > 1.8 ? 2 : R.charge > 0.9 ? 1 : 0) : -1;
     $('raceTurbo').className = lv < 0 ? '' : 'lv' + lv;
+    // contramano: si vas en sentido contrario un momento, aparece la señal
+    { const T = this.track, AL = T.alt, tv = R.onAlt && AL ? AL.t[R.ai] : T.t[R.i], head = R.yaw + (R.v < 0 ? Math.PI : 0);
+      const bad = this.phase === 'race' && !R.done && !(R.spin > 0) && Math.abs(R.v) > 2 && Math.abs(angD(head, Math.atan2(tv.x, tv.z))) > 1.9, now = performance.now();
+      if (bad) { this._wrongSince = this._wrongSince || now; this._rightSince = 0; } else { this._rightSince = this._rightSince || now; if (now - this._rightSince > 250) this._wrongSince = 0; }
+      const show = !!this._wrongSince && now - this._wrongSince > 700;
+      if (show !== this._wrongOn) { this._wrongOn = show; $('raceWrong').classList.toggle('on', show); if (show) { this.ctx.audio.play('beep'); this.ctx.input.rumble(120, 0.4); } } }
     { const tt = lv === 2 ? '🔥 SUPER TURBO' : lv === 1 ? '⚡ TURBO' : lv === 0 ? 'derrapando…' : ''; if (tt !== this._turboTxt) { this._turboTxt = tt; $('raceTurbo').textContent = tt; } }
     // mini clasificación
     $('raceBoard').innerHTML = this.order.slice(0, 8).map(o => `<div class="${o.you ? 'me' : ''}"><b>${o.place}</b> <i style="background:#${o.color.toString(16).padStart(6, '0')}"></i>${o.name.replace(/[<>&]/g, '').slice(0, 12)}</div>`).join('');
