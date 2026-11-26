@@ -1016,9 +1016,12 @@ export class Race {
       });
     }
     const others = KARTS.filter(k => k.id !== G.kart && !k.secret); // cada rival en un kart distinto (y distinto del tuyo)
-    if (!opts.online) for (let k = 0; k < n; k++) { const h = pool[k % pool.length], D = DRIVERS.find(d => d.id === h); grid.push(new Racer(this, { id: 'cpu' + k, name: D.name, color: COLORS[(k + 1) % COLORS.length], kartId: others[k % others.length].id, paint: null, trail: ['fuego', 'hielo', 'veneno', 'dorada'][k % 4], look: driverLook(sv, h), skill: level * (0.94 + 0.08 * (k / Math.max(1, n - 1))), lane: ((k % 3) - 1) * 0.45 })); }
+    const cupR = opts.cup && opts.cup.roster;
+    if (!opts.online) for (let k = 0; k < n; k++) { const h = cupR ? cupR[k % cupR.length] : pool[k % pool.length], D = DRIVERS.find(d => d.id === h); grid.push(new Racer(this, { id: 'cpu' + k, name: D.name, color: COLORS[(k + 1) % COLORS.length], kartId: others[k % others.length].id, paint: null, trail: ['fuego', 'hielo', 'veneno', 'dorada'][k % 4], look: driverLook(sv, h), skill: level * (0.94 + 0.08 * (k / Math.max(1, n - 1))), lane: ((k % 3) - 1) * 0.45 })); }
     // la jugadora sale desde el medio de la parrilla
     if (!opts.online) grid.splice(Math.min(grid.length, Math.floor(n * 0.6)), 0, me);
+    // en la copa, desde la 2.ª carrera la parrilla va al revés de la clasificación (el líder sale el último)
+    if (opts.cup && opts.cup.round > 0) { const P = opts.cup.pts; grid.sort((a, b) => (P[a.id] || 0) - (P[b.id] || 0)); }
     this.racers = grid; this.me = me;
     const T = this.track;
     grid.forEach((R, k) => {
@@ -1051,6 +1054,7 @@ export class Race {
   update(dt) {
     if (!this.active || (this.paused && !this.net)) return; // en línea la carrera sigue aunque abras la pausa
     const C = this.ctx;
+    if (this.phase === 'podium') { try { this._podiumTick(dt); } catch (e) { this._err('podio', e); } return; }
     if (this.phase === 'count') {
       this.st += dt;
       // fuera de línea, acelerar o pulsar salta la presentación
@@ -1306,6 +1310,7 @@ export class Race {
     $('raceEndSub').textContent = `${this.def.name} · ${this.laps} vueltas · +${rew} Ecos`;
     try { this._endList(); } catch (e) { console.warn('tabla final', e); }
     $('bRaceAgain').innerHTML = this.net ? ICO.globe + ' Volver a la sala' : ICO.rep + ' Repetir carrera';
+    if (this.opts.cup) try { this._cupEnd(); } catch (e) { console.warn('copa', e); }
     $('raceEnd').classList.remove('hidden'); $('racePause').classList.add('hidden'); document.body.classList.add('raceover');
     try {
       C.addEcos(rew);
@@ -1319,11 +1324,66 @@ export class Race {
         if (p <= 3) { r.podiums = (r.podiums || 0) + 1; (r.podiumAt = r.podiumAt || {})[t] = true; }
         if (p === 1) { r.wins = (r.wins || 0) + 1; (r.wonAt = r.wonAt || {})[t] = true; if (this.laps === 5) r.won5 = (r.won5 || 0) + 1; }
         this.newUnlocks = this.ctx.unlocksAfter ? this.ctx.unlocksAfter() : [];
-        if (this.ctx.onFinish) setTimeout(() => { try { this.ctx.onFinish(); } catch (e) {} }, 4000);
+        if (this.ctx.onFinish && !this.opts.cup) setTimeout(() => { try { this.ctx.onFinish(); } catch (e) {} }, 4000);
         if (this.newUnlocks.length) { $('raceEndSub').innerHTML += `<div class="raceUnl">${ICO.unlock}¡Desbloqueaste ${this.newUnlocks.map(u => u.name).join(', ')}!</div>`; C.audio.play('unlock'); }
         C.save && C.save();
       }
     } catch (e) { console.warn('No se pudo guardar el resultado de la carrera', e); }
+  }
+  // ---------- copa: puntos por carrera y clasificación general ----------
+  _cupEnd() {
+    const cup = this.opts.cup, POINTS = [10, 8, 6, 5, 4, 3, 2, 1];
+    if (cup.scored !== cup.round) { // (una vez por carrera)
+      cup.scored = cup.round; this.place();
+      for (const R of this.order) { const pts = POINTS[R.place - 1] || 0; cup.pts[R.id] = (cup.pts[R.id] || 0) + pts; cup.time[R.id] = (cup.time[R.id] || 0) + (R.time || 0); cup.names[R.id] = R.name; cup.colors[R.id] = R.color; cup.last[R.id] = pts; }
+      cup.hist.push({ track: this.opts.track, place: this.me.place, time: this.me.time });
+    }
+    const last = cup.round + 1 >= cup.tracks.length, st = this.cupStandings(), mine = st.findIndex(x => x.id === 'me') + 1;
+    $('raceEndTitle').innerHTML = `${ICO.cup}${cup.name} · carrera ${cup.round + 1} de ${cup.tracks.length}`;
+    $('raceEndSub').innerHTML = `${this.me.place}.º en ${this.def.name} (+${cup.last.me || 0} puntos) · vas <b>${mine}.º</b> en la general`;
+    $('raceEndList').innerHTML = st.map((x, k) => `<li class="${x.id === 'me' ? 'me' : ''}"><b>${k + 1}.º</b> <span>${x.name.replace(/[<>&]/g, '')}</span> <em>${x.pts} pts <small class="cupAdd">+${cup.last[x.id] || 0}</small></em></li>`).join('');
+    $('bRaceAgain').innerHTML = last ? ICO.cup + ' Ver el podio' : ICO.play + ` Siguiente carrera (${cup.round + 2}/${cup.tracks.length})`;
+  }
+  cupStandings() { const c = this.opts.cup; return Object.keys(c.pts).map(id => ({ id, name: c.names[id], pts: c.pts[id], time: c.time[id] || 0, color: c.colors[id] })).sort((a, b) => b.pts - a.pts || a.time - b.time); }
+  // ---------- podio final con trofeo ----------
+  showPodium() {
+    const C = this.ctx, T = this.track, st = this.cupStandings(), top = st.slice(0, 3).map(x => this.racers.find(R => R.id === x.id)).filter(Boolean);
+    this.phase = 'podium'; this.podT = 0; $('raceEnd').classList.add('hidden');
+    if (this.items) this.items.root.visible = false;
+    const i0 = 30 % T.N, c = T.c[i0], t = T.t[i0], yaw = Math.atan2(t.x, t.z);
+    const g = new THREE.Group(); g.position.set(c.x, c.y, c.z); g.rotation.y = yaw; this.root.add(g); this.podium = g;
+    const blocks = [[0, 1.7, 0xffd24a, '1'], [-3.4, 1.15, 0xd8e0ea, '2'], [3.4, 0.75, 0xd08a4a, '3']];
+    const numTex = n => { const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d'); x.fillStyle = '#ffffff'; x.font = 'bold 96px system-ui,sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(n, 64, 70); const tt = new THREE.CanvasTexture(cv); tt.colorSpace = THREE.SRGBColorSpace; return tt; };
+    blocks.forEach(([x, h, col, n], k) => {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(3.2, h, 3), new THREE.MeshStandardMaterial({ color: col, metalness: 0.5, roughness: 0.35 })); b.position.set(x, h / 2, 0); b.castShadow = b.receiveShadow = true; g.add(b);
+      const lab = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1), new THREE.MeshBasicMaterial({ map: numTex(n), transparent: true })); lab.position.set(x, h / 2, 1.51); g.add(lab);
+      const R = top[k]; if (!R) return;
+      const w = g.localToWorld(new THREE.Vector3(x, h, 0)); R.root.position.copy(w); R.root.rotation.set(0, yaw, 0); R.root.visible = true; R.body.scale.set(1, 1, 1); R.body.rotation.set(0, 0, 0); R.body.position.y = 0;
+      if (R.iceBlock) R.iceBlock.visible = false; if (R.shadow) R.shadow.visible = false;
+    });
+    for (const R of this.racers) if (!top.includes(R)) R.root.visible = false;
+    // trofeo dorado sobre el campeón
+    const gold = new THREE.MeshStandardMaterial({ color: 0xffc83a, metalness: 1, roughness: 0.22, emissive: 0x4a3000, emissiveIntensity: 0.3 });
+    const prof = [[0, 0], [0.55, 0], [0.55, 0.12], [0.22, 0.2], [0.14, 0.55], [0.18, 0.7], [0.62, 0.9], [0.72, 1.5], [0.66, 1.55], [0.56, 1.0], [0, 0.95]].map(([x, y]) => new THREE.Vector2(x, y));
+    const tro = new THREE.Group(), cupM = new THREE.Mesh(new THREE.LatheGeometry(prof, 40), gold); tro.add(cupM);
+    for (const sg of [-1, 1]) { const h = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.06, 10, 24, Math.PI * 1.2), gold); h.position.set(sg * 0.72, 1.18, 0); h.rotation.z = sg > 0 ? -Math.PI * 0.6 : Math.PI * 1.6; tro.add(h); }
+    const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.16), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffe08a, emissiveIntensity: 1 })); star.position.y = 1.75; tro.add(star);
+    tro.position.set(0, 1.7 + 3.1, 0); tro.scale.setScalar(1.1); g.add(tro); this.trophy = tro;
+    // confeti
+    const N = 420, pos = new Float32Array(N * 3), col = new Float32Array(N * 3), pal = [0xffd24a, 0xff5a6a, 0x5ad0ff, 0x8aff7a, 0xc08aff, 0xffffff].map(h => new THREE.Color(h));
+    for (let k = 0; k < N; k++) { pos[k * 3] = (Math.random() - 0.5) * 16; pos[k * 3 + 1] = Math.random() * 14; pos[k * 3 + 2] = (Math.random() - 0.5) * 10; const cc = pal[k % pal.length]; col.set([cc.r, cc.g, cc.b], k * 3); }
+    const cg = new THREE.BufferGeometry(); cg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); cg.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    this.confetti = new THREE.Points(cg, new THREE.PointsMaterial({ size: 0.22, vertexColors: true })); g.add(this.confetti);
+    C.audio.play('unlock'); C.music && C.music.stinger && C.music.stinger('hallazgo'); C.input.rumble(300, 0.6);
+    document.body.classList.add('raceover');
+  }
+  _podiumTick(dt) {
+    this.podT += dt; const g = this.podium, cam = this.ctx.camera;
+    if (this.trophy) { this.trophy.rotation.y += dt * 1.2; this.trophy.position.y = 4.8 + Math.sin(this.podT * 2) * 0.15; }
+    if (this.confetti) { const P = this.confetti.geometry.attributes.position; for (let k = 0; k < P.count; k++) { let y = P.getY(k) - dt * (1.6 + (k % 5) * 0.3); if (y < 0) y = 14; P.setY(k, y); P.setX(k, P.getX(k) + Math.sin(this.podT * 2 + k) * dt * 0.4); } P.needsUpdate = true; }
+    const a = Math.sin(this.podT * 0.35) * 0.55, R = 12.5, ctr = g.localToWorld(new THREE.Vector3(0, 2.2, 0)), eye = g.localToWorld(new THREE.Vector3(Math.sin(a) * R, 4.2 + Math.sin(this.podT * 0.5) * 0.6, Math.cos(a) * R));
+    cam.up.set(0, 1, 0); cam.position.lerp(eye, this.podT < 0.1 ? 1 : 0.06); cam.lookAt(ctr);
+    if (Math.floor(this.podT * 2) !== Math.floor((this.podT - dt) * 2)) for (const Rr of this.racers) if (Rr.root.visible && Rr.ch && Rr.ch.bones && Rr.ch.bones.head) Rr.ch.bones.head.rotation.y = Math.sin(this.podT + Rr.color) * 0.4;
   }
   _endList() {
     const fmt = t => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`;
@@ -1581,6 +1641,7 @@ export class Race {
     this.paused = !this.paused; $('racePause').classList.toggle('hidden', !this.paused); $('bRaceRestart').classList.toggle('hidden', !!this.net); this._engineTick();
   }
   again() { const o = this.opts; this.exit(true); this.start(o); }
+  next(track) { const o = { ...this.opts, track }; this.exit(true); this.start(o); }
   exit(keep) {
     const C = this.ctx;
     this.active = false; this._engine(false);

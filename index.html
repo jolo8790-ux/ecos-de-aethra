@@ -557,6 +557,20 @@
   .raceUnl { margin-top: 6px; color: #ffd27a; font-weight: 800; font-size: 16px; }
   body.touch .trackCard { min-width: 0; padding: 3px 10px; flex-direction: row; gap: 6px; } body.touch .trackCard .ic { font-size: 18px; } body.touch .trackCard small { display: none; }
   body.touch #raceTracks .raceCard { display: none; }
+  body.raceCupMode .raceSoon { display: none; }
+  body.touch .torList { max-height: 92px; overflow-y: auto; }
+  body.raceCupMode:not(.touch) #raceTracks .trackRow { justify-content: center; }
+  body.touch.raceCupMode #raceTracks .raceCard { display: flex; padding: 6px 10px; } body.touch.raceCupMode #raceTracks .raceCard small { font-size: 11px; } body.touch.raceCupMode #raceTracks .raceCard .ic { display: none; }
+  .cupAdd { color: #8aff9a; font-weight: 800; margin-left: 4px; }
+  .torCard em { color: #ffd24a; }
+  .torChamp { display: flex; flex-wrap: wrap; gap: 6px 12px; justify-content: center; align-items: center; margin: 4px 0; font-weight: 700; }
+  .torChamp > small { width: 100%; text-align: center; opacity: .6; font-weight: 600; }
+  .torList { list-style: none; margin: 4px auto; padding: 0; width: min(520px, 94%); max-height: 34vh; overflow: auto; text-align: left; }
+  .torList li { display: flex; gap: 8px; align-items: baseline; padding: 4px 10px; border-radius: 10px; }
+  .torList li:nth-child(odd) { background: rgba(255,255,255,.06); }
+  .torList li.me { background: rgba(255,210,74,.22); }
+  .torList li span { flex: 1; font-weight: 700; } .torList li small { opacity: .6; } .torList li em { font-style: normal; color: #ffd24a; white-space: nowrap; }
+  .torList li.empty { justify-content: center; opacity: .7; }
   #raceTracks { width: 100%; max-width: 100vw; min-width: 0; box-sizing: border-box; }
   #raceTracks .trackRow { width: 100%; box-sizing: border-box; flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; max-width: 100%; padding: 4px 6px 6px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   #raceTracks .trackRow::-webkit-scrollbar { display: none; }
@@ -612,60 +626,60 @@
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-  "./js/arena.js": "./js/arena.js?v=2611260337",
-  "./js/audio.js": "./js/audio.js?v=2611260337",
-  "./js/autonav.js": "./js/autonav.js?v=2611260337",
-  "./js/camera.js": "./js/camera.js?v=2611260337",
-  "./js/characters.js": "./js/characters.js?v=2611260337",
-  "./js/combat.js": "./js/combat.js?v=2611260337",
-  "./js/credits.js": "./js/credits.js?v=2611260337",
-  "./js/endless.js": "./js/endless.js?v=2611260337",
-  "./js/fx.js": "./js/fx.js?v=2611260337",
-  "./js/garage.js": "./js/garage.js?v=2611260337",
-  "./js/gear.js": "./js/gear.js?v=2611260337",
-  "./js/glbload.js": "./js/glbload.js?v=2611260337",
-  "./js/hazards.js": "./js/hazards.js?v=2611260337",
-  "./js/hd.js": "./js/hd.js?v=2611260337",
-  "./js/heroes.js": "./js/heroes.js?v=2611260337",
-  "./js/icons.js": "./js/icons.js?v=2611260337",
-  "./js/input.js": "./js/input.js?v=2611260337",
-  "./js/intro.js": "./js/intro.js?v=2611260337",
-  "./js/logros.js": "./js/logros.js?v=2611260337",
-  "./js/main.js": "./js/main.js?v=2611260337",
-  "./js/music.js": "./js/music.js?v=2611260337",
-  "./js/net.js": "./js/net.js?v=2611260337",
-  "./js/physics.js": "./js/physics.js?v=2611260337",
-  "./js/piezas.js": "./js/piezas.js?v=2611260337",
-  "./js/player.js": "./js/player.js?v=2611260337",
-  "./js/powers.js": "./js/powers.js?v=2611260337",
-  "./js/props.js": "./js/props.js?v=2611260337",
-  "./js/race.js": "./js/race.js?v=2611260337",
-  "./js/racehaz.js": "./js/racehaz.js?v=2611260337",
-  "./js/raceitems.js": "./js/raceitems.js?v=2611260337",
-  "./js/reef.js": "./js/reef.js?v=2611260337",
-  "./js/report.js": "./js/report.js?v=2611260337",
-  "./js/rig.js": "./js/rig.js?v=2611260337",
-  "./js/save.js": "./js/save.js?v=2611260337",
-  "./js/sea.js": "./js/sea.js?v=2611260337",
-  "./js/seafoes.js": "./js/seafoes.js?v=2611260337",
-  "./js/showroom.js": "./js/showroom.js?v=2611260337",
-  "./js/songs.js": "./js/songs.js?v=2611260337",
-  "./js/traps.js": "./js/traps.js?v=2611260337",
-  "./js/vfx.js": "./js/vfx.js?v=2611260337",
-  "./js/world.js": "./js/world.js?v=2611260337",
-  "./js/worldnet.js": "./js/worldnet.js?v=2611260337",
-  "./js/zones/abismo_mareth.js": "./js/zones/abismo_mareth.js?v=2611260337",
-  "./js/zones/bosque_colgante.js": "./js/zones/bosque_colgante.js?v=2611260337",
-  "./js/zones/ciudad_engranajes.js": "./js/zones/ciudad_engranajes.js?v=2611260337",
-  "./js/zones/ciudadela_orden.js": "./js/zones/ciudadela_orden.js?v=2611260337",
-  "./js/zones/desafios.js": "./js/zones/desafios.js?v=2611260337",
-  "./js/zones/eco_olvidado.js": "./js/zones/eco_olvidado.js?v=2611260337",
-  "./js/zones/forja_ignis.js": "./js/zones/forja_ignis.js?v=2611260337",
-  "./js/zones/glaciar_eco.js": "./js/zones/glaciar_eco.js?v=2611260337",
-  "./js/zones/puerto_bruma.js": "./js/zones/puerto_bruma.js?v=2611260337",
-  "./js/zones/routegen.js": "./js/zones/routegen.js?v=2611260337",
-  "./js/zones/ruinas_vidrio.js": "./js/zones/ruinas_vidrio.js?v=2611260337",
-  "./js/zones/senderos.js": "./js/zones/senderos.js?v=2611260337"
+  "./js/arena.js": "./js/arena.js?v=2611261329",
+  "./js/audio.js": "./js/audio.js?v=2611261329",
+  "./js/autonav.js": "./js/autonav.js?v=2611261329",
+  "./js/camera.js": "./js/camera.js?v=2611261329",
+  "./js/characters.js": "./js/characters.js?v=2611261329",
+  "./js/combat.js": "./js/combat.js?v=2611261329",
+  "./js/credits.js": "./js/credits.js?v=2611261329",
+  "./js/endless.js": "./js/endless.js?v=2611261329",
+  "./js/fx.js": "./js/fx.js?v=2611261329",
+  "./js/garage.js": "./js/garage.js?v=2611261329",
+  "./js/gear.js": "./js/gear.js?v=2611261329",
+  "./js/glbload.js": "./js/glbload.js?v=2611261329",
+  "./js/hazards.js": "./js/hazards.js?v=2611261329",
+  "./js/hd.js": "./js/hd.js?v=2611261329",
+  "./js/heroes.js": "./js/heroes.js?v=2611261329",
+  "./js/icons.js": "./js/icons.js?v=2611261329",
+  "./js/input.js": "./js/input.js?v=2611261329",
+  "./js/intro.js": "./js/intro.js?v=2611261329",
+  "./js/logros.js": "./js/logros.js?v=2611261329",
+  "./js/main.js": "./js/main.js?v=2611261329",
+  "./js/music.js": "./js/music.js?v=2611261329",
+  "./js/net.js": "./js/net.js?v=2611261329",
+  "./js/physics.js": "./js/physics.js?v=2611261329",
+  "./js/piezas.js": "./js/piezas.js?v=2611261329",
+  "./js/player.js": "./js/player.js?v=2611261329",
+  "./js/powers.js": "./js/powers.js?v=2611261329",
+  "./js/props.js": "./js/props.js?v=2611261329",
+  "./js/race.js": "./js/race.js?v=2611261329",
+  "./js/racehaz.js": "./js/racehaz.js?v=2611261329",
+  "./js/raceitems.js": "./js/raceitems.js?v=2611261329",
+  "./js/reef.js": "./js/reef.js?v=2611261329",
+  "./js/report.js": "./js/report.js?v=2611261329",
+  "./js/rig.js": "./js/rig.js?v=2611261329",
+  "./js/save.js": "./js/save.js?v=2611261329",
+  "./js/sea.js": "./js/sea.js?v=2611261329",
+  "./js/seafoes.js": "./js/seafoes.js?v=2611261329",
+  "./js/showroom.js": "./js/showroom.js?v=2611261329",
+  "./js/songs.js": "./js/songs.js?v=2611261329",
+  "./js/traps.js": "./js/traps.js?v=2611261329",
+  "./js/vfx.js": "./js/vfx.js?v=2611261329",
+  "./js/world.js": "./js/world.js?v=2611261329",
+  "./js/worldnet.js": "./js/worldnet.js?v=2611261329",
+  "./js/zones/abismo_mareth.js": "./js/zones/abismo_mareth.js?v=2611261329",
+  "./js/zones/bosque_colgante.js": "./js/zones/bosque_colgante.js?v=2611261329",
+  "./js/zones/ciudad_engranajes.js": "./js/zones/ciudad_engranajes.js?v=2611261329",
+  "./js/zones/ciudadela_orden.js": "./js/zones/ciudadela_orden.js?v=2611261329",
+  "./js/zones/desafios.js": "./js/zones/desafios.js?v=2611261329",
+  "./js/zones/eco_olvidado.js": "./js/zones/eco_olvidado.js?v=2611261329",
+  "./js/zones/forja_ignis.js": "./js/zones/forja_ignis.js?v=2611261329",
+  "./js/zones/glaciar_eco.js": "./js/zones/glaciar_eco.js?v=2611261329",
+  "./js/zones/puerto_bruma.js": "./js/zones/puerto_bruma.js?v=2611261329",
+  "./js/zones/routegen.js": "./js/zones/routegen.js?v=2611261329",
+  "./js/zones/ruinas_vidrio.js": "./js/zones/ruinas_vidrio.js?v=2611261329",
+  "./js/zones/senderos.js": "./js/zones/senderos.js?v=2611261329"
 } }
 </script>
 </head>
@@ -857,6 +871,7 @@
 <div class="overlay hidden" id="raceMenu">
   <h2>🏁 Carreras de Aethra</h2>
   <div class="sub">Karts por las pistas de cada isla. Derrapa en las curvas para cargar el turbo y pisa las flechas doradas.</div>
+  <div class="raceOpts" id="raceMode"></div>
   <div id="raceTracks"></div>
   <div class="sub" style="margin:4px 0 2px;font-size:15px">Vueltas</div>
   <div class="raceOpts" id="raceLaps"></div>
@@ -1032,6 +1047,6 @@
   </div>
 </div>
 
-<script type="module" src="js/main.js?v=2611260337"></script>
+<script type="module" src="js/main.js?v=2611261329"></script>
 </body>
 </html>

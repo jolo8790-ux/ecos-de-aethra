@@ -40,7 +40,7 @@ import { ZONE_PIECES, MISIONES, PIECE_TOTAL, piecesOf, pieceCount, pieceHearts, 
 import { Arena, ARENA_MODES, wireChat } from './arena.js';
 import { WorldNet } from './worldnet.js';
 import { Powers, POWERS, loadout, powerUnlocked, powerPoints, powerById, ENERGY_MAX } from './powers.js';
-import { Net } from './net.js';
+import { Net, SERVER } from './net.js';
 import { Endless, ENDLESS_ZONE } from './endless.js';
 import { runIntro } from './intro.js';
 import { HD, patchRim, upgradeSky, GradeShader, InkShader, warmZone, skyEnvironment } from './hd.js';
@@ -3097,7 +3097,56 @@ const race = new Race({
     banner(Z.subtitle, Z.title);
   },
 });
-const raceUI = { track: 'puerto', laps: 3, rivals: 5, from: 'title', who: 'cpu', code: '' };
+const raceUI = { track: 'puerto', laps: 3, rivals: 5, from: 'title', who: 'cpu', code: '', mode: 'suelta', cupId: 'brisa' };
+// ---------- Copas: varias carreras seguidas que suman puntos hasta el podio final ----------
+const CUPS = [
+  { id: 'brisa', name: 'Copa Brisa', icon: '🏆', tracks: ['puerto', 'bosque', 'glaciar', 'canon'], reward: [300, 180, 110] },
+  { id: 'abismo', name: 'Copa Abismo', icon: '🏆', tracks: ['cloaca', 'forja', 'vidrio', 'engranajes'], reward: [420, 250, 150], lock: 'brisa' },
+  { id: 'estrella', name: 'Copa Estrella', icon: '🏆', tracks: ['faroles', 'cumbre', 'circo', 'sombras', 'ovni'], reward: [600, 360, 220], lock: 'abismo' },
+];
+const cupOk = (sv, C) => !C.lock || ((sv.race || {}).cups || {})[C.lock] <= 3;
+const medalOf = p => p === 1 ? 'oro' : p === 2 ? 'plata' : p === 3 ? 'bronce' : '';
+function newCup(C, event = null) {
+  const pool = DRIVERS.filter(d => d.id !== 'hero' && d.id !== (garageOf(save).driver || 'hero')).map(d => d.id).sort(() => Math.random() - 0.5);
+  return { id: C.id, name: event ? event.name : C.name, tracks: C.tracks, reward: C.reward, roster: pool.slice(0, 7), round: 0, pts: {}, time: {}, names: {}, colors: {}, last: {}, hist: [], event };
+}
+// ---------- Torneo semanal: todos juegan la misma copa y se clasifican en una tabla general y por zonas ----------
+const TOR = { ev: null, table: null, loading: false, zone: 'general' };
+const torURL = p => SERVER.replace(/^wss:/, 'https:').replace(/^ws:/, 'http:') + p;
+async function torLoad(force) {
+  if (TOR.loading || (TOR.ev && !force && Date.now() - TOR.at < 60000)) return;
+  TOR.loading = true;
+  try {
+    const disp = localStorage.getItem('aethra_disp') || '';
+    const ev = await fetch(torURL('/torneo')).then(r => r.json());
+    const tab = await fetch(torURL(`/torneo/tabla?ev=${encodeURIComponent(ev.id)}&disp=${encodeURIComponent(disp)}`)).then(r => r.json());
+    TOR.ev = ev; TOR.table = tab; TOR.at = Date.now(); TOR.err = null;
+  } catch (e) { TOR.err = 'No se pudo conectar con el torneo. Revisa la conexión.'; }
+  TOR.loading = false; if (!$('raceMenu').classList.contains('hidden') && raceUI.mode === 'torneo') refreshRaceMenu();
+}
+async function torSubmit(cup, place) {
+  try {
+    const st = race.cupStandings(), me = st.find(x => x.id === 'me');
+    const body = { ev: cup.event.id, disp: localStorage.getItem('aethra_disp') || '', nombre: (save.name || 'Jugador').slice(0, 16), pts: me.pts, tiempo: Math.round(me.time * 100) / 100, puesto: place, carreras: cup.hist };
+    const r = await fetch(torURL('/torneo/resultado'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
+    TOR.at = 0; torLoad(true);
+    return r;
+  } catch (e) { return null; }
+}
+function torneoHTML(sv) {
+  if (TOR.err) return `<div class="raceCard"><div><b>Torneo semanal</b><small>${TOR.err}</small></div></div>`;
+  if (!TOR.ev) { torLoad(); return '<div class="raceCard"><div><b>Torneo semanal</b><small>Cargando…</small></div></div>'; }
+  const E = TOR.ev, T = TOR.table || { rows: [], zonas: {} }, C = CUPS.find(c => c.id === E.cup) || CUPS[0];
+  const left = Math.max(0, E.ends - Date.now()), d = Math.floor(left / 864e5), h = Math.floor(left / 36e5) % 24;
+  const rows = (T[TOR.zone === 'general' ? 'general' : 'zona'] || []).slice(0, 10);
+  const esc = x => String(x).replace(/[<>&"]/g, '');
+  const champ = T.campeones && T.campeones.length ? `<div class="torChamp">${T.campeones.map((c, k) => `<span>${['🥇', '🥈', '🥉'][k]} ${esc(c.nombre)} <small>${esc(c.zonaNombre || '')}</small></span>`).join('')}<small>Campeones de la semana pasada</small></div>` : '';
+  return `<div class="raceCard torCard"><span class="ic">🏆</span><div><b>${esc(E.name)}</b><small>Esta semana se corre la <b>${C.name}</b> (${C.tracks.map(t => TRACKS[t].short).join(' · ')}). Suma puntos en las ${C.tracks.length} carreras: cuenta tu mejor intento. Termina en ${d} d ${h} h.</small>
+    ${T.yo ? `<em>Tu mejor: ${T.yo.pts} pts · ${fmtT(T.yo.tiempo)} · puesto ${T.yo.rank}.º general${T.yo.rankZona ? ` · ${T.yo.rankZona}.º en ${esc(T.yo.zonaNombre)}` : ''}</em>` : '<em>Aún no participaste esta semana</em>'}</div></div>
+    ${champ}
+    <div class="raceOpts torTabs"><button class="btn alt small${TOR.zone === 'general' ? ' sel' : ''}" data-z="general">🌐 General (${T.total || 0})</button><button class="btn alt small${TOR.zone === 'zona' ? ' sel' : ''}" data-z="zona">📍 ${esc(T.miZonaNombre || 'Mi zona')}</button></div>
+    <ol class="torList">${rows.length ? rows.map((r, k) => `<li class="${r.yo ? 'me' : ''}"><b>${k + 1}.º</b><span>${esc(r.nombre)}</span><small>${esc(r.zonaNombre || '')}</small><em>${r.pts} pts · ${fmtT(r.tiempo)}</em></li>`).join('') : '<li class="empty">Nadie ha corrido todavía. ¡Sé el primero!</li>'}</ol>`;
+}
 function openRace(from) {
   if (endless.active && from === 'pause') stopEndless();
   const sv = from === 'title' ? loadSave() : save; if (!sv) { toast('Crea o carga una partida para correr'); return; }
@@ -3107,6 +3156,35 @@ function openRace(from) {
 }
 function refreshRaceMenu() {
   const sv = save || {}, best = (sv.race || {})[raceUI.track + '_' + raceUI.laps];
+  // modo: carrera suelta, copa (contra la CPU) o torneo semanal (con todos)
+  $('raceMode').innerHTML = [['suelta', '🏁 Carrera'], ['copa', '🏆 Copas'], ['torneo', '🌐 Torneo']].map(([m, t]) => `<button class="btn alt small${raceUI.mode === m ? ' sel' : ''}" data-m="${m}">${t}</button>`).join('');
+  $('raceMode').querySelectorAll('button').forEach(b => b.onclick = () => { raceUI.mode = b.dataset.m; audio.play('uiMove'); refreshRaceMenu(); });
+  document.body.classList.toggle('raceCupMode', raceUI.mode !== 'suelta');
+  if (raceUI.mode !== 'suelta') {
+    const tb = $('raceTracks'); tb.innerHTML = '';
+    if (raceUI.mode === 'copa') {
+      const row = document.createElement('div'); row.className = 'trackRow'; tb.appendChild(row);
+      for (const C of CUPS) { const ok = cupOk(sv, C), med = ((sv.race || {}).cups || {})[C.id], b = document.createElement('button');
+        b.className = 'trackCard' + (raceUI.cupId === C.id ? ' sel' : '') + (ok ? '' : ' locked');
+        b.innerHTML = `<span class="ic">${ok ? (med === 1 ? '🥇' : med === 2 ? '🥈' : med === 3 ? '🥉' : C.icon) : '🔒'}</span><b>${C.name}</b><small>${ok ? `${C.tracks.length} carreras` : `Sube al podio en la ${CUPS.find(x => x.id === C.lock).name}`}</small>`;
+        b.onclick = () => { if (!ok) { audio.play('powerFail'); toast(`🔒 Sube al podio en la ${CUPS.find(x => x.id === C.lock).name}`); return; } raceUI.cupId = C.id; audio.play('uiMove'); refreshRaceMenu(); };
+        row.appendChild(b); }
+      const C = CUPS.find(c => c.id === raceUI.cupId) || CUPS[0], med = ((sv.race || {}).cups || {})[C.id];
+      tb.insertAdjacentHTML('beforeend', `<div class="raceCard"><span class="ic">🏆</span><div><b>${C.name}</b><small>${C.tracks.map(t => TRACKS[t].short).join(' → ')}. Puntos por carrera: 10, 8, 6, 5, 4, 3, 2, 1. Los tres primeros de la general suben al podio. Premios: ${C.reward.map(r => '✧ ' + r).join(' · ')}.</small><em>${med ? `Tu mejor resultado: ${med}.º lugar` : 'Aún sin trofeo en esta copa'}</em></div></div>`);
+    } else {
+      tb.innerHTML = torneoHTML(sv);
+      tb.querySelectorAll('.torTabs button').forEach(b => b.onclick = () => { TOR.zone = b.dataset.z; audio.play('uiMove'); refreshRaceMenu(); });
+    }
+    const opts2 = (box, list, key, label) => { box.innerHTML = ''; for (const v of list) { const b = document.createElement('button'); b.className = 'btn alt small' + (raceUI[key] === v ? ' sel' : ''); b.textContent = label(v); b.onclick = () => { raceUI[key] = v; audio.play('uiMove'); refreshRaceMenu(); }; box.appendChild(b); } };
+    if (raceUI.mode === 'torneo') raceUI.laps = 3;
+    opts2($('raceLaps'), raceUI.mode === 'torneo' ? [3] : RACE_LAPS, 'laps', v => `${v} vueltas`);
+    $('raceWho').innerHTML = ''; $('raceOnline').classList.add('hidden'); $('raceRivals').innerHTML = ''; $('raceRivLbl').textContent = '';
+    $('bRaceGo').textContent = raceUI.mode === 'torneo' ? '🏆 Correr el torneo' : '🏆 Empezar la copa';
+    $('bRaceGo').disabled = raceUI.mode === 'torneo' && !TOR.ev;
+    const G = garageOf(save), K = kartById(G.kart); $('raceKart').innerHTML = `Tu kart: <b>${K.name}</b> · 7 rivales de la CPU`;
+    return;
+  }
+  $('bRaceGo').disabled = false;
   const T = TRACKS[raceUI.track];
   const fmt = t => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`;
   const tb = $('raceTracks'); tb.innerHTML = '';
@@ -3264,14 +3342,18 @@ $('raceCode').oninput = e => { raceUI.code = e.target.value.toUpperCase().replac
 $('bRaceNewCode').onclick = () => { raceUI.code = randomCode(); $('raceCode').value = raceUI.code; };
 $('bRaceGo').onclick = async () => {
   audio.unlock(); music.init(); goFull();
-  if (raceUI.who === 'online') { openLobby(); return; }
+  if (raceUI.mode === 'suelta' && raceUI.who === 'online') { openLobby(); return; }
+  let cup = null;
+  if (raceUI.mode === 'copa') cup = newCup(CUPS.find(c => c.id === raceUI.cupId) || CUPS[0]);
+  if (raceUI.mode === 'torneo') { if (!TOR.ev) { toast('El torneo todavía no cargó'); return; } cup = newCup(CUPS.find(c => c.id === TOR.ev.cup) || CUPS[0], TOR.ev); }
   $('bRaceGo').textContent = 'Cargando karts…'; await loadKarts(); $('bRaceGo').textContent = '¡A correr!';
   if (state === 'pause') writeSave(save);
   $('raceMenu').classList.add('hidden'); showOverlay(null);
   if (dialog) closeDialog(false);
   if (endless.active) { if (endless.inZone) stopEndlessInZone(true); else stopEndless(); }
   state = 'race';
-  race.start({ track: raceUI.track, laps: raceUI.laps, rivals: raceUI.rivals, from: raceUI.from });
+  if (cup) race.start({ track: cup.tracks[0], laps: raceUI.laps, rivals: 7, from: raceUI.from, cup });
+  else race.start({ track: raceUI.track, laps: raceUI.laps, rivals: raceUI.rivals, from: raceUI.from });
 };
 // ---------- Carreras en línea: sala de espera ----------
 // El anfitrión (el primero de la sala por orden de llegada) elige pista, vueltas y CPU, y da la salida.
@@ -3376,7 +3458,28 @@ $('bRaceLeave').onclick = () => leaveRace();
 $('bRaceEndLeave').onclick = () => leaveRace();
 $('bRaceErrExit').onclick = () => { $('raceErr').classList.add('hidden'); try { leaveRace(); } catch (e) { location.reload(); } };
 $('bRaceErrHide').onclick = () => $('raceErr').classList.add('hidden');
-$('bRaceAgain').onclick = () => { if (race.net) backToLobby(); else race.again(); };
+$('bRaceAgain').onclick = () => {
+  if (race.net) { backToLobby(); return; }
+  const cup = race.opts && race.opts.cup;
+  if (!cup) { race.again(); return; }
+  if (race.phase === 'podium') { raceChangeTrack(); return; } // terminar: vuelve al menú de Carreras
+  if (cup.round + 1 < cup.tracks.length) { cup.round++; race.next(cup.tracks[cup.round]); return; }
+  cupFinish(cup);
+};
+function cupFinish(cup) {
+  const st = race.cupStandings(), place = st.findIndex(x => x.id === 'me') + 1, rew = cup.reward[place - 1] || 40;
+  race.showPodium();
+  addEcos(rew); const r = (save.race = save.race || {}); r.cups = r.cups || {}; if (!r.cups[cup.id] || place < r.cups[cup.id]) r.cups[cup.id] = place; writeSave(save);
+  const champ = st[0], dl = cup.event ? 'del ' + cup.event.name.replace(/[<>&]/g, '') : 'de la ' + cup.name;
+  $('raceEndTitle').innerHTML = place === 1 ? `🥇 ¡Campeón ${dl}!` : place <= 3 ? `${place === 2 ? '🥈' : '🥉'} ¡${place}.º lugar ${dl}!` : `${place}.º lugar ${dl}`;
+  $('raceEndSub').innerHTML = `${place <= 3 ? '¡Subiste al podio! ' : `Ganó ${champ.name.replace(/[<>&]/g, '')}. `}Premio: +${rew} Ecos${cup.event ? ' · enviando tu resultado al torneo…' : ''}`;
+  $('raceEndList').innerHTML = st.map((x, k) => `<li class="${x.id === 'me' ? 'me' : ''}"><b>${k < 3 ? ['🥇', '🥈', '🥉'][k] : (k + 1) + '.º'}</b> <span>${x.name.replace(/[<>&]/g, '')}</span> <em>${x.pts} pts</em></li>`).join('');
+  $('bRaceAgain').innerHTML = '✔ Terminar';
+  setTimeout(() => $('raceEnd').classList.remove('hidden'), 4500); setTimeout(() => maybeAskOpinion('copa'), 9000);
+  if (cup.event) torSubmit(cup, place).then(res => {
+    $('raceEndSub').innerHTML = `${place <= 3 ? '¡Subiste al podio! ' : ''}Premio: +${rew} Ecos · ` + (res && res.ok ? `Torneo: <b>${res.rank}.º general</b>${res.rankZona ? ` · ${res.rankZona}.º en ${String(res.zonaNombre || '').replace(/[<>&]/g, '')}` : ''}${res.mejor ? ' · ¡nuevo mejor resultado!' : ' (tu mejor sigue siendo el anterior)'}` : 'no se pudo enviar al torneo (sin conexión)');
+  });
+}
 $('bRaceRestart').onclick = () => { race.paused = false; race.again(); };
 // cambiar de pista: vuelve al menú de Carreras (en línea, a la sala: allí el anfitrión elige)
 function raceChangeTrack() {
