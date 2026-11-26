@@ -2591,7 +2591,7 @@ function shopItems(sv) {
 }
 function buildArmeria() {
   const sv = armUI.sv, g = gearOf(sv), ecos = sv.ecos || 0;
-  $('armSub').innerHTML = `Tienes <b class="ecoTag">✧ ${ecos} Ecos</b>. Toca un artículo para verlo de cerca.`;
+  $('armSub').innerHTML = `Tienes <b class="ecoTag">✧ ${ecos} Ecos</b>`;
   $('armTabs').innerHTML = `<button class="${armUI.tab === 'arma' ? 'sel' : ''}" data-t="arma"><b>🗡</b><small>Armas</small></button><button class="${armUI.tab === 'armadura' ? 'sel' : ''}" data-t="armadura"><b>🛡</b><small>Armaduras</small></button><button class="${armUI.tab === 'objetos' ? 'sel' : ''}" data-t="objetos"><b>🌀</b><small>Objetos</small></button>`;
   $('armTabs').querySelectorAll('button').forEach(b => b.onclick = () => { armUI.tab = b.dataset.t; audio.play('uiMove'); buildArmeria(); });
   const grid = $('armGrid'); grid.innerHTML = '';
@@ -2650,7 +2650,7 @@ function fillShopDetail() {
       if (sp) sp.burst = 1;
     }
     const after = sv.ecos || 0;
-    $('armSub').innerHTML = `Tienes <b class="ecoTag">✧ <span id="armEcos">${ecos}</span> Ecos</b>. Toca un artículo para verlo de cerca.`;
+    $('armSub').innerHTML = `Tienes <b class="ecoTag">✧ <span id="armEcos">${ecos}</span> Ecos</b>`;
     fillShopDetail();
     if (after !== ecos) countEcos(ecos, after);
   };
@@ -3475,7 +3475,7 @@ function cupFinish(cup) {
   $('raceEndSub').innerHTML = `${place <= 3 ? '¡Subiste al podio! ' : `Ganó ${champ.name.replace(/[<>&]/g, '')}. `}Premio: +${rew} Ecos${cup.event ? ' · enviando tu resultado al torneo…' : ''}`;
   $('raceEndList').innerHTML = st.map((x, k) => `<li class="${x.id === 'me' ? 'me' : ''}"><b>${k < 3 ? ['🥇', '🥈', '🥉'][k] : (k + 1) + '.º'}</b> <span>${x.name.replace(/[<>&]/g, '')}</span> <em>${x.pts} pts</em></li>`).join('');
   $('bRaceAgain').innerHTML = '✔ Terminar';
-  setTimeout(() => $('raceEnd').classList.remove('hidden'), 4500); setTimeout(() => maybeAskOpinion('copa'), 9000);
+  setTimeout(() => $('raceEnd').classList.remove('hidden'), 4500); setTimeout(() => maybeAskOpinion('copa'), 16000);
   if (cup.event) torSubmit(cup, place).then(res => {
     $('raceEndSub').innerHTML = `${place <= 3 ? '¡Subiste al podio! ' : ''}Premio: +${rew} Ecos · ` + (res && res.ok ? `Torneo: <b>${res.rank}.º general</b>${res.rankZona ? ` · ${res.rankZona}.º en ${String(res.zonaNombre || '').replace(/[<>&]/g, '')}` : ''}${res.mejor ? ' · ¡nuevo mejor resultado!' : ' (tu mejor sigue siendo el anterior)'}` : 'no se pudo enviar al torneo (sin conexión)');
   });

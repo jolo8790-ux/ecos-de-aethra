@@ -31,12 +31,14 @@ export async function loadCharacterLibrary(onProgress) {
       try {
         const g = await loader.parseAsync(await glbBuffer(new URL(`../assets/props/${C.id}.glb.js`, import.meta.url)), '');
         if (LOW_MEM) shrinkTextures(g.scene, 1024);
-        const m = rigGenerated(g.scene, lib.models[C.replaces] || lib.models.lia, C.id === 'heroina' ? 'Heroina' : C.id);
+        const m = rigGenerated(g.scene, lib.models[C.rig || C.replaces] || lib.models.lia, C.id === 'heroina' ? 'Heroina' : C.id);
         lib.models[C.id] = m; lib.genClips[C.id] = genClips(lib.clips, m.userData.hipsY); lib.swap[C.replaces] = C.id;
-        if (C.id === 'tomas_hd') LOOKS.tomas.scale = 0.96; // el caballero HD a la altura de los demás
+        if (C.id === 'tomas_hd' || C.id === 'tomas_m') LOOKS.tomas.scale = 0.96; // el caballero HD a la altura de los demás
       } catch (e) { console.warn('personaje HD', C.id, e); }
     }
   }
+  // los personajes masculinos (encapuchado y caballero): si no hay versión HD, usan el modelo clásico
+  lib.models.kaelM = lib.models.kaelM || lib.models.kael; lib.models.tomasM = lib.models.tomasM || lib.models.tomas;
   return lib;
 }
 
@@ -70,22 +72,22 @@ export function recolor(texture, rules) {
 // Apariencia de cada personaje del juego.
 export const LOOKS = {
   lia: { model: 'lia', scale: 1.0 },
-  kael: { model: 'kael', scale: 1.04, recolor: [{ from: [70, 185], to: 275, sat: 0.9, light: 0.85 }],
+  kael: { model: 'kaelM', scale: 1.04, recolor: [{ from: [70, 185], to: 275, sat: 0.9, light: 0.85 }],
     recolorHD: [{ from: [120, 205], minSat: 0.08, to: 275, sat: 0.9, light: 0.9 }] }, // el modelo HD viste turquesa
   marta: { model: 'marta', scale: 1.06, recolor: [{ from: [230, 320], to: 215, sat: 0.9, light: 0.9 }], hat: 'captain', recolorHD: [] }, // el modelo HD ya viste de azul
-  tomas: { model: 'tomas', scale: 0.78 },
+  tomas: { model: 'tomasM', scale: 0.78 },
   // Brasa, la herrera de Ignis: la túnica de Marta en rojo fuego, sin sombrero
   // Nerea, la buzo de Mareth: túnica turquesa
   nerea: { model: 'marta', scale: 1.0, recolor: [{ from: [230, 320], to: 178, sat: 0.95, light: 1.05 }], recolorHD: [{ from: [195, 240], minSat: 0.35, to: 178, sat: 0.95, light: 1.1 }] },
   brasa: { model: 'marta', scale: 1.02, recolor: [{ from: [230, 320], to: 14, sat: 1, light: 0.95 }], recolorHD: [{ from: [195, 240], minSat: 0.35, to: 8, sat: 1, light: 1.0 }] },
   // el eco del abuelo Ilan: figura azul pálida
-  ilan: { model: 'tomas', scale: 0.98, recolor: [{ from: [0, 360], minSat: 0, to: 200, setSat: 0.35, light: 1.25 }] },
+  ilan: { model: 'tomasM', scale: 0.98, recolor: [{ from: [0, 360], minSat: 0, to: 200, setSat: 0.35, light: 1.25 }] },
   // villanos de las Carreras
   brumanegra: { model: 'marta', scale: 1.06, hat: 'captain', recolor: [{ from: [230, 320], to: 350, sat: 0.9, light: 0.55 }], recolorHD: [{ from: [195, 240], minSat: 0.35, to: 350, sat: 0.9, light: 0.5 }] },
   escarcha: { model: 'marta', scale: 1.04, recolor: [{ from: [230, 320], to: 195, sat: 0.55, light: 1.45 }], recolorHD: [{ from: [195, 240], minSat: 0.35, to: 190, sat: 0.5, light: 1.5 }] },
-  sombra: { model: 'kael', scale: 1.04, recolor: [{ from: [0, 360], minSat: 0.2, to: 270, sat: 0.7, light: 0.45 }], recolorHD: [{ from: [0, 360], minSat: 0.25, maxLight: 0.8, to: 270, sat: 0.7, light: 0.45 }] },
+  sombra: { model: 'kaelM', scale: 1.04, recolor: [{ from: [0, 360], minSat: 0.2, to: 270, sat: 0.7, light: 0.45 }], recolorHD: [{ from: [0, 360], minSat: 0.25, maxLight: 0.8, to: 270, sat: 0.7, light: 0.45 }] },
   // Vaelor: armadura gris oscura con reflejos morados, capa granate y pelo oscuro; la piel no se toca
-  vaelor: { model: 'tomas', scale: 1.3, recolor: [
+  vaelor: { model: 'tomasM', scale: 1.3, recolor: [
     { from: [0, 360], minSat: 0, maxSat: 0.12, to: 265, setSat: 0.16, light: 0.62 },   // metal gris
     { from: [340, 360], minSat: 0.35, to: 330, sat: 0.9, light: 0.55 },                 // capa roja
     { from: [0, 12], minSat: 0.45, to: 330, sat: 0.9, light: 0.55 },
@@ -120,7 +122,8 @@ export const titleOf = c => { const t = CUSTOM.titulo.find(o => o[0] === (c && c
 const pick = (list, id) => list.find(o => o[0] === id) || list[0];
 export function customLook(cfg = {}) {
   const c = { ...DEFAULT_CUSTOM, ...cfg }, rules = [];
-  const base = LOOKS[pick(CUSTOM.estilos, c.estilo)[0]] || LOOKS.lia;
+  const est = pick(CUSTOM.estilos, c.estilo)[0], base0 = LOOKS[est] || LOOKS.lia;
+  const base = base0.model.endsWith('M') ? { ...base0, model: est } : base0; // tu heroína usa la versión femenina de cada estilo
   // piel: tonos anaranjados muy saturados y claros
   const pk = pick(CUSTOM.piel, c.piel)[2];
   if (pk !== 1) rules.push({ parts: ['Head', 'Arm', 'Body'], from: [14, 32], minSat: 0.7, minLight: 0.62, light: pk, sat: pk < 0.8 ? 0.85 : 1 });

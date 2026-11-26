@@ -1352,23 +1352,31 @@ export class Race {
     if (this.items) this.items.root.visible = false;
     const i0 = 30 % T.N, c = T.c[i0], t = T.t[i0], yaw = Math.atan2(t.x, t.z);
     const g = new THREE.Group(); g.position.set(c.x, c.y, c.z); g.rotation.y = yaw; this.root.add(g); this.podium = g;
+    this.podChars = [];
     const blocks = [[0, 1.7, 0xffd24a, '1'], [-3.4, 1.15, 0xd8e0ea, '2'], [3.4, 0.75, 0xd08a4a, '3']];
     const numTex = n => { const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d'); x.fillStyle = '#ffffff'; x.font = 'bold 96px system-ui,sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(n, 64, 70); const tt = new THREE.CanvasTexture(cv); tt.colorSpace = THREE.SRGBColorSpace; return tt; };
     blocks.forEach(([x, h, col, n], k) => {
       const b = new THREE.Mesh(new THREE.BoxGeometry(3.2, h, 3), new THREE.MeshStandardMaterial({ color: col, metalness: 0.5, roughness: 0.35 })); b.position.set(x, h / 2, 0); b.castShadow = b.receiveShadow = true; g.add(b);
       const lab = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1), new THREE.MeshBasicMaterial({ map: numTex(n), transparent: true })); lab.position.set(x, h / 2, 1.51); g.add(lab);
       const R = top[k]; if (!R) return;
-      const w = g.localToWorld(new THREE.Vector3(x, h, 0)); R.root.position.copy(w); R.root.rotation.set(0, yaw, 0); R.root.visible = true; R.body.scale.set(1, 1, 1); R.body.rotation.set(0, 0, 0); R.body.position.y = 0;
-      if (R.iceBlock) R.iceBlock.visible = false; if (R.shadow) R.shadow.visible = false;
+      // el personaje de pie sobre el bloque, sin su kart, mirando a la cámara
+      const lib = C.charLib(); let ch = null;
+      try { ch = lib && createCharacter(lib, R.look); } catch (e) { ch = null; }
+      if (!ch) return;
+      ch.root.position.set(x, h, 0.15); ch.root.rotation.y = Math.PI; ch.root.scale.multiplyScalar(1.6); g.add(ch.root);
+      const a = ch.actions[k === 0 ? 'Cheer' : 'Idle'] || ch.actions.Idle;
+      if (a) { a.reset(); a.setEffectiveWeight(1); a.play(); a.time = k * 0.4; }
+      const fb = n => { let o = null; ch.model.traverse(q => { if (!o && q.isBone && q.name === n) o = q; }); return o; };
+      this.podChars.push({ ch, k, hands: [fb('handslotl') || fb('handl'), fb('handslotr') || fb('handr')], cheer: ch.actions.Cheer, idle: ch.actions.Idle, t: 1.5 + k });
     });
-    for (const R of this.racers) if (!top.includes(R)) R.root.visible = false;
+    for (const R of this.racers) R.root.visible = false;
     // trofeo dorado sobre el campeón
     const gold = new THREE.MeshStandardMaterial({ color: 0xffc83a, metalness: 1, roughness: 0.22, emissive: 0x4a3000, emissiveIntensity: 0.3 });
     const prof = [[0, 0], [0.55, 0], [0.55, 0.12], [0.22, 0.2], [0.14, 0.55], [0.18, 0.7], [0.62, 0.9], [0.72, 1.5], [0.66, 1.55], [0.56, 1.0], [0, 0.95]].map(([x, y]) => new THREE.Vector2(x, y));
     const tro = new THREE.Group(), cupM = new THREE.Mesh(new THREE.LatheGeometry(prof, 40), gold); tro.add(cupM);
     for (const sg of [-1, 1]) { const h = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.06, 10, 24, Math.PI * 1.2), gold); h.position.set(sg * 0.72, 1.18, 0); h.rotation.z = sg > 0 ? -Math.PI * 0.6 : Math.PI * 1.6; tro.add(h); }
     const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.16), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffe08a, emissiveIntensity: 1 })); star.position.y = 1.75; tro.add(star);
-    tro.position.set(0, 1.7 + 3.1, 0); tro.scale.setScalar(1.1); g.add(tro); this.trophy = tro;
+    tro.scale.setScalar(0.34); g.add(tro); this.trophy = tro; // el campeón lo levanta con las dos manos
     // confeti
     const N = 420, pos = new Float32Array(N * 3), col = new Float32Array(N * 3), pal = [0xffd24a, 0xff5a6a, 0x5ad0ff, 0x8aff7a, 0xc08aff, 0xffffff].map(h => new THREE.Color(h));
     for (let k = 0; k < N; k++) { pos[k * 3] = (Math.random() - 0.5) * 16; pos[k * 3 + 1] = Math.random() * 14; pos[k * 3 + 2] = (Math.random() - 0.5) * 10; const cc = pal[k % pal.length]; col.set([cc.r, cc.g, cc.b], k * 3); }
@@ -1379,11 +1387,23 @@ export class Race {
   }
   _podiumTick(dt) {
     this.podT += dt; const g = this.podium, cam = this.ctx.camera;
-    if (this.trophy) { this.trophy.rotation.y += dt * 1.2; this.trophy.position.y = 4.8 + Math.sin(this.podT * 2) * 0.15; }
+    for (const P of this.podChars || []) {
+      P.ch.mixer.update(dt);
+      if (P.k > 0 && P.cheer && P.idle && (P.t -= dt) <= 0) { // los otros dos también festejan de vez en cuando
+        P.t = 4 + Math.random() * 3; P.cheer.reset(); P.cheer.setLoop(THREE.LoopOnce); P.cheer.clampWhenFinished = false; P.cheer.setEffectiveWeight(1); P.cheer.play(); P.idle.crossFadeTo(P.cheer, 0.25, false);
+        setTimeout(() => { try { P.cheer.crossFadeTo(P.idle.reset().play(), 0.35, false); } catch (e) {} }, 1600);
+      }
+    }
+    const W = (this.podChars || []).find(P => P.k === 0);
+    if (this.trophy && W && W.hands[0] && W.hands[1]) {
+      W.ch.root.updateMatrixWorld(true);
+      const a = W.hands[0].getWorldPosition(new THREE.Vector3()), b = W.hands[1].getWorldPosition(new THREE.Vector3());
+      const m = a.add(b).multiplyScalar(0.5); g.worldToLocal(m); m.y -= 0.12;
+      this.trophy.position.lerp(m, this.podT < 0.1 ? 1 : 0.6); this.trophy.rotation.y = Math.sin(this.podT * 1.5) * 0.25;
+    } else if (this.trophy) this.trophy.position.set(0, 4.3, 0);
     if (this.confetti) { const P = this.confetti.geometry.attributes.position; for (let k = 0; k < P.count; k++) { let y = P.getY(k) - dt * (1.6 + (k % 5) * 0.3); if (y < 0) y = 14; P.setY(k, y); P.setX(k, P.getX(k) + Math.sin(this.podT * 2 + k) * dt * 0.4); } P.needsUpdate = true; }
-    const a = Math.sin(this.podT * 0.35) * 0.55, R = 12.5, ctr = g.localToWorld(new THREE.Vector3(0, 2.2, 0)), eye = g.localToWorld(new THREE.Vector3(Math.sin(a) * R, 4.2 + Math.sin(this.podT * 0.5) * 0.6, Math.cos(a) * R));
+    const a = Math.sin(this.podT * 0.35) * 0.5, R = 10.5, ctr = g.localToWorld(new THREE.Vector3(0, 3.1, 0)), eye = g.localToWorld(new THREE.Vector3(Math.sin(a) * R, 4.3 + Math.sin(this.podT * 0.5) * 0.6, Math.cos(a) * R));
     cam.up.set(0, 1, 0); cam.position.lerp(eye, this.podT < 0.1 ? 1 : 0.06); cam.lookAt(ctr);
-    if (Math.floor(this.podT * 2) !== Math.floor((this.podT - dt) * 2)) for (const Rr of this.racers) if (Rr.root.visible && Rr.ch && Rr.ch.bones && Rr.ch.bones.head) Rr.ch.bones.head.rotation.y = Math.sin(this.podT + Rr.color) * 0.4;
   }
   _endList() {
     const fmt = t => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`;

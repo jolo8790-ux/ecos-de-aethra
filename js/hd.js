@@ -625,7 +625,9 @@ export const HD_CHARS = [
   { id: 'heroina', replaces: 'lia' },      // la exploradora (protagonista)
   { id: 'kael_hd', replaces: 'kael' },     // Kael y el estilo «Encapuchada»
   { id: 'marta_hd', replaces: 'marta' },   // Marta, Nerea, Brasa y el estilo «Maga»
-  { id: 'tomas_hd', replaces: 'tomas' },   // Tomás, Ilan, Vaelor y el estilo «Caballera»
+  { id: 'tomas_hd', replaces: 'tomas' },   // el estilo «Caballera» de tu heroína
+  { id: 'kael_m', replaces: 'kaelM', rig: 'kael' },    // Kael y el Eco Sombrío (encapuchado)
+  { id: 'tomas_m', replaces: 'tomasM', rig: 'tomas' }, // Tomás, el abuelo Ilan y Vaelor (caballero)
 ];
 // Mide las articulaciones sobre la malla (personaje en cruz, pies en y=0, alto 1.9, mira a +z):
 // hombro = donde el torso se angosta y empieza el brazo; codo, muñeca y mano en proporción del brazo;
