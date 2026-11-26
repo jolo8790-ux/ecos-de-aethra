@@ -3,3 +3,4 @@ node_modules/
 *.log
 kaykit/
 *.glb
+__pycache__/
