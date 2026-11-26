@@ -33,7 +33,6 @@ export async function loadCharacterLibrary(onProgress) {
         if (LOW_MEM) shrinkTextures(g.scene, 1024);
         const m = rigGenerated(g.scene, lib.models[C.rig || C.replaces] || lib.models.lia, C.id === 'heroina' ? 'Heroina' : C.id);
         lib.models[C.id] = m; lib.genClips[C.id] = genClips(lib.clips, m.userData.hipsY); lib.swap[C.replaces] = C.id;
-        if (C.id === 'tomas_hd' || C.id === 'tomas_m') LOOKS.tomas.scale = 0.96; // el caballero HD a la altura de los demás
       } catch (e) { console.warn('personaje HD', C.id, e); }
     }
   }
@@ -72,20 +71,20 @@ export function recolor(texture, rules) {
 // Apariencia de cada personaje del juego.
 export const LOOKS = {
   lia: { model: 'lia', scale: 1.0 },
-  kael: { model: 'kaelM', scale: 1.04, recolor: [{ from: [70, 185], to: 275, sat: 0.9, light: 0.85 }],
+  kael: { model: 'kaelM', scale: 1.0, recolor: [{ from: [70, 185], to: 275, sat: 0.9, light: 0.85 }],
     recolorHD: [{ from: [120, 205], minSat: 0.08, to: 275, sat: 0.9, light: 0.9 }] }, // el modelo HD viste turquesa
-  marta: { model: 'marta', scale: 1.06, recolor: [{ from: [230, 320], to: 215, sat: 0.9, light: 0.9 }], hat: 'captain', recolorHD: [] }, // el modelo HD ya viste de azul
-  tomas: { model: 'tomasM', scale: 0.78 },
+  marta: { model: 'marta', scale: 1.0, recolor: [{ from: [230, 320], to: 215, sat: 0.9, light: 0.9 }], hat: 'captain', recolorHD: [] }, // el modelo HD ya viste de azul
+  tomas: { model: 'tomasM', scale: 1.0 },
   // Brasa, la herrera de Ignis: la túnica de Marta en rojo fuego, sin sombrero
   // Nerea, la buzo de Mareth: túnica turquesa
   nerea: { model: 'marta', scale: 1.0, recolor: [{ from: [230, 320], to: 178, sat: 0.95, light: 1.05 }], recolorHD: [{ from: [195, 240], minSat: 0.35, to: 178, sat: 0.95, light: 1.1 }] },
-  brasa: { model: 'marta', scale: 1.02, recolor: [{ from: [230, 320], to: 14, sat: 1, light: 0.95 }], recolorHD: [{ from: [195, 240], minSat: 0.35, to: 8, sat: 1, light: 1.0 }] },
+  brasa: { model: 'marta', scale: 1.0, recolor: [{ from: [230, 320], to: 14, sat: 1, light: 0.95 }], recolorHD: [{ from: [195, 240], minSat: 0.35, to: 8, sat: 1, light: 1.0 }] },
   // el eco del abuelo Ilan: figura azul pálida
-  ilan: { model: 'tomasM', scale: 0.98, recolor: [{ from: [0, 360], minSat: 0, to: 200, setSat: 0.35, light: 1.25 }] },
+  ilan: { model: 'tomasM', scale: 1.0, recolor: [{ from: [0, 360], minSat: 0, to: 200, setSat: 0.35, light: 1.25 }] },
   // villanos de las Carreras
-  brumanegra: { model: 'marta', scale: 1.06, hat: 'captain', recolor: [{ from: [230, 320], to: 350, sat: 0.9, light: 0.55 }], recolorHD: [{ from: [195, 240], minSat: 0.35, to: 350, sat: 0.9, light: 0.5 }] },
-  escarcha: { model: 'marta', scale: 1.04, recolor: [{ from: [230, 320], to: 195, sat: 0.55, light: 1.45 }], recolorHD: [{ from: [195, 240], minSat: 0.35, to: 190, sat: 0.5, light: 1.5 }] },
-  sombra: { model: 'kaelM', scale: 1.04, recolor: [{ from: [0, 360], minSat: 0.2, to: 270, sat: 0.7, light: 0.45 }], recolorHD: [{ from: [0, 360], minSat: 0.25, maxLight: 0.8, to: 270, sat: 0.7, light: 0.45 }] },
+  brumanegra: { model: 'marta', scale: 1.04, hat: 'captain', recolor: [{ from: [230, 320], to: 350, sat: 0.9, light: 0.55 }], recolorHD: [{ from: [195, 240], minSat: 0.35, to: 350, sat: 0.9, light: 0.5 }] },
+  escarcha: { model: 'marta', scale: 1.02, recolor: [{ from: [230, 320], to: 195, sat: 0.55, light: 1.45 }], recolorHD: [{ from: [195, 240], minSat: 0.35, to: 190, sat: 0.5, light: 1.5 }] },
+  sombra: { model: 'kaelM', scale: 1.0, recolor: [{ from: [0, 360], minSat: 0.2, to: 270, sat: 0.7, light: 0.45 }], recolorHD: [{ from: [0, 360], minSat: 0.25, maxLight: 0.8, to: 270, sat: 0.7, light: 0.45 }] },
   // Vaelor: armadura gris oscura con reflejos morados, capa granate y pelo oscuro; la piel no se toca
   vaelor: { model: 'tomasM', scale: 1.3, recolor: [
     { from: [0, 360], minSat: 0, maxSat: 0.12, to: 265, setSat: 0.16, light: 0.62 },   // metal gris
@@ -101,6 +100,7 @@ export const LOOKS = {
     { from: [28, 44], minSat: 0.4, minLight: 0.45, to: 22, sat: 0.4, light: 0.38 },
   ] },
 };
+LOOKS.vaelor_piloto = { ...LOOKS.vaelor, scale: 1.08 }; // en las carreras, a la escala de los demás pilotos (el jefe final sigue siendo enorme)
 
 const findBone = (root, name) => { let b = null; root.traverse(o => { if (!b && o.isBone && o.name === name) b = o; }); return b; };
 

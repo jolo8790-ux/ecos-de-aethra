@@ -596,7 +596,7 @@ const PERSONA = {
     win: ['¡Victoria! Esto lo apunto en el cuaderno de bitácora.', '¡Ja! ¡Así se navega!', 'Otra historia para contar en el puerto.'],
     sello: ['¡Viento a favor! Ese Sello era mío.'] },
   tomas: { inter: ['¡Uau!', '¡Ala!', '¡Qué pasada!', 'Eh... ¿vale?'],
-    intro: ['¡Esto es enorme! Cuando se lo cuente a todos no se lo van a creer.', '¡Huele raro! ¡Me encanta!', 'Seré pequeño, pero mi bastón pega fuerte.'],
+    intro: ['¡Esto es enorme! Cuando se lo cuente a todos no se lo van a creer.', '¡Huele raro! ¡Me encanta!', 'Mi bastón pega fuerte, ya verás.'],
     boss: ['¡E-es gigante! ...¡Pero no tengo miedo! Bueno, un poquito.', '¡Ven aquí, grandullón!', '¡Mi bastón y yo contra ti!'],
     win: ['¡LO HE HECHO! ¡¿Lo habéis visto?!', '¡Toma ya! ¡Soy un héroe de verdad!', '¡Choca esos cinco! ...Ah, que estoy solo.'],
     sello: ['¡Ha sido como el mejor juego del mundo!'] },
