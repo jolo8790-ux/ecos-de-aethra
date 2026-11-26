@@ -613,6 +613,7 @@
   /* vitrina sin ventana: el kart flota sobre el fondo */
   .tallStage { background: none !important; border: none !important; overflow: visible !important; }
   /* arena de destrucción */
+  body.derby #raceMsg { font-size: clamp(26px, 5vw, 56px); top: 24%; }
   body.derby #raceLights, body.derby #raceWrong, body.derby #raceTurbo { display: none !important; }
   #derbyHp { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(340px, 46vw); text-align: center; font-weight: 800; font-size: 13px; text-shadow: 0 1px 0 #000; }
   #derbyHp i { display: block; height: 14px; border-radius: 8px; background: rgba(10,16,40,.65); border: 2px solid rgba(255,255,255,.5); overflow: hidden; margin-bottom: 3px; }
@@ -626,6 +627,17 @@
   .derbyTag { position: absolute; left: 0; top: 0; pointer-events: none; text-align: center; font-size: 12px; font-weight: 800; text-shadow: 0 1px 2px #000; white-space: nowrap; }
   .derbyTag i { display: block; width: 54px; height: 5px; margin: 2px auto 0; background: rgba(0,0,0,.5); border-radius: 3px; overflow: hidden; } .derbyTag b { display: block; height: 100%; background: #ff5a3a; }
   #raceItem.has { border-color: #ffc83a; box-shadow: 0 0 14px rgba(255,200,58,.6); }
+  .vThumb { width: 120px; height: 70px; object-fit: contain; display: block; margin: 0 auto 2px; filter: drop-shadow(0 4px 4px rgba(0,0,0,.4)); }
+  body.touch .vThumb { width: 84px; height: 48px; }
+  .dTaller { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; margin: 6px auto 2px; max-width: 760px; }
+  .dUps { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+  .dUp { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 5px 10px; border-radius: 12px; border: 2px solid rgba(255,255,255,.25); background: rgba(10,16,40,.55); color: #fff; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; min-width: 120px; }
+  .dUp small { font-weight: 600; color: #ffd27a; font-size: 11px; } .dUp.max small { color: #7affa0; } .dUp:hover { border-color: #ffc83a; }
+  .dUp .pips { display: flex; gap: 3px; } .dUp .pips i { width: 16px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.2); } .dUp .pips i.on { background: #ffc83a; }
+  .dPaints { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  .dPaint { width: 26px; height: 26px; border-radius: 50%; border: 3px solid rgba(255,255,255,.35); cursor: pointer; padding: 0; } .dPaint.sel { border-color: #ffc83a; box-shadow: 0 0 8px #ffc83a; }
+  .dEcos { font-weight: 800; color: #ffd27a; margin-left: 6px; font-size: 14px; }
+  body.touch .dUp { min-width: 0; padding: 3px 7px; font-size: 11px; } body.touch .dPaint { width: 20px; height: 20px; }
   .dStats { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; align-items: center; margin: 6px 0 4px; font-size: 12px; max-width: 320px; }
   .stbar { display: block; height: 7px; background: rgba(255,255,255,.15); border-radius: 4px; overflow: hidden; } .stbar b { display: block; height: 100%; background: linear-gradient(90deg, #ffc83a, #ff7a3a); }
   body.raceover .rtb, body.raceover #derbyHp, body.raceover .derbyTag, body.raceover #touch, body.raceover #raceItem, body.raceover #raceTip, body.raceover #raceBoard { display: none !important; }
@@ -642,61 +654,61 @@
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-  "./js/arena.js": "./js/arena.js?v=2611261846",
-  "./js/audio.js": "./js/audio.js?v=2611261846",
-  "./js/autonav.js": "./js/autonav.js?v=2611261846",
-  "./js/camera.js": "./js/camera.js?v=2611261846",
-  "./js/characters.js": "./js/characters.js?v=2611261846",
-  "./js/combat.js": "./js/combat.js?v=2611261846",
-  "./js/credits.js": "./js/credits.js?v=2611261846",
-  "./js/derby.js": "./js/derby.js?v=2611261846",
-  "./js/endless.js": "./js/endless.js?v=2611261846",
-  "./js/fx.js": "./js/fx.js?v=2611261846",
-  "./js/garage.js": "./js/garage.js?v=2611261846",
-  "./js/gear.js": "./js/gear.js?v=2611261846",
-  "./js/glbload.js": "./js/glbload.js?v=2611261846",
-  "./js/hazards.js": "./js/hazards.js?v=2611261846",
-  "./js/hd.js": "./js/hd.js?v=2611261846",
-  "./js/heroes.js": "./js/heroes.js?v=2611261846",
-  "./js/icons.js": "./js/icons.js?v=2611261846",
-  "./js/input.js": "./js/input.js?v=2611261846",
-  "./js/intro.js": "./js/intro.js?v=2611261846",
-  "./js/logros.js": "./js/logros.js?v=2611261846",
-  "./js/main.js": "./js/main.js?v=2611261846",
-  "./js/music.js": "./js/music.js?v=2611261846",
-  "./js/net.js": "./js/net.js?v=2611261846",
-  "./js/physics.js": "./js/physics.js?v=2611261846",
-  "./js/piezas.js": "./js/piezas.js?v=2611261846",
-  "./js/player.js": "./js/player.js?v=2611261846",
-  "./js/powers.js": "./js/powers.js?v=2611261846",
-  "./js/props.js": "./js/props.js?v=2611261846",
-  "./js/race.js": "./js/race.js?v=2611261846",
-  "./js/racehaz.js": "./js/racehaz.js?v=2611261846",
-  "./js/raceitems.js": "./js/raceitems.js?v=2611261846",
-  "./js/reef.js": "./js/reef.js?v=2611261846",
-  "./js/report.js": "./js/report.js?v=2611261846",
-  "./js/rig.js": "./js/rig.js?v=2611261846",
-  "./js/save.js": "./js/save.js?v=2611261846",
-  "./js/sea.js": "./js/sea.js?v=2611261846",
-  "./js/seafoes.js": "./js/seafoes.js?v=2611261846",
-  "./js/showroom.js": "./js/showroom.js?v=2611261846",
-  "./js/songs.js": "./js/songs.js?v=2611261846",
-  "./js/traps.js": "./js/traps.js?v=2611261846",
-  "./js/vfx.js": "./js/vfx.js?v=2611261846",
-  "./js/world.js": "./js/world.js?v=2611261846",
-  "./js/worldnet.js": "./js/worldnet.js?v=2611261846",
-  "./js/zones/abismo_mareth.js": "./js/zones/abismo_mareth.js?v=2611261846",
-  "./js/zones/bosque_colgante.js": "./js/zones/bosque_colgante.js?v=2611261846",
-  "./js/zones/ciudad_engranajes.js": "./js/zones/ciudad_engranajes.js?v=2611261846",
-  "./js/zones/ciudadela_orden.js": "./js/zones/ciudadela_orden.js?v=2611261846",
-  "./js/zones/desafios.js": "./js/zones/desafios.js?v=2611261846",
-  "./js/zones/eco_olvidado.js": "./js/zones/eco_olvidado.js?v=2611261846",
-  "./js/zones/forja_ignis.js": "./js/zones/forja_ignis.js?v=2611261846",
-  "./js/zones/glaciar_eco.js": "./js/zones/glaciar_eco.js?v=2611261846",
-  "./js/zones/puerto_bruma.js": "./js/zones/puerto_bruma.js?v=2611261846",
-  "./js/zones/routegen.js": "./js/zones/routegen.js?v=2611261846",
-  "./js/zones/ruinas_vidrio.js": "./js/zones/ruinas_vidrio.js?v=2611261846",
-  "./js/zones/senderos.js": "./js/zones/senderos.js?v=2611261846"
+  "./js/arena.js": "./js/arena.js?v=2611261946",
+  "./js/audio.js": "./js/audio.js?v=2611261946",
+  "./js/autonav.js": "./js/autonav.js?v=2611261946",
+  "./js/camera.js": "./js/camera.js?v=2611261946",
+  "./js/characters.js": "./js/characters.js?v=2611261946",
+  "./js/combat.js": "./js/combat.js?v=2611261946",
+  "./js/credits.js": "./js/credits.js?v=2611261946",
+  "./js/derby.js": "./js/derby.js?v=2611261946",
+  "./js/endless.js": "./js/endless.js?v=2611261946",
+  "./js/fx.js": "./js/fx.js?v=2611261946",
+  "./js/garage.js": "./js/garage.js?v=2611261946",
+  "./js/gear.js": "./js/gear.js?v=2611261946",
+  "./js/glbload.js": "./js/glbload.js?v=2611261946",
+  "./js/hazards.js": "./js/hazards.js?v=2611261946",
+  "./js/hd.js": "./js/hd.js?v=2611261946",
+  "./js/heroes.js": "./js/heroes.js?v=2611261946",
+  "./js/icons.js": "./js/icons.js?v=2611261946",
+  "./js/input.js": "./js/input.js?v=2611261946",
+  "./js/intro.js": "./js/intro.js?v=2611261946",
+  "./js/logros.js": "./js/logros.js?v=2611261946",
+  "./js/main.js": "./js/main.js?v=2611261946",
+  "./js/music.js": "./js/music.js?v=2611261946",
+  "./js/net.js": "./js/net.js?v=2611261946",
+  "./js/physics.js": "./js/physics.js?v=2611261946",
+  "./js/piezas.js": "./js/piezas.js?v=2611261946",
+  "./js/player.js": "./js/player.js?v=2611261946",
+  "./js/powers.js": "./js/powers.js?v=2611261946",
+  "./js/props.js": "./js/props.js?v=2611261946",
+  "./js/race.js": "./js/race.js?v=2611261946",
+  "./js/racehaz.js": "./js/racehaz.js?v=2611261946",
+  "./js/raceitems.js": "./js/raceitems.js?v=2611261946",
+  "./js/reef.js": "./js/reef.js?v=2611261946",
+  "./js/report.js": "./js/report.js?v=2611261946",
+  "./js/rig.js": "./js/rig.js?v=2611261946",
+  "./js/save.js": "./js/save.js?v=2611261946",
+  "./js/sea.js": "./js/sea.js?v=2611261946",
+  "./js/seafoes.js": "./js/seafoes.js?v=2611261946",
+  "./js/showroom.js": "./js/showroom.js?v=2611261946",
+  "./js/songs.js": "./js/songs.js?v=2611261946",
+  "./js/traps.js": "./js/traps.js?v=2611261946",
+  "./js/vfx.js": "./js/vfx.js?v=2611261946",
+  "./js/world.js": "./js/world.js?v=2611261946",
+  "./js/worldnet.js": "./js/worldnet.js?v=2611261946",
+  "./js/zones/abismo_mareth.js": "./js/zones/abismo_mareth.js?v=2611261946",
+  "./js/zones/bosque_colgante.js": "./js/zones/bosque_colgante.js?v=2611261946",
+  "./js/zones/ciudad_engranajes.js": "./js/zones/ciudad_engranajes.js?v=2611261946",
+  "./js/zones/ciudadela_orden.js": "./js/zones/ciudadela_orden.js?v=2611261946",
+  "./js/zones/desafios.js": "./js/zones/desafios.js?v=2611261946",
+  "./js/zones/eco_olvidado.js": "./js/zones/eco_olvidado.js?v=2611261946",
+  "./js/zones/forja_ignis.js": "./js/zones/forja_ignis.js?v=2611261946",
+  "./js/zones/glaciar_eco.js": "./js/zones/glaciar_eco.js?v=2611261946",
+  "./js/zones/puerto_bruma.js": "./js/zones/puerto_bruma.js?v=2611261946",
+  "./js/zones/routegen.js": "./js/zones/routegen.js?v=2611261946",
+  "./js/zones/ruinas_vidrio.js": "./js/zones/ruinas_vidrio.js?v=2611261946",
+  "./js/zones/senderos.js": "./js/zones/senderos.js?v=2611261946"
 } }
 </script>
 </head>
@@ -1064,6 +1076,6 @@
   </div>
 </div>
 
-<script type="module" src="js/main.js?v=2611261846"></script>
+<script type="module" src="js/main.js?v=2611261946"></script>
 </body>
 </html>

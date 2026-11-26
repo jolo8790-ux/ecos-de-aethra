@@ -6,6 +6,29 @@
 import * as THREE from 'three';
 import { seatDriver, driverLook } from './race.js';
 import { garageOf, DRIVERS } from './garage.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { glbBuffer, LOW_MEM, shrinkTextures } from './glbload.js';
+import { SERVER } from './net.js';
+export const ROUND_ON = 300; // en la arena pública: rondas de 5 minutos, iguales para todos (por la hora)
+const httpURL = p => SERVER.replace(/^wss:/, 'https:').replace(/^ws:/, 'http:') + p;
+
+// carrocerías 3D (generadas con Artlist): se cargan al entrar a la arena; si no llegan, se usan las de piezas
+const GLB = {}; let glbLoading = null;
+export function loadVehicleModels() {
+  return glbLoading || (glbLoading = Promise.all(['chatarra', 'monstruo', 'ariete', 'pincho'].map(async id => {
+    try { const g = await new GLTFLoader().parseAsync(await glbBuffer(new URL(`../assets/vehicles/${id}.glb.js`, import.meta.url)), '');
+      if (LOW_MEM) shrinkTextures(g.scene, 512);
+      g.scene.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = false; if (m.material) { m.material.metalness = 0.15; m.material.roughness = 0.75; } } });
+      GLB[id] = g.scene; } catch (e) { console.warn('vehículo 3D', id, e); }
+  })));
+}
+// dónde van las ruedas, el asiento y el arma en cada carrocería (medido sobre los modelos; el frente es +z)
+const FIT = {
+  chatarra: { L: 4.4, zf: 1.02, zr: -1.35, wr: 0.6, wy: 0.16, seat: [0.42, -0.55], gun: [1.3, -0.4], out: 0.02 },
+  monstruo: { L: 5.0, zf: 1.5, zr: -1.27, wr: 1.02, wy: 0.0, seat: [0.66, 0.35], gun: [1.45, -0.85], out: 0.3 },
+  ariete: { L: 4.6, zf: 0.82, zr: -1.5, wr: 0.66, wy: 0.14, seat: [0.95, -0.05], gun: [1.6, -0.95], out: 0.02 },
+  pincho: { L: 4.4, zf: 1.24, zr: -1.1, wr: 0.58, wy: 0.14, seat: [0.32, 0.12], gun: [0.95, -0.15], out: 0.05 },
+};
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const angD = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
@@ -25,6 +48,17 @@ export const VEHICLES = [
   { id: 'pincho', name: 'Escorpión de Púas', icon: '⚡', desc: 'Bólido con púas en las ruedas. El más rápido y el más frágil.', hp: 80, spd: 33, acc: 24, turn: 2.5, mass: 0.9, ram: 1.25, wr: 0.74, color: 0xd8a820 },
 ];
 export const vehicleById = id => VEHICLES.find(v => v.id === id) || VEHICLES[0];
+// taller: mejoras por vehículo (tres niveles cada una) y pintura
+export const UPGRADES = [
+  { id: 'blindaje', icon: '⛨', name: 'Blindaje', desc: '+12 % de vida por nivel', cost: [150, 300, 500] },
+  { id: 'motor', icon: '⚙', name: 'Motor', desc: '+5 % de velocidad y aceleración por nivel', cost: [150, 300, 500] },
+  { id: 'embestida', icon: '💥', name: 'Embestida', desc: '+15 % de daño al chocar por nivel', cost: [120, 250, 420] },
+];
+export const DPAINTS = [{ id: 'orig', name: 'Original', c: null }, { id: 'oxido', name: 'Óxido', c: 0xb04a2a }, { id: 'militar', name: 'Militar', c: 0x5a7a3a }, { id: 'arena', name: 'Arena', c: 0xd8b070 },
+  { id: 'noche', name: 'Noche', c: 0x3a3a48 }, { id: 'cobalto', name: 'Cobalto', c: 0x4a6ab0 }, { id: 'veneno', name: 'Veneno', c: 0x8ac030 }, { id: 'sangre', name: 'Rubí', c: 0xb02a4a }];
+export const derbyGarage = sv => { const d = (sv.derby = sv.derby || {}); d.up = d.up || {}; d.paint = d.paint || {}; return d; };
+export const upOf = (sv, vid) => { const u = derbyGarage(sv).up[vid] || {}; return [u.blindaje | 0, u.motor | 0, u.embestida | 0]; };
+function withUp(V, up = [0, 0, 0]) { const [b, m, e] = up.map(x => clamp(x | 0, 0, 3)); return { ...V, hp: Math.round(V.hp * (1 + 0.12 * b)), spd: V.spd * (1 + 0.05 * m), acc: V.acc * (1 + 0.05 * m), ram: V.ram * (1 + 0.15 * e), up: [b, m, e] }; }
 
 // ---------- armas (de las cajas) ----------
 export const WEAPONS = {
@@ -87,6 +121,36 @@ function wheel(V, spikes) {
   return g;
 }
 export function buildVehicle(V, paint = null) {
+  if (GLB[V.id]) return buildVehicle3D(V, paint);
+  return buildVehicleParts(V, paint);
+}
+function buildVehicle3D(V, paint) {
+  const F = FIT[V.id], root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const shell = GLB[V.id].clone(true); shell.traverse(m => { if (m.isMesh) { m.material = m.material.clone(); if (paint != null) m.material.color.setHex(paint).lerp(new THREE.Color(0xffffff), 0.45); } });
+  const bb = new THREE.Box3().setFromObject(shell), size = bb.getSize(new THREE.Vector3()), sc = F.L / size.z;
+  shell.scale.setScalar(sc); const bottom = F.wr - F.wy;
+  shell.position.set(-(bb.min.x + bb.max.x) / 2 * sc, bottom - bb.min.y * sc, -(bb.min.z + bb.max.z) / 2 * sc); body.add(shell);
+  const W = size.x * sc, H = size.y * sc, top = bottom + H;
+  const wheels = [], wx = W / 2 - 0.12 + F.out;
+  for (const [x, z] of [[-wx, F.zf], [wx, F.zf], [-wx, F.zr], [wx, F.zr]]) {
+    const piv = new THREE.Group(); piv.position.set(x, F.wr, z); root.add(piv);
+    const wh = wheel({ ...V, wr: F.wr }, V.id === 'pincho'); piv.add(wh); wheels.push({ piv, wh, front: z > 0 });
+  }
+  // piezas que se sueltan con los golpes: blindaje lateral, faros, púas, rueda de auxilio y caños
+  const steel = M(0x8c949c, { map: rustTex(), r: 0.45, m: 0.75 }), dark = M(0x2a2826, { r: 0.7, m: 0.5 }), light = M(0xfff0b0, { e: 0xffd070, ei: 1.2 }), tint = M(paint ?? V.color, { map: rustTex(), r: 0.8, m: 0.35 });
+  for (const sd of [-1, 1]) { const pl = box(0.12, H * 0.32, F.L * 0.32, tint, sd * (W / 2 + 0.04), bottom + H * 0.32, -0.2, true); body.add(pl);
+    for (const z of [-0.6, 0.2]) { const r = cyl(0.07, 0.07, 0.06, steel, 6); r.rotation.z = Math.PI / 2; r.position.set(sd * (W / 2 + 0.12), bottom + H * 0.36, z); body.add(r); r.userData.part = true; } }
+  for (const x of [-0.6, 0, 0.6]) { const c = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.55, 8), steel); c.rotation.x = Math.PI / 2; c.position.set(x * W * 0.4, bottom + 0.3, F.L / 2 + 0.1); body.add(c); c.userData.part = true; }
+  const spare = new THREE.Group(); spare.position.set(0, bottom + H * 0.45, -F.L / 2 - 0.05); spare.rotation.y = Math.PI / 2;
+  const sw = wheel({ ...V, wr: 0.42 }, false); sw.scale.set(0.6, 1, 1); spare.add(sw); body.add(spare);
+  spare.traverse(m => { if (m.isMesh) m.userData.part = false; }); const sp = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.14, 6, 14), dark); sp.position.copy(spare.position); body.add(sp); sp.userData.part = true; body.remove(spare);
+  const gun = new THREE.Group(); gun.position.set(0, bottom + F.gun[0], F.gun[1]);
+  gun.add(box(0.5, 0.3, 0.6, dark)); for (const x of [-0.12, 0.12]) { const b = cyl(0.06, 0.06, 0.9, dark, 8); b.rotation.x = Math.PI / 2; b.position.set(x, 0.02, 0.6); gun.add(b); }
+  body.add(gun);
+  root.traverse(m => { if (m.isMesh) m.castShadow = true; });
+  return { root, body, wheels, gun, seat: [bottom + F.seat[0], F.seat[1]], top, shell, wr: F.wr };
+}
+function buildVehicleParts(V, paint = null) {
   const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
   const col = paint ?? V.color, rust = M(col, { map: rustTex(), r: 0.8, m: 0.35 }), dark = M(0x2a2826, { r: 0.7, m: 0.5 }), steel = M(0x8c949c, { map: rustTex(), r: 0.45, m: 0.75 });
   const cage = M(0x222222, { r: 0.5, m: 0.7 }), light = M(0xfff0b0, { e: 0xffd070, ei: 1.2 });
@@ -206,7 +270,7 @@ function rampH(R, x, z) { // altura de la rampa en (x, z) y si estás encima
 class Car {
   constructor(D, o) {
     Object.assign(this, { x: 0, z: 0, y: 0, vy: 0, yaw: 0, vx: 0, vz: 0, steerA: 0, item: null, n: 0, inv: 0, shieldT: 0, boostT: 0, fireT: 0, burst: 0, burstT: 0, dead: 0, kills: 0, deaths: 0, smokeT: 0, lost: 0, air: false, bump: 0, roll: 0, pitch: 0 }, o);
-    this.D = D; this.V = vehicleById(this.vid); this.hp = this.V.hp;
+    this.D = D; this.V = withUp(vehicleById(this.vid), this.up); this.hp = this.V.hp;
     const B = buildVehicle(this.V, this.paint); this.B = B; this.root = B.root; D.root.add(this.root);
     this.parts = []; B.body.traverse(m => { if (m.isMesh && m.userData.part) this.parts.push(m); });
     this.parts.sort(() => Math.random() - 0.5);
@@ -233,10 +297,11 @@ export class Derby {
       palette: {}, start: { id: 'salida', pos: [0, 0, 0], facing: 0 }, islands: [], houses: [], trees: [], lighthouses: [], props: [], pines: [], bigTrees: [], mushrooms: [], snow: 0, airships: [] });
     C.scene.add(this.root);
     const F = this.F = buildField(this); this.root.add(F.g);
-    this.fx = new THREE.Group(); this.root.add(this.fx); this.parts = []; this.shots = []; this.debris = []; this.crates = [];
+    this.fx = new THREE.Group(); this.root.add(this.fx); this.parts = []; this.poolA = []; this.poolN = []; this.shots = []; this.debris = []; this.crates = [];
     const sv = C.getSave() || {}, G = garageOf(sv);
     this.net = opts.net || null; this.ep = opts.ep || 0;
-    this.me = new Car(this, { id: this.net ? this.net.me : 'me', name: (sv.name || 'Tú').slice(0, 16), you: true, vid: opts.vehicle, paint: null, look: driverLook(sv, G.driver || 'hero') });
+    const DG = derbyGarage(sv), pt = DPAINTS.find(p => p.id === DG.paint[opts.vehicle]);
+    this.me = new Car(this, { id: this.net ? this.net.me : 'me', name: (sv.name || 'Tú').slice(0, 16), you: true, vid: opts.vehicle, up: upOf(sv, opts.vehicle), paint: pt ? pt.c : null, look: driverLook(sv, G.driver || 'hero') });
     this.cars = [this.me];
     const pool = DRIVERS.filter(d => d.id !== 'hero').sort(() => Math.random() - 0.5);
     this.bots = opts.bots ?? 5;
@@ -252,7 +317,7 @@ export class Derby {
   }
   _addBot(id, d, k) {
     const sv = this.ctx.getSave() || {};
-    const b = new Car(this, { id, name: d.name, cpu: true, drv: d.id, vid: VEHICLES[k % VEHICLES.length].id, paint: null, look: driverLook(sv, d.id), skill: 0.82 + Math.random() * 0.15 });
+    const b = new Car(this, { id, name: d.name, cpu: true, drv: d.id, vid: VEHICLES[k % VEHICLES.length].id, up: [0, 1, 2].map(() => Math.floor(Math.random() * 2.2)), paint: Math.random() < 0.5 ? DPAINTS[1 + Math.floor(Math.random() * (DPAINTS.length - 1))].c : null, look: driverLook(sv, d.id), skill: 0.82 + Math.random() * 0.15 });
     this.cars.push(b); return b;
   }
   _spawn(c, first = false) {
@@ -287,6 +352,7 @@ export class Derby {
     const C = this.ctx, safe = (n, f) => { try { f(); } catch (e) { console.warn('derby:' + n, e); if (C.onError) C.onError('derby:' + n, e); } };
     this.clock += dt;
     if (this.phase === 'count') { this.st += dt; const n = 3 - Math.floor(this.st); if (n !== this._cnt) { this._cnt = n; if (n > 0) { this._flash(String(n), '#ffd27a'); C.audio.play('beep'); } } if (this.st >= 3) { this.phase = 'fight'; this._flash('¡A DESTROZAR!', '#ff8a4a'); C.audio.play('go'); } }
+    else if (this.opts.endless) this._roundTick(dt);
     else if (!this.over) { this.left -= dt; if (this.left <= 0) { this.left = 0; this._end(); } }
     const go = this.phase === 'fight' && !this.over;
     if (this.net) safe('red', () => this._netTick(dt));
@@ -411,6 +477,9 @@ export class Derby {
     for (const p of c.parts.slice(c.lost)) this._detach(c, p, 1.6); c.lost = c.parts.length;
     for (const w of c.B.wheels) this._detach(c, w.wh, 1.3, true);
     for (const { mt } of c.mats) mt.color.setHex(0x1a1614);
+    const chunkM = this._chunkM || (this._chunkM = M(0x3a3430, { map: rustTex(), r: 0.9, m: 0.4 })); // trozos de chapa
+    for (let i = 0; i < 7; i++) { const m = new THREE.Mesh(this._chunkG || (this._chunkG = new THREE.BoxGeometry(0.7, 0.12, 0.5)), chunkM); m.position.set(c.x + rnd(-1, 1), c.y + 1.2, c.z + rnd(-1.5, 1.5)); m.rotation.set(rnd(0, 3), rnd(0, 3), rnd(0, 3)); this.fx.add(m);
+      const a = rnd(0, 6.28), sp = rnd(5, 12); this.debris.push({ m, vx: Math.sin(a) * sp, vz: Math.cos(a) * sp, vy: rnd(7, 14), rx: rnd(-9, 9), rz: rnd(-9, 9), t: 0, life: 3.5, r: 0.06, c: null, chunk: true }); }
     this._wreck(c);
     if (by && by !== c) { if (!by.remote) by.kills++; if (by.you) { this._flash(`¡Destrozaste a ${c.name}!`, '#7affa0'); this.ctx.audio.play('unlock'); } }
     if (c.you) { this._flash(by ? `¡${by.name} te destrozó!` : '¡Quedaste hecho chatarra!', '#ff8a7a'); this.ctx.audio.play('slam'); this.ctx.input.rumble(500, 1); }
@@ -432,7 +501,7 @@ export class Derby {
     const piece = obj; obj.parent.remove(obj);
     this.fx.add(piece); piece.position.copy(wp); piece.quaternion.copy(wq);
     const a = rnd(0, 6.28), sp = rnd(4, 10) * power;
-    this.debris.push({ m: piece, vx: Math.sin(a) * sp + c.vx * 0.5, vz: Math.cos(a) * sp + c.vz * 0.5, vy: rnd(6, 12) * power, rx: rnd(-8, 8), rz: rnd(-8, 8), t: 0, life: wheel ? 4 : 3, r: wheel ? c.V.wr : 0.3, c });
+    this.debris.push({ m: piece, vx: Math.sin(a) * sp + c.vx * 0.5, vz: Math.cos(a) * sp + c.vz * 0.5, vy: rnd(6, 12) * power, rx: rnd(-8, 8), rz: rnd(-8, 8), t: 0, life: wheel ? 4 : 3, r: wheel ? (c.B.wr || c.V.wr) : 0.3, c });
   }
 
   // ---------- armas ----------
@@ -473,22 +542,15 @@ export class Derby {
   _fire(c, kind, spec = null) {
     const A = this.ctx.audio, gp = c.B.gun.getWorldPosition(new THREE.Vector3());
     const back = kind === 'mina', dir = c.yaw + (back ? Math.PI : 0) + (kind === 'bala' ? rnd(-0.04, 0.04) : 0);
-    const g = new THREE.Group(); this.fx.add(g);
+    const g = this._shotModel(kind); this.fx.add(g);
     const S = { kind, g, owner: c, yaw: dir, t: 0, x: gp.x + Math.sin(dir) * (back ? 2.6 : 1.4), z: gp.z + Math.cos(dir) * (back ? 2.6 : 1.4), y: back ? 0.3 : gp.y, vy: 0, target: null };
-    if (kind === 'bala') { g.add(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 1.4), new THREE.MeshBasicMaterial({ color: 0xffe080 }))); S.speed = 130; S.life = 0.55; S.dmg = 6; }
+    if (kind === 'bala') { S.speed = 130; S.life = 0.55; S.dmg = 6; }
     else if (kind === 'cohete' || kind === 'misil') {
-      const col = kind === 'misil' ? 0xb070ff : 0xe8483c;
-      const b = cyl(0.2, 0.22, 1.3, M(col, { e: col, ei: 0.3 }), 10); b.rotation.x = Math.PI / 2; g.add(b);
-      const fl = new THREE.Mesh(new THREE.ConeGeometry(0.2, 1, 8), new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending })); fl.rotation.x = -Math.PI / 2; fl.position.z = -1.1; g.add(fl); g.userData.flame = fl;
       S.speed = kind === 'misil' ? 52 : 72; S.life = kind === 'misil' ? 5 : 2.4; S.dmg = kind === 'misil' ? 34 : 24; S.r = kind === 'misil' ? 4 : 3.5;
       if (kind === 'misil') { let best = null, bd = 1e9; for (const o of this.cars) { if (o === c || o.dead) continue; const dx = o.x - c.x, dz = o.z - c.z, d = Math.hypot(dx, dz), a = Math.abs(angD(Math.atan2(dx, dz), c.yaw)); const sc = d * (1 + a * 1.5); if (a < 1.4 && sc < bd) { bd = sc; best = o; } } S.target = best; }
     } else if (kind === 'mina') {
-      const m = cyl(0.55, 0.65, 0.25, M(0x2a2a2a, { m: 0.6 }), 14); m.position.y = 0.12; g.add(m);
-      const l = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff3020 })); l.position.y = 0.3; g.add(l); g.userData.led = l;
       S.speed = 0; S.life = 30; S.dmg = 32; S.r = 4.5; S.y = 0;
     } else if (kind === 'bomba') {
-      const b = new THREE.Mesh(new THREE.SphereGeometry(0.5, 14, 10), M(0x22222c, { r: 0.4, m: 0.3 })); g.add(b);
-      const f = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffb040 })); f.position.y = 0.55; g.add(f); g.userData.led = f;
       S.speed = Math.max(0, c.fwdV || 0) + 18; S.vy = 9; S.life = 4; S.dmg = 34; S.r = 5.5; S.bounces = 0;
     }
     S.id = c.id + ':' + (this.sid = (this.sid || 0) + 1); S.remote = !!c.remote; // lo que dispara otro jugador solo se ve: el daño lo cuenta quien disparó
@@ -496,6 +558,20 @@ export class Derby {
     else if (this.net && kind !== 'bala' && !c.remote) this.net.event({ t: 'dshot', ep: this.ep, id: S.id, k: kind, o: c.id, x: Math.round(S.x * 100) / 100, z: Math.round(S.z * 100) / 100, yw: Math.round(S.yaw * 1000) / 1000, tg: S.target ? S.target.id : null });
     if (this._near(c)) A.play(kind === 'bala' ? 'shoot' : kind === 'mina' ? 'swing' : kind === 'bomba' ? 'swing' : 'fire');
     this.shots.push(S);
+  }
+  // modelos de proyectiles: se arman una vez y cada disparo es una copia (comparte geometría; la luz de cada mina/bomba es suya)
+  _shotModel(kind) {
+    const T = this._tpl || (this._tpl = {});
+    if (!T[kind]) { const g = new THREE.Group();
+      if (kind === 'bala') g.add(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 1.4), new THREE.MeshBasicMaterial({ color: 0xffe080 })));
+      else if (kind === 'cohete' || kind === 'misil') { const col = kind === 'misil' ? 0xb070ff : 0xe8483c; const b = cyl(0.2, 0.22, 1.3, M(col, { e: col, ei: 0.3 }), 10); b.rotation.x = Math.PI / 2; g.add(b);
+        const fl = new THREE.Mesh(new THREE.ConeGeometry(0.2, 1, 8), new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending })); fl.rotation.x = -Math.PI / 2; fl.position.z = -1.1; fl.name = 'flame'; g.add(fl); }
+      else if (kind === 'mina') { const m = cyl(0.55, 0.65, 0.25, M(0x2a2a2a, { m: 0.6 }), 14); m.position.y = 0.12; g.add(m); const l = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff3020 })); l.position.y = 0.3; l.name = 'led'; g.add(l); }
+      else { const b = new THREE.Mesh(new THREE.SphereGeometry(0.5, 14, 10), M(0x22222c, { r: 0.4, m: 0.3 })); g.add(b); const f = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffb040 })); f.position.y = 0.55; f.name = 'led'; g.add(f); }
+      T[kind] = g; }
+    const g = T[kind].clone(), led = g.getObjectByName('led'), fl = g.getObjectByName('flame');
+    if (led) { led.material = led.material.clone(); g.userData.led = led; } if (fl) g.userData.flame = fl;
+    return g;
   }
   _shotsTick(dt) {
     for (let k = this.shots.length - 1; k >= 0; k--) {
@@ -517,7 +593,7 @@ export class Derby {
       if (hit || boom || S.t > S.life || (S.kind === 'bomba' && S.bounces >= 2)) {
         if (S.kind === 'bala') { if (hit && !S.remote) this._damage(hit, S.dmg, S.owner, 'bala'); this._sparks(S.x, S.y, S.z, 4); }
         else this._blast(S, hit);
-        this.fx.remove(S.g); this.shots.splice(k, 1);
+        if (S.g.userData.led) S.g.userData.led.material.dispose(); this.fx.remove(S.g); this.shots.splice(k, 1);
       }
     }
   }
@@ -544,7 +620,7 @@ export class Derby {
           this.root.remove(B.m); this.crates.splice(k, 1); this._pop(B.x, 1.1, B.z, 0xffc81a, 1.8);
           if (!c.item) { const id = rollWeapon(c.hp / c.V.hp); c.item = id; c.n = WEAPONS[id].n; if (c.you) { this.ctx.audio.play('energy'); this._flash(WEAPONS[id].name, '#ffd27a'); } c.botWait = rnd(0.3, 1.2); }
           else if (c.you) this.ctx.audio.play('crack');
-          const gen = this.gen; setTimeout(() => { if (this.active && this.gen === gen) this._crate(B.i); }, 8000);
+          const gen = this.gen; setTimeout(() => { if (this.active && this.gen === gen) this._crate(B.i); }, 6000);
           if (this.net) this.net.event({ t: 'caja', ep: this.ep, i: B.i });
           break;
         }
@@ -599,7 +675,7 @@ export class Derby {
     let pitch = c.air ? clamp(-c.vy * 0.03, -0.4, 0.4) : 0; for (const Rm of this.F.ramps) if (rampH(Rm, c.x, c.z) >= 0) pitch = -Math.atan2(Rm.H, Rm.L) * Math.cos(angD(c.yaw, Rm.yaw));
     c.pitch += (pitch - c.pitch) * damp(8, dt); R.rotation.x = c.pitch; R.rotation.z = c.roll;
     c.bump = Math.max(0, c.bump - dt * 3); c.B.body.position.y = -c.bump * 0.35 + Math.sin(this.clock * 30) * 0.015 * clamp(c.speed / 20, 0, 1);
-    for (const w of c.B.wheels) { w.wh.rotation.x += fwd * dt / c.V.wr; if (w.front) w.piv.rotation.y = c.steerA * 0.45; }
+    for (const w of c.B.wheels) { w.wh.rotation.x += fwd * dt / (c.B.wr || c.V.wr); if (w.front) w.piv.rotation.y = c.steerA * 0.45; }
     c.shadow.position.set(c.x, 0.04 + (c.y > 0.1 ? c.y * 0 : 0), c.z); c.shadow.rotation.z = -c.yaw; c.shadow.material.opacity = 0.3 * clamp(1 - c.y / 8, 0.2, 1);
     { let gh = 0; for (const Rm of this.F.ramps) { const h = rampH(Rm, c.x, c.z); if (h > gh) gh = h; } c.shadow.position.y = gh + 0.04; }
     // daños: humo cuando está mal y fuego cuando está muy mal
@@ -616,7 +692,15 @@ export class Derby {
     if (c.tag) { const p = new THREE.Vector3(c.x, c.y + 4, c.z).project(this.ctx.camera); const vis = p.z < 1 && Math.abs(p.x) < 1.1 && Math.abs(p.y) < 1.1; c.tag.style.display = vis ? '' : 'none'; if (vis) { c.tag.style.transform = `translate(-50%,-100%) translate(${(p.x + 1) / 2 * innerWidth}px,${(1 - p.y) / 2 * innerHeight}px)`; c.tagHp.style.width = Math.max(0, f * 100) + '%'; } }
   }
   // partículas: humo, llamas, chispas, polvo y explosiones (todas en una lista)
-  _p(geo, col, o) { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: o.a ?? 0.8, depthWrite: false, blending: o.add ? THREE.AdditiveBlending : THREE.NormalBlending })); m.position.set(o.x, o.y, o.z); this.fx.add(m); this.parts.push({ m, vx: o.vx || 0, vy: o.vy || 0, vz: o.vz || 0, t: 0, life: o.life, s0: o.s0 ?? 1, s1: o.s1 ?? 2, g: o.g ?? 0, a: o.a ?? 0.8 }); if (this.parts.length > 420) { const q = this.parts.shift(); this.fx.remove(q.m); q.m.material.dispose(); } }
+  // las partículas se reciclan (dos reservas: normales y luminosas) para no crear ni tirar objetos en cada explosión
+  _p(geo, col, o) {
+    const P = o.add ? (this.poolA || (this.poolA = [])) : (this.poolN || (this.poolN = [])), cap = o.add ? 200 : 220;
+    let m = P.pop();
+    if (!m) { if (this.parts.filter(q => q.add === !!o.add).length >= cap) { const k = this.parts.findIndex(q => q.add === !!o.add); const q = this.parts.splice(k, 1)[0]; m = q.m; }
+      else { m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, blending: o.add ? THREE.AdditiveBlending : THREE.NormalBlending })); m.frustumCulled = false; this.fx.add(m); } }
+    m.geometry = geo; m.material.color.setHex(col); m.material.opacity = o.a ?? 0.8; m.visible = true; m.position.set(o.x, o.y, o.z); m.scale.setScalar(o.s0 ?? 1);
+    this.parts.push({ m, add: !!o.add, vx: o.vx || 0, vy: o.vy || 0, vz: o.vz || 0, t: 0, life: o.life, s0: o.s0 ?? 1, s1: o.s1 ?? 2, g: o.g ?? 0, a: o.a ?? 0.8 });
+  }
   _smoke(x, y, z, col, s = 1) { this._p(this._sg || (this._sg = new THREE.IcosahedronGeometry(0.5, 1)), col, { x, y, z, vy: rnd(1, 2.5), vx: rnd(-0.5, 0.5), vz: rnd(-0.5, 0.5), life: rnd(0.8, 1.4), s0: 0.6 * s, s1: 2.4 * s, a: 0.5 }); }
   _flame(x, y, z, vx, vy, vz) { this._p(this._fg || (this._fg = new THREE.IcosahedronGeometry(0.4, 0)), Math.random() < 0.5 ? 0xffa030 : 0xff5a20, { x, y, z, vx, vy, vz, life: rnd(0.25, 0.45), s0: 0.8, s1: 2.2, a: 0.9, add: true }); }
   _sparks(x, y, z, n) { for (let i = 0; i < n; i++) this._p(this._kg || (this._kg = new THREE.BoxGeometry(0.12, 0.12, 0.12)), 0xffd060, { x, y, z, vx: rnd(-9, 9), vy: rnd(2, 9), vz: rnd(-9, 9), life: rnd(0.3, 0.6), s0: 1, s1: 0.4, g: 22, a: 1, add: true }); }
@@ -633,7 +717,7 @@ export class Derby {
   _fxTick(dt) {
     for (let k = this.parts.length - 1; k >= 0; k--) {
       const p = this.parts[k]; p.t += dt; const q = p.t / p.life;
-      if (q >= 1) { this.fx.remove(p.m); p.m.material.dispose(); this.parts.splice(k, 1); continue; }
+      if (q >= 1) { p.m.visible = false; (p.add ? this.poolA : this.poolN).push(p.m); this.parts.splice(k, 1); continue; }
       p.vy -= p.g * dt; p.m.position.x += p.vx * dt; p.m.position.y += p.vy * dt; p.m.position.z += p.vz * dt;
       p.m.scale.setScalar(p.s0 + (p.s1 - p.s0) * q); p.m.material.opacity = p.a * (1 - q);
     }
@@ -672,7 +756,7 @@ export class Derby {
     if (host && (this._botT = (this._botT || 0) - dt) <= 0) { this._botT = 2;
       if (mine.length < want) { const used = new Set(this.cars.map(c => c.name)), d = DRIVERS.filter(x => x.id !== 'hero' && !used.has(x.name))[0] || DRIVERS[1], b = this._addBot(me.id + '-b' + (this.bid = (this.bid || 0) + 1), d, this.bid); this._spawn(b, true); this._tagFor(b); }
       else if (mine.length > want) { const b = mine[mine.length - 1]; b.remove(); this.cars.splice(this.cars.indexOf(b), 1); } }
-    N.set({ n: me.name, s: 'derby', ep: this.ep, v: me.V.id, d: G.driver || 'hero', h: sv.hero || 'lia', c: sv.custom || {}, st: this._pack(me),
+    N.set({ n: me.name, s: 'derby', ep: this.ep, v: me.V.id, u: me.V.up, pa: me.paint ?? null, d: G.driver || 'hero', h: sv.hero || 'lia', c: sv.custom || {}, st: this._pack(me),
       b: host ? this.cars.filter(c => c.cpu && !c.remote).map(c => [c.id, c.name, c.V.id, c.drv || '', ...this._pack(c)]) : [] });
     N.tick(dt);
     const seen = new Set(), list = [];
@@ -684,7 +768,7 @@ export class Derby {
     for (const it of list) {
       const p = { id: it.id }, P = it.P; seen.add(p.id);
       let c = this.cars.find(o => o.id === p.id);
-      if (!c) { c = new Car(this, { id: p.id, name: String(P.n || 'Jugador').slice(0, 16), remote: true, human: !it.bot, vid: vehicleById(P.v).id, look: driverLook({ hero: P.h || 'lia', custom: P.c || {} }, P.d || 'hero') }); this.cars.push(c); this._tagFor(c); if (!it.bot) this._chat(`${c.name} entró a la arena`); }
+      if (!c) { c = new Car(this, { id: p.id, name: String(P.n || 'Jugador').slice(0, 16), remote: true, human: !it.bot, vid: vehicleById(P.v).id, up: Array.isArray(P.u) ? P.u : [0, 0, 0], paint: typeof P.pa === 'number' ? P.pa : null, look: driverLook({ hero: P.h || 'lia', custom: P.c || {} }, P.d || 'hero') }); this.cars.push(c); this._tagFor(c); if (!it.bot) this._chat(`${c.name} entró a la arena`); }
       const a = it.st; c.net = { x: +a[0], y: +a[1], z: +a[2], yaw: +a[3] }; c.fwdV = +a[4] || 0; c.hp = +a[5] || 0;
       const dead = !!a[6]; if (dead && !c.dead) { c.dead = 99; this._explode(c.x, c.y + 1, c.z, 1.6); for (const pp of c.parts.slice(c.lost)) this._detach(c, pp, 1.6); c.lost = c.parts.length; for (const w of c.B.wheels) this._detach(c, w.wh, 1.3, true); for (const { mt } of c.mats) mt.color.setHex(0x1a1614); c.wreckT = 3.2; }
       if (!dead && c.dead) { c.dead = 0; this._restore(c); c.lost = 0; c.x = c.net.x; c.z = c.net.z; }
@@ -708,7 +792,7 @@ export class Derby {
     else if (ev.t === 'dhit') { const v = this.cars.find(c => c.id === ev.v && !c.remote), by = this.cars.find(c => c.id === ev.o); if (v) this._damage(v, Math.min(80, +ev.d || 0), by, ev.k); } // a mí o a uno de mis vehículos de la CPU
     else if (ev.t === 'ko') { const v = this.cars.find(c => c.id === ev.v), by = ev.by && this.cars.find(c => c.id === ev.by); if (by && by.you) { by.kills++; this._flash(`¡Destrozaste a ${v ? v.name : 'un rival'}!`, '#7affa0'); this.ctx.audio.play('unlock'); } if (v) this._feed(by || null, v); }
     else if (ev.t === 'barril') { const b = this.F.barrels[ev.i]; if (b && !(b.t > 0)) { b.t = 20; b.barrel.visible = false; this._explode(b.x, 0.8, b.z, 1.2); } }
-    else if (ev.t === 'caja') { const k = this.crates.findIndex(B => B.i === ev.i); if (k >= 0) { const B = this.crates[k], gen = this.gen; this.root.remove(B.m); this.crates.splice(k, 1); this._pop(B.x, 1.1, B.z, 0xffc81a, 1.8); setTimeout(() => { if (this.active && this.gen === gen) this._crate(B.i); }, 8000); } }
+    else if (ev.t === 'caja') { const k = this.crates.findIndex(B => B.i === ev.i); if (k >= 0) { const B = this.crates[k], gen = this.gen; this.root.remove(B.m); this.crates.splice(k, 1); this._pop(B.x, 1.1, B.z, 0xffc81a, 1.8); setTimeout(() => { if (this.active && this.gen === gen) this._crate(B.i); }, 6000); } }
   }
   _tagFor(c) {
     const el = document.createElement('div'); el.className = 'derbyTag'; el.innerHTML = `<span>${esc(c.name)}</span><i><b></b></i>`; $('raceHud').appendChild(el); c.tag = el; c.tagHp = el.querySelector('b');
@@ -749,7 +833,7 @@ export class Derby {
     const sorted = [...this.cars].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths), place = sorted.indexOf(me) + 1;
     $('racePlace').innerHTML = `${place}<small>.º/${this.cars.length}</small>`;
     $('raceLap').innerHTML = `💥 ${me.kills}`;
-    const t = Math.ceil(this.left); $('raceTime').textContent = this.net && this.opts.endless ? `${this.cars.length} en la arena` : `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+    const t = Math.ceil(this.left); $('raceTime').textContent = `${Math.floor(Math.max(0, t) / 60)}:${String(Math.max(0, t) % 60).padStart(2, '0')}`;
     $('raceSpeed').innerHTML = `${Math.round(me.speed * 4)}<small> km/h</small>`;
     const key = (me.item || '') + me.n;
     if (key !== this._itemKey) { this._itemKey = key; const W = me.item && WEAPONS[me.item]; $('raceItem').innerHTML = W ? `<span class="ic">${W.icon}</span><small>${W.name}${me.n > 1 ? ' ×' + me.n : ''}</small>` : '<span class="q">?</span>'; $('raceItem').classList.toggle('has', !!W); }
@@ -769,13 +853,41 @@ export class Derby {
     try { C.addEcos(rew); const sv = C.getSave(); if (sv) { const d = sv.derby = sv.derby || {}; d.games = (d.games || 0) + 1; d.kills = (d.kills || 0) + this.me.kills; if (place === 1) d.wins = (d.wins || 0) + 1; C.save && C.save(); } } catch (e) {}
     if (C.onFinish) setTimeout(() => { try { C.onFinish(); } catch (e) {} }, 5000);
   }
+  // ---------- arena pública: rondas por la hora, resultados y ranking semanal ----------
+  _roundTick(dt) {
+    const now = Date.now(), rid = Math.floor(now / (ROUND_ON * 1000));
+    if (this.rid === undefined) { this.rid = rid; this.played = 0; }
+    this.left = (rid + 1) * ROUND_ON - now / 1000;
+    if (!this.over) this.played += dt;
+    if (rid !== this.rid && !this.over) { this.rid = rid; this._roundEnd(); }
+    if (this.over && now >= this.restAt) { // ronda nueva: todos empiezan de cero
+      this.over = false; this.me.kills = 0; this.me.deaths = 0; for (const c of this.cars) if (!c.remote) { c.kills = 0; c.deaths = 0; }
+      $('raceEnd').classList.add('hidden'); document.body.classList.remove('raceover'); this.played = 0; this._flash('¡Ronda nueva!', '#ff8a4a'); this.ctx.audio.play('go');
+      this._spawn(this.me);
+    }
+  }
+  _roundEnd() {
+    this.over = true; this.restAt = Date.now() + 10000; const C = this.ctx, me = this.me;
+    const sorted = [...this.cars].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths), place = sorted.indexOf(me) + 1;
+    const rew = me.kills > 0 ? ([150, 100, 70][place - 1] || 30) + me.kills * 8 : 10;
+    $('raceEndTitle').innerHTML = place === 1 && me.kills > 0 ? '🏆 ¡Ganaste la ronda!' : `${place}.º en la ronda`;
+    $('raceEndSub').innerHTML = `${me.kills} ${me.kills === 1 ? 'destrozado' : 'destrozados'} · +${rew} Ecos<br><span id="derbyRank">${this.played > 45 ? 'Sumando al ranking semanal…' : 'Juega una ronda más larga para sumar al ranking'}</span><br>Ronda nueva en unos segundos`;
+    $('raceEndList').innerHTML = sorted.slice(0, 10).map((c, k) => `<li class="${c.you ? 'me' : ''}"><b>${k < 3 ? ['🥇', '🥈', '🥉'][k] : (k + 1) + '.º'}</b> <span>${esc(c.name)}</span> <em>💥 ${c.kills} · ✖ ${c.deaths}</em></li>`).join('');
+    $('bRaceAgain').classList.add('hidden');
+    $('raceEnd').classList.remove('hidden'); document.body.classList.add('raceover'); C.audio.play(place <= 3 ? 'unlock' : 'checkpoint');
+    try { C.addEcos(rew); const sv = C.getSave(); if (sv) { const d = sv.derby = sv.derby || {}; d.games = (d.games || 0) + 1; d.kills = (d.kills || 0) + me.kills; if (place === 1 && me.kills > 0) d.wins = (d.wins || 0) + 1; C.save && C.save(); } } catch (e) {}
+    if (this.played > 45) this.submit(me.kills, me.deaths).then(r => { const el = $('derbyRank'); if (el) el.innerHTML = r && r.ok ? `Ranking de la semana: <b>${r.rank}.º general</b> · ${r.rankZona}.º en ${esc(r.zonaNombre || '')} · llevas 💥 ${r.kills} en ${r.rondas} ${r.rondas === 1 ? 'ronda' : 'rondas'}` : 'No se pudo enviar al ranking'; });
+  }
+  async submit(kills, deaths) {
+    try { const sv = this.ctx.getSave() || {}; const r = await fetch(httpURL('/arena/resultado'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ disp: localStorage.getItem('aethra_disp') || '', nombre: (sv.name || 'Jugador').slice(0, 16), kills: Math.min(40, kills | 0), deaths: Math.min(60, deaths | 0) }) }); return await r.json(); } catch (e) { return null; }
+  }
   togglePause() { if (this.over) return; this.paused = !this.paused; $('racePause').classList.toggle('hidden', !this.paused); }
   again() { const o = this.opts; this.exit(true); this.start(o); }
   exit(keep) {
     const C = this.ctx; this.active = false;
     for (const c of this.cars) c.remove(); this.cars = [];
     C.scene.remove(this.root); this.root = null;
-    this._hud(false); document.body.classList.remove('raceover');
+    this._hud(false); document.body.classList.remove('raceover'); $('bRaceAgain').classList.remove('hidden');
     if (!keep && this.net) { try { this.net.close(); } catch (e) {} this.net = null; }
   }
 }

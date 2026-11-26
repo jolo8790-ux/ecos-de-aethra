@@ -15,7 +15,7 @@ import { FX } from './fx.js';
 import { loadCharacterLibrary, createCharacter, customLook, CUSTOM, DEFAULT_CUSTOM, auraOf } from './characters.js';
 import { loadProps } from './props.js';
 import { Race, TRACKS, RACE_LAPS, driverLook } from './race.js';
-import { Derby, VEHICLES } from './derby.js';
+import { Derby, VEHICLES, UPGRADES, DPAINTS, derbyGarage, upOf, loadVehicleModels } from './derby.js';
 import { KARTS, STATS, UP_COST, PAINTS, TRAILS, PARTS, DRIVERS, RETOS, retoOk, newUnlocks, garageOf, kartById, kartPoints } from './garage.js';
 import { loadPropIds } from './props.js';
 import { Showroom } from './showroom.js';
@@ -3252,26 +3252,59 @@ function refreshRaceMenu() {
   const G = garageOf(save), K = kartById(G.kart), P = PAINTS.find(p => p.id === G.paint) || PAINTS[0];
   $('raceKart').innerHTML = `Tu kart: <b>${K.name}</b>${P.color != null ? ` · pintura ${P.name.toLowerCase()}` : ''} · estela ${(TRAILS.find(t => t.id === G.trail) || TRAILS[0]).name.toLowerCase()}`;
 }
+// ---------- Destrucción: ranking semanal de la arena pública ----------
+const ARK = { t: null, at: 0, loading: false, zone: 'general', err: null };
+async function arenaRankLoad() {
+  if (ARK.loading || (ARK.t && Date.now() - ARK.at < 30000)) return; ARK.loading = true;
+  try { ARK.t = await fetch(torURL(`/arena/tabla?disp=${encodeURIComponent(localStorage.getItem('aethra_disp') || '')}`)).then(r => r.json()); ARK.at = Date.now(); ARK.err = null; }
+  catch (e) { ARK.err = 'No se pudo cargar el ranking (sin conexión).'; }
+  ARK.loading = false; if (!$('raceMenu').classList.contains('hidden') && raceUI.mode === 'derby' && raceUI.dWho === 'publica') refreshRaceMenu();
+}
+function arenaRankHTML() {
+  const esc = x => String(x).replace(/[<>&"]/g, '');
+  if (ARK.err) return `<div class="raceCard"><div><b>Ranking de la semana</b><small>${ARK.err}</small></div></div>`;
+  if (!ARK.t) { arenaRankLoad(); return '<div class="raceCard"><div><b>Ranking de la semana</b><small>Cargando…</small></div></div>'; }
+  arenaRankLoad(); const T = ARK.t, rows = (T[ARK.zone === 'general' ? 'general' : 'zona'] || []).slice(0, 10), left = Math.max(0, (T.ends || 0) - Date.now()), d = Math.floor(left / 864e5), h = Math.floor(left / 36e5) % 24;
+  const champ = T.campeones && T.campeones.length ? `<div class="torChamp">${T.campeones.map((c, k) => `<span>${['🥇', '🥈', '🥉'][k]} ${esc(c.nombre)} <small>💥 ${c.kills} · ${esc(c.zonaNombre || '')}</small></span>`).join('')}<small>Campeones de la semana pasada</small></div>` : '';
+  return `<div class="raceCard torCard"><span class="ic">🏆</span><div><b>Ranking semanal de la Chatarrería</b><small>Rondas de 5 minutos para todos a la vez. Cada ronda suma tus destrozos al ranking de la semana (general y por zona). Termina en ${d} d ${h} h.</small>
+    ${T.yo ? `<em>Llevas 💥 ${T.yo.kills} en ${T.yo.rondas} ${T.yo.rondas === 1 ? 'ronda' : 'rondas'} · ${T.yo.rank}.º general · ${T.yo.rankZona}.º en ${esc(T.yo.zonaNombre)}</em>` : '<em>Aún no jugaste esta semana</em>'}</div></div>
+    ${champ}
+    <div class="raceOpts torTabs"><button class="btn alt small${ARK.zone === 'general' ? ' sel' : ''}" data-z="general">🌐 General (${T.total || 0})</button><button class="btn alt small${ARK.zone === 'zona' ? ' sel' : ''}" data-z="zona">📍 ${esc(T.miZonaNombre || 'Mi zona')}</button></div>
+    <ol class="torList">${rows.length ? rows.map((r, k) => `<li class="${r.yo ? 'me' : ''}"><b>${k + 1}.º</b><span>${esc(r.nombre)}</span><small>${esc(r.zonaNombre || '')}</small><em>💥 ${r.kills} · ✖ ${r.deaths}</em></li>`).join('') : '<li class="empty">Nadie jugó todavía esta semana: ¡sé el primero!</li>'}</ol>`;
+}
 // ---------- Destrucción: menú y salida ----------
 function derbyMenu(sv) {
   const tb = $('raceTracks'); tb.innerHTML = '';
   const row = document.createElement('div'); row.className = 'trackRow'; tb.appendChild(row);
   const bar = (v, max) => `<i class="stbar"><b style="width:${Math.round(v / max * 100)}%"></b></i>`;
   for (const V of VEHICLES) { const b = document.createElement('button'); b.className = 'trackCard' + (raceUI.vehicle === V.id ? ' sel' : '');
-    b.innerHTML = `<span class="ic">${V.icon}</span><b>${V.name}</b>`; b.onclick = () => { raceUI.vehicle = V.id; audio.play('uiMove'); refreshRaceMenu(); }; row.appendChild(b); }
+    b.innerHTML = `<img class="vThumb" src="assets/vehicles/${V.id}.webp" alt=""><b>${V.name}</b>`; b.onclick = () => { raceUI.vehicle = V.id; audio.play('uiMove'); refreshRaceMenu(); }; row.appendChild(b); }
   const V = VEHICLES.find(v => v.id === raceUI.vehicle) || VEHICLES[0], d = (sv.derby || {});
   tb.insertAdjacentHTML('beforeend', `<div class="raceCard"><span class="ic">💥</span><div><b>${V.name}</b><small>${V.desc}</small>
     <div class="dStats"><span>Blindaje</span>${bar(V.hp, 170)}<span>Velocidad</span>${bar(V.spd, 34)}<span>Embestida</span>${bar(V.ram, 2)}<span>Giro</span>${bar(V.turn, 2.6)}</div>
-    <em>${d.games ? `${d.games} partidas · ${d.kills || 0} destrozados · ${d.wins || 0} victorias` : 'Arma de las cajas, embiste y destroza: gana quien destroce más en 3 minutos'}</em></div></div>`);
+    <em>${d.games ? `${d.games} ${d.games === 1 ? 'partida' : 'partidas'} · ${d.kills || 0} ${d.kills === 1 ? 'destrozado' : 'destrozados'} · ${d.wins || 0} ${d.wins === 1 ? 'victoria' : 'victorias'}` : 'Arma de las cajas, embiste y destroza: gana quien destroce más en 3 minutos'}</em></div></div>
+    <div class="dTaller"><div class="dUps"></div><div class="dPaints"></div></div>`);
+  // taller: mejoras con Ecos y pintura
+  const DG = derbyGarage(save || {}), up = upOf(save || {}, V.id), ups = tb.querySelector('.dUps'), pts = tb.querySelector('.dPaints');
+  UPGRADES.forEach((U, k) => { const lv = up[k], cost = U.cost[lv], b = document.createElement('button'); b.className = 'dUp' + (lv >= 3 ? ' max' : '');
+    b.innerHTML = `<span>${U.icon} ${U.name}</span><span class="pips">${[0, 1, 2].map(i => `<i class="${i < lv ? 'on' : ''}"></i>`).join('')}</span><small>${lv >= 3 ? 'Al máximo' : `Mejorar · ✧ ${cost}`}</small>`; b.title = U.desc;
+    b.onclick = () => { if (lv >= 3) return; if ((save.ecos || 0) < cost) { audio.play('powerFail'); toast(`Te faltan ${cost - (save.ecos || 0)} Ecos`); return; }
+      save.ecos -= cost; const u = DG.up[V.id] = DG.up[V.id] || {}; u[U.id] = lv + 1; writeSave(save); try { updateHUD(); } catch (e) {} audio.play('unlock'); toast(`${U.name} nivel ${lv + 1} · −${cost} ✧`); refreshRaceMenu(); };
+    ups.appendChild(b); });
+  for (const P of DPAINTS) { const b = document.createElement('button'), cur = (DG.paint[V.id] || 'orig') === P.id; b.className = 'dPaint' + (cur ? ' sel' : ''); b.title = P.name;
+    b.style.background = P.c == null ? 'linear-gradient(135deg,#c8632a,#4a8a3a 50%,#6a7684)' : '#' + P.c.toString(16).padStart(6, '0');
+    b.onclick = () => { DG.paint[V.id] = P.id; writeSave(save); audio.play('uiMove'); refreshRaceMenu(); }; pts.appendChild(b); }
+  pts.insertAdjacentHTML('beforeend', `<span class="dEcos">✧ ${save ? save.ecos || 0 : 0}</span>`);
   const opts = (box, list, key, label) => { box.innerHTML = ''; for (const v of list) { const b = document.createElement('button'); b.className = 'btn alt small' + (raceUI[key] === v ? ' sel' : ''); b.textContent = label(v); b.onclick = () => { raceUI[key] = v; audio.play('uiMove'); refreshRaceMenu(); }; box.appendChild(b); } };
   $('raceLaps').innerHTML = '';
+  if (raceUI.dWho === 'publica') { tb.insertAdjacentHTML('beforeend', arenaRankHTML()); tb.querySelectorAll('.torTabs button').forEach(b => b.onclick = () => { ARK.zone = b.dataset.z; audio.play('uiMove'); refreshRaceMenu(); }); }
   opts($('raceWho'), ['cpu', 'publica', 'codigo'], 'dWho', v => v === 'cpu' ? '🤖 Contra la CPU' : v === 'publica' ? '🌐 Arena pública' : '🔒 Con código');
   $('raceOnline').classList.toggle('hidden', raceUI.dWho !== 'codigo');
   if (!raceUI.code) raceUI.code = randomCode(); if (document.activeElement !== $('raceCode')) $('raceCode').value = raceUI.code;
   $('raceRivLbl').textContent = raceUI.dWho === 'cpu' ? 'Rivales de la CPU' : '';
   if (raceUI.dWho === 'cpu') opts($('raceRivals'), [3, 5, 7], 'dBots', v => `${v} rivales`); else $('raceRivals').innerHTML = '';
   $('bRaceGo').disabled = false; $('bRaceGo').textContent = raceUI.dWho === 'cpu' ? '💥 ¡A destrozar!' : '🌐 Entrar a la arena';
-  $('raceKart').innerHTML = raceUI.dWho === 'cpu' ? `Todos contra todos · 3 minutos` : raceUI.dWho === 'publica' ? 'Todos los jugadores conectados en la misma arena, sin límite de tiempo' : 'Comparte el código con tus amigos';
+  $('raceKart').innerHTML = raceUI.dWho === 'cpu' ? `Todos contra todos · 3 minutos` : raceUI.dWho === 'publica' ? 'Todos los jugadores en la misma arena · rondas de 5 minutos · ranking semanal' : 'Comparte el código con tus amigos';
 }
 async function startDerby() {
   const V = raceUI.vehicle; let net = null;
@@ -3282,6 +3315,7 @@ async function startDerby() {
     $('bRaceGo').disabled = false; if (!net) { toast('No se pudo conectar a la arena'); refreshRaceMenu(); return; }
   }
   $('bRaceGo').textContent = 'Preparando la arena…';
+  try { await loadVehicleModels(); } catch (e) {}
   if (state === 'pause') writeSave(save);
   $('raceMenu').classList.add('hidden'); showOverlay(null);
   if (dialog) closeDialog(false);
