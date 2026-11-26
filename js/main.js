@@ -15,6 +15,7 @@ import { FX } from './fx.js';
 import { loadCharacterLibrary, createCharacter, customLook, CUSTOM, DEFAULT_CUSTOM, auraOf } from './characters.js';
 import { loadProps } from './props.js';
 import { Race, TRACKS, RACE_LAPS, driverLook } from './race.js';
+import { Derby, VEHICLES } from './derby.js';
 import { KARTS, STATS, UP_COST, PAINTS, TRAILS, PARTS, DRIVERS, RETOS, retoOk, newUnlocks, garageOf, kartById, kartPoints } from './garage.js';
 import { loadPropIds } from './props.js';
 import { Showroom } from './showroom.js';
@@ -1988,7 +1989,7 @@ function menuNav() {
   if (!input.usingGamepad) { document.querySelectorAll('.padFocus').forEach(e => e.classList.remove('padFocus')); return; }
   if (state === 'play' || state === 'dialog' || state === 'dead' || state === 'cutscene') return;
   // en la Arena solo cuentan sus cuadros de pausa y de final de ronda
-  const ov = state === 'arena' ? [...document.querySelectorAll('#arenaEnd:not(.hidden), #arenaPauseBox:not(.hidden)')].pop() : state === 'race' ? [...document.querySelectorAll('#raceEnd:not(.hidden), #racePause:not(.hidden)')].pop() : [...document.querySelectorAll('.overlay:not(.hidden)')].pop();
+  const ov = state === 'arena' ? [...document.querySelectorAll('#arenaEnd:not(.hidden), #arenaPauseBox:not(.hidden)')].pop() : state === 'race' || state === 'derby' ? [...document.querySelectorAll('#raceEnd:not(.hidden), #racePause:not(.hidden)')].pop() : [...document.querySelectorAll('.overlay:not(.hidden)')].pop();
   if (!ov) return;
   const items = [...ov.querySelectorAll('button, select')].filter(el => !el.disabled && el.offsetParent !== null);
   if (!items.length) return;
@@ -2334,7 +2335,7 @@ function renderScene() {
 // En «Automática», si el juego va lento un buen rato, baja un nivel (y lo recuerda para la próxima vez).
 
 function autoQualityTick(realDt) {
-  if ((settings.quality || 'auto') !== 'auto' || !(state === 'play' || state === 'arena' || state === 'race') || document.hidden) { aq.t = aq.n = 0; return; }
+  if ((settings.quality || 'auto') !== 'auto' || !(state === 'play' || state === 'arena' || state === 'race' || state === 'derby') || document.hidden) { aq.t = aq.n = 0; return; }
   aq.t += Math.min(realDt, 0.5); aq.n++;
   if (aq.t < 3) return;
   const f = aq.n / aq.t; aq.t = aq.n = 0;
@@ -2388,9 +2389,10 @@ function simulate(dt) {
   if (input.pressed('heroes') && state === 'play' && !challenge) openHeroes('play');
   if (state === 'arena') arena.update(dt);
   if (state === 'race') { if (input.pressed('pause')) race.togglePause(); race.update(dt); }
+  if (state === 'derby') { if (input.pressed('pause')) derby.togglePause(); derby.update(dt); }
   tickBossCard(dt);
   { // mundo compartido: sala de la isla actual (no en desafíos, Aethra sin fin, modo Automático ni pantalla dividida)
-    const zid = save && zone && state !== 'title' && state !== 'arena' && state !== 'race' && !challenge && !isAutoMode() && !splitView && !(endless.active && endless.inZone) ? zone.id : null;
+    const zid = save && zone && state !== 'title' && state !== 'arena' && state !== 'race' && state !== 'derby' && !challenge && !isAutoMode() && !splitView && !(endless.active && endless.inZone) ? zone.id : null;
     worldNet.setZone(zid); // la sala solo cambia al cambiar de isla (no en cada diálogo o pausa)
     if (zid && (state === 'play' || state === 'dialog' || state === 'pause')) worldNet.update(dt, state === 'play');
   }
@@ -2460,7 +2462,7 @@ function simulate(dt) {
   for (const p of pulseFx) { p.t += dt; const k = p.t / 0.45; p.m.scale.setScalar(0.5 + k * p.r); p.m.material.opacity = 0.5 * (1 - k); if (k >= 1) { scene.remove(p.m); p.done = true; } }
   for (let i = pulseFx.length - 1; i >= 0; i--) if (pulseFx[i].done) pulseFx.splice(i, 1);
   const wantFov = 60 + player.anim.runW * 5 * (state === 'play' ? 1 : 0);
-  if (state !== 'race' && Math.abs(camera.fov - wantFov) > 0.01) { camera.fov += (wantFov - camera.fov) * Math.min(1, dt * 4); camera.updateProjectionMatrix(); }
+  if (state !== 'race' && state !== 'derby' && Math.abs(camera.fov - wantFov) > 0.01) { camera.fov += (wantFov - camera.fov) * Math.min(1, dt * 4); camera.updateProjectionMatrix(); }
   { // la sombra sigue a la protagonista en saltos de un texel: así no tiembla ni parpadea al moverse
     const P = player.pos, tx = (sun.shadow.camera.right - sun.shadow.camera.left) / sun.shadow.mapSize.x;
     const a = Math.round(P.dot(SH_R) / tx) * tx, b = Math.round(P.dot(SH_U) / tx) * tx, c = P.dot(SH_D);
@@ -3097,7 +3099,15 @@ const race = new Race({
     banner(Z.subtitle, Z.title);
   },
 });
-const raceUI = { track: 'puerto', laps: 3, rivals: 5, from: 'title', who: 'cpu', code: '', mode: 'suelta', cupId: 'brisa' };
+// arena de destrucción: usa el mismo escenario y pantalla que las carreras
+const derby = new Derby({
+  scene, camera, world, audio, music, input, player, toast, renderer,
+  charLib: () => charLib, getSave: () => save, save: () => { if (save) writeSave(save); },
+  onFinish: () => maybeAskOpinion('arena'), onError: (where, e) => reportError(where, e),
+  addEcos: n => { addEcos(n); if (save) writeSave(save); },
+  loadRaceZone: Z => race.ctx.loadRaceZone(Z),
+});
+const raceUI = { track: 'puerto', laps: 3, rivals: 5, from: 'title', who: 'cpu', code: '', mode: 'suelta', cupId: 'brisa', vehicle: 'monstruo', dWho: 'cpu', dBots: 5 };
 // ---------- Copas: varias carreras seguidas que suman puntos hasta el podio final ----------
 const CUPS = [
   { id: 'brisa', name: 'Copa Brisa', icon: '🏆', tracks: ['puerto', 'bosque', 'glaciar', 'canon'], reward: [300, 180, 110] },
@@ -3175,11 +3185,13 @@ function openRace(from) {
 function refreshRaceMenu() {
   const sv = save || {}, best = (sv.race || {})[raceUI.track + '_' + raceUI.laps];
   // modo: carrera suelta, copa (contra la CPU) o torneo semanal (con todos)
-  $('raceMode').innerHTML = [['suelta', '🏁 Carrera'], ['mision', '⚔ Misiones'], ['copa', '🏆 Copas'], ['torneo', '🌐 Torneo']].map(([m, t]) => `<button class="btn alt small${raceUI.mode === m ? ' sel' : ''}" data-m="${m}">${t}</button>`).join('');
+  $('raceMode').innerHTML = [['suelta', '🏁 Carrera'], ['mision', '⚔ Misiones'], ['copa', '🏆 Copas'], ['torneo', '🌐 Torneo'], ['derby', '💥 Destrucción']].map(([m, t]) => `<button class="btn alt small${raceUI.mode === m ? ' sel' : ''}" data-m="${m}">${t}</button>`).join('');
   $('raceMode').querySelectorAll('button').forEach(b => b.onclick = () => { raceUI.mode = b.dataset.m; audio.play('uiMove'); refreshRaceMenu(); });
   document.body.classList.toggle('raceCupMode', raceUI.mode !== 'suelta');
+  $('raceLapsLbl').classList.toggle('hidden', raceUI.mode === 'derby'); $('raceCpuNote').classList.toggle('hidden', raceUI.mode === 'derby');
   if (raceUI.mode !== 'suelta') {
     const tb = $('raceTracks'); tb.innerHTML = '';
+    if (raceUI.mode === 'derby') { derbyMenu(sv); return; }
     if (raceUI.mode === 'mision') {
       const row = document.createElement('div'); row.className = 'trackRow'; tb.appendChild(row);
       for (const D of DUELS) { const ok = duelOk(sv, D), done = ((sv.race || {}).duels || {})[D.id], V = DRIVERS.find(d => d.id === D.villain), b = document.createElement('button');
@@ -3239,6 +3251,43 @@ function refreshRaceMenu() {
   $('bRaceGo').textContent = raceUI.who === 'online' ? '🌐 Entrar a la sala' : '¡A correr!';
   const G = garageOf(save), K = kartById(G.kart), P = PAINTS.find(p => p.id === G.paint) || PAINTS[0];
   $('raceKart').innerHTML = `Tu kart: <b>${K.name}</b>${P.color != null ? ` · pintura ${P.name.toLowerCase()}` : ''} · estela ${(TRAILS.find(t => t.id === G.trail) || TRAILS[0]).name.toLowerCase()}`;
+}
+// ---------- Destrucción: menú y salida ----------
+function derbyMenu(sv) {
+  const tb = $('raceTracks'); tb.innerHTML = '';
+  const row = document.createElement('div'); row.className = 'trackRow'; tb.appendChild(row);
+  const bar = (v, max) => `<i class="stbar"><b style="width:${Math.round(v / max * 100)}%"></b></i>`;
+  for (const V of VEHICLES) { const b = document.createElement('button'); b.className = 'trackCard' + (raceUI.vehicle === V.id ? ' sel' : '');
+    b.innerHTML = `<span class="ic">${V.icon}</span><b>${V.name}</b>`; b.onclick = () => { raceUI.vehicle = V.id; audio.play('uiMove'); refreshRaceMenu(); }; row.appendChild(b); }
+  const V = VEHICLES.find(v => v.id === raceUI.vehicle) || VEHICLES[0], d = (sv.derby || {});
+  tb.insertAdjacentHTML('beforeend', `<div class="raceCard"><span class="ic">💥</span><div><b>${V.name}</b><small>${V.desc}</small>
+    <div class="dStats"><span>Blindaje</span>${bar(V.hp, 170)}<span>Velocidad</span>${bar(V.spd, 34)}<span>Embestida</span>${bar(V.ram, 2)}<span>Giro</span>${bar(V.turn, 2.6)}</div>
+    <em>${d.games ? `${d.games} partidas · ${d.kills || 0} destrozados · ${d.wins || 0} victorias` : 'Arma de las cajas, embiste y destroza: gana quien destroce más en 3 minutos'}</em></div></div>`);
+  const opts = (box, list, key, label) => { box.innerHTML = ''; for (const v of list) { const b = document.createElement('button'); b.className = 'btn alt small' + (raceUI[key] === v ? ' sel' : ''); b.textContent = label(v); b.onclick = () => { raceUI[key] = v; audio.play('uiMove'); refreshRaceMenu(); }; box.appendChild(b); } };
+  $('raceLaps').innerHTML = '';
+  opts($('raceWho'), ['cpu', 'publica', 'codigo'], 'dWho', v => v === 'cpu' ? '🤖 Contra la CPU' : v === 'publica' ? '🌐 Arena pública' : '🔒 Con código');
+  $('raceOnline').classList.toggle('hidden', raceUI.dWho !== 'codigo');
+  if (!raceUI.code) raceUI.code = randomCode(); if (document.activeElement !== $('raceCode')) $('raceCode').value = raceUI.code;
+  $('raceRivLbl').textContent = raceUI.dWho === 'cpu' ? 'Rivales de la CPU' : '';
+  if (raceUI.dWho === 'cpu') opts($('raceRivals'), [3, 5, 7], 'dBots', v => `${v} rivales`); else $('raceRivals').innerHTML = '';
+  $('bRaceGo').disabled = false; $('bRaceGo').textContent = raceUI.dWho === 'cpu' ? '💥 ¡A destrozar!' : '🌐 Entrar a la arena';
+  $('raceKart').innerHTML = raceUI.dWho === 'cpu' ? `Todos contra todos · 3 minutos` : raceUI.dWho === 'publica' ? 'Todos los jugadores conectados en la misma arena, sin límite de tiempo' : 'Comparte el código con tus amigos';
+}
+async function startDerby() {
+  const V = raceUI.vehicle; let net = null;
+  if (raceUI.dWho !== 'cpu') {
+    const code = raceUI.dWho === 'publica' ? 'publica' : (($('raceCode').value || raceUI.code || '').trim().toLowerCase() || randomCode());
+    $('bRaceGo').textContent = 'Conectando…'; $('bRaceGo').disabled = true;
+    try { net = await Net.open(code, 'chatarra-'); } catch (e) { net = null; }
+    $('bRaceGo').disabled = false; if (!net) { toast('No se pudo conectar a la arena'); refreshRaceMenu(); return; }
+  }
+  $('bRaceGo').textContent = 'Preparando la arena…';
+  if (state === 'pause') writeSave(save);
+  $('raceMenu').classList.add('hidden'); showOverlay(null);
+  if (dialog) closeDialog(false);
+  if (endless.active) { if (endless.inZone) stopEndlessInZone(true); else stopEndless(); }
+  state = 'derby';
+  derby.start(net ? { vehicle: V, net, ep: 1, endless: true } : { vehicle: V, bots: raceUI.dBots });
 }
 const KART_MODELS = KARTS.map(k => k.model);
 let kartsLoading = null;
@@ -3380,6 +3429,7 @@ $('bRaceGo').onclick = async () => {
   if (dialog) closeDialog(false);
   if (endless.active) { if (endless.inZone) stopEndlessInZone(true); else stopEndless(); }
   state = 'race';
+  if (raceUI.mode === 'derby') { startDerby(); return; }
   if (raceUI.mode === 'mision') startDuel(DUELS.find(d => d.id === raceUI.duelId) || DUELS[0]);
   else if (cup) race.start({ track: cup.tracks[0], laps: raceUI.laps, rivals: 7, from: raceUI.from, cup });
   else race.start({ track: raceUI.track, laps: raceUI.laps, rivals: raceUI.rivals, from: raceUI.from });
@@ -3474,6 +3524,9 @@ function backToLobby() { // después de una carrera en línea
   showLobby();
 }
 function leaveRace(keepNet) {
+  if (derby.active) { derby.exit(); player.mesh.visible = true; player.shadow.visible = true; applyPartida(); applyHero();
+    if (raceUI.from === 'title') { state = 'title'; zone = null; music.play('title'); showOverlay('title'); openHub(); } else { state = 'play'; enterZone(save.zone, save.checkpoint); }
+    return; }
   if (!race.active) return;
   if (keepNet !== true && race.net) closeLobby();
   race.exit(); player.mesh.visible = true; player.shadow.visible = true;
@@ -3481,13 +3534,14 @@ function leaveRace(keepNet) {
   if (raceUI.from === 'title') { state = 'title'; zone = null; music.play('title'); showOverlay('title'); openHub(); }
   else { state = 'play'; enterZone(save.zone, save.checkpoint); }
 }
-$('raceBtnPause').onclick = () => race.togglePause();
-$('bRaceResume').onclick = () => race.togglePause();
+$('raceBtnPause').onclick = () => derby.active ? derby.togglePause() : race.togglePause();
+$('bRaceResume').onclick = () => derby.active ? derby.togglePause() : race.togglePause();
 $('bRaceLeave').onclick = () => leaveRace();
 $('bRaceEndLeave').onclick = () => leaveRace();
 $('bRaceErrExit').onclick = () => { $('raceErr').classList.add('hidden'); try { leaveRace(); } catch (e) { location.reload(); } };
 $('bRaceErrHide').onclick = () => $('raceErr').classList.add('hidden');
 $('bRaceAgain').onclick = () => {
+  if (derby.active) { derby.again(); return; }
   if (race.net) { backToLobby(); return; }
   const cup = race.opts && race.opts.cup, duel = race.opts && race.opts.duel;
   if (duel) { const N = duel.next && race.me.place === 1 && DUELS.find(d => d.id === duel.next); if (N) { const o = race.opts; race.exit(true); startDuel(N); void o; } else race.again(); return; }
@@ -3510,7 +3564,7 @@ function cupFinish(cup) {
     $('raceEndSub').innerHTML = `${place <= 3 ? '¡Subiste al podio! ' : ''}Premio: +${rew} Ecos · ` + (res && res.ok ? `Torneo: <b>${res.rank}.º general</b>${res.rankZona ? ` · ${res.rankZona}.º en ${String(res.zonaNombre || '').replace(/[<>&]/g, '')}` : ''}${res.mejor ? ' · ¡nuevo mejor resultado!' : ' (tu mejor sigue siendo el anterior)'}` : 'no se pudo enviar al torneo (sin conexión)');
   });
 }
-$('bRaceRestart').onclick = () => { race.paused = false; race.again(); };
+$('bRaceRestart').onclick = () => { if (derby.active) { derby.again(); return; } race.paused = false; race.again(); };
 // cambiar de pista: vuelve al menú de Carreras (en línea, a la sala: allí el anfitrión elige)
 function raceChangeTrack() {
   if (race.net) { backToLobby(); return; }
@@ -3543,7 +3597,7 @@ window.__aethra = {
   testNewGame(name = 'Prueba', difficulty = settings.difficulty, opts = {}) { nueva.name = name; nueva.diff = DIFF[difficulty] ? difficulty : 'normal'; nueva.slot = freeSlot() || getSlot() || 1; createPartida(settings.custom || {}); if (opts.sellos !== false) for (const id of Object.keys(SENDEROS)) save.flags['sello_' + id] = true; }, // las pruebas de capítulos saltan los Senderos
   openChallenges() { if (!loadSave()) { nueva.name = 'Prueba'; nueva.diff = DIFF[settings.difficulty] ? settings.difficulty : 'normal'; nueva.slot = freeSlot() || 1; const sv = newSave({ name: 'Prueba', difficulty: nueva.diff, custom: settings.custom || {} }); setSlot(nueva.slot); writeSlot(nueva.slot, sv); } $('bHubCh').click(); },
   playCredits: (then) => playCredits(save, then || (() => {})), showChapterEnd, startEnding, openTrophies, offerLowerDifficulty, get lossStreak() { return lossStreak; },
-  showIntro, get introRun() { return introRun; }, arena, openArena, race, openRace, leaveRace, get raceUI() { return raceUI; }, get lobby() { return lobby; }, openLobby, openTaller, loadKarts, openArmeria, openHeroes, openMisiones, openPoderes, powers, audio, leaveArena, checkMissions, get arenaUI() { return arenaUI; }, Net,
+  showIntro, get introRun() { return introRun; }, arena, openArena, race, derby, openRace, leaveRace, get raceUI() { return raceUI; }, get lobby() { return lobby; }, openLobby, openTaller, loadKarts, openArmeria, openHeroes, openMisiones, openPoderes, powers, audio, leaveArena, checkMissions, get arenaUI() { return arenaUI; }, Net,
   endless, startEndless, stopEndless, startChallenge,
   hold(on) { paused4test = on; }, applyHero, S, combat, enterZone, choose, get zone() { return zone; }, get dialog() { return dialog; },
   step(n, press) {

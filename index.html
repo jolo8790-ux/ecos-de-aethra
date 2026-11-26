@@ -612,7 +612,23 @@
   body.touch #raceEnd { padding-left: 14px; } body.touch #raceEnd > * { max-width: 56vw; } body.touch #raceEnd #raceEndList { width: 54vw; }
   /* vitrina sin ventana: el kart flota sobre el fondo */
   .tallStage { background: none !important; border: none !important; overflow: visible !important; }
-  body.raceover .rtb, body.raceover #touch, body.raceover #raceItem, body.raceover #raceTip, body.raceover #raceBoard { display: none !important; }
+  /* arena de destrucción */
+  body.derby #raceLights, body.derby #raceWrong, body.derby #raceTurbo { display: none !important; }
+  #derbyHp { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(340px, 46vw); text-align: center; font-weight: 800; font-size: 13px; text-shadow: 0 1px 0 #000; }
+  #derbyHp i { display: block; height: 14px; border-radius: 8px; background: rgba(10,16,40,.65); border: 2px solid rgba(255,255,255,.5); overflow: hidden; margin-bottom: 3px; }
+  #derbyHp b { display: block; height: 100%; width: 100%; background: #6ad04a; transition: width .15s; }
+  body.touch #derbyHp { bottom: auto; top: 112px; width: 38vw; }
+  body.touch.derby #racePlace { font-size: 34px; }
+  #derbyFeed { position: absolute; right: 14px; top: 92px; display: flex; flex-direction: column; gap: 3px; align-items: flex-end; font-size: 13px; pointer-events: none; }
+  #derbyFeed div { background: rgba(10,16,40,.6); padding: 3px 10px; border-radius: 10px; } #derbyFeed div.sys { opacity: .75; font-style: italic; }
+  body.touch #derbyFeed { top: auto; bottom: 150px; right: auto; left: 12px; align-items: flex-start; font-size: 11px; }
+  #derbyHurt { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .15s; box-shadow: inset 0 0 120px 40px rgba(255,40,20,.8); }
+  .derbyTag { position: absolute; left: 0; top: 0; pointer-events: none; text-align: center; font-size: 12px; font-weight: 800; text-shadow: 0 1px 2px #000; white-space: nowrap; }
+  .derbyTag i { display: block; width: 54px; height: 5px; margin: 2px auto 0; background: rgba(0,0,0,.5); border-radius: 3px; overflow: hidden; } .derbyTag b { display: block; height: 100%; background: #ff5a3a; }
+  #raceItem.has { border-color: #ffc83a; box-shadow: 0 0 14px rgba(255,200,58,.6); }
+  .dStats { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; align-items: center; margin: 6px 0 4px; font-size: 12px; max-width: 320px; }
+  .stbar { display: block; height: 7px; background: rgba(255,255,255,.15); border-radius: 4px; overflow: hidden; } .stbar b { display: block; height: 100%; background: linear-gradient(90deg, #ffc83a, #ff7a3a); }
+  body.raceover .rtb, body.raceover #derbyHp, body.raceover .derbyTag, body.raceover #touch, body.raceover #raceItem, body.raceover #raceTip, body.raceover #raceBoard { display: none !important; }
   .ico { width: 1.05em; height: 1.05em; vertical-align: -0.16em; margin-right: 4px; }
   .rankIco { width: 1.1em; height: 1.1em; vertical-align: -0.18em; margin-right: 6px; }
   .raceUnl .ico { color: #ffd27a; }
@@ -626,60 +642,61 @@
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-  "./js/arena.js": "./js/arena.js?v=2611261833",
-  "./js/audio.js": "./js/audio.js?v=2611261833",
-  "./js/autonav.js": "./js/autonav.js?v=2611261833",
-  "./js/camera.js": "./js/camera.js?v=2611261833",
-  "./js/characters.js": "./js/characters.js?v=2611261833",
-  "./js/combat.js": "./js/combat.js?v=2611261833",
-  "./js/credits.js": "./js/credits.js?v=2611261833",
-  "./js/endless.js": "./js/endless.js?v=2611261833",
-  "./js/fx.js": "./js/fx.js?v=2611261833",
-  "./js/garage.js": "./js/garage.js?v=2611261833",
-  "./js/gear.js": "./js/gear.js?v=2611261833",
-  "./js/glbload.js": "./js/glbload.js?v=2611261833",
-  "./js/hazards.js": "./js/hazards.js?v=2611261833",
-  "./js/hd.js": "./js/hd.js?v=2611261833",
-  "./js/heroes.js": "./js/heroes.js?v=2611261833",
-  "./js/icons.js": "./js/icons.js?v=2611261833",
-  "./js/input.js": "./js/input.js?v=2611261833",
-  "./js/intro.js": "./js/intro.js?v=2611261833",
-  "./js/logros.js": "./js/logros.js?v=2611261833",
-  "./js/main.js": "./js/main.js?v=2611261833",
-  "./js/music.js": "./js/music.js?v=2611261833",
-  "./js/net.js": "./js/net.js?v=2611261833",
-  "./js/physics.js": "./js/physics.js?v=2611261833",
-  "./js/piezas.js": "./js/piezas.js?v=2611261833",
-  "./js/player.js": "./js/player.js?v=2611261833",
-  "./js/powers.js": "./js/powers.js?v=2611261833",
-  "./js/props.js": "./js/props.js?v=2611261833",
-  "./js/race.js": "./js/race.js?v=2611261833",
-  "./js/racehaz.js": "./js/racehaz.js?v=2611261833",
-  "./js/raceitems.js": "./js/raceitems.js?v=2611261833",
-  "./js/reef.js": "./js/reef.js?v=2611261833",
-  "./js/report.js": "./js/report.js?v=2611261833",
-  "./js/rig.js": "./js/rig.js?v=2611261833",
-  "./js/save.js": "./js/save.js?v=2611261833",
-  "./js/sea.js": "./js/sea.js?v=2611261833",
-  "./js/seafoes.js": "./js/seafoes.js?v=2611261833",
-  "./js/showroom.js": "./js/showroom.js?v=2611261833",
-  "./js/songs.js": "./js/songs.js?v=2611261833",
-  "./js/traps.js": "./js/traps.js?v=2611261833",
-  "./js/vfx.js": "./js/vfx.js?v=2611261833",
-  "./js/world.js": "./js/world.js?v=2611261833",
-  "./js/worldnet.js": "./js/worldnet.js?v=2611261833",
-  "./js/zones/abismo_mareth.js": "./js/zones/abismo_mareth.js?v=2611261833",
-  "./js/zones/bosque_colgante.js": "./js/zones/bosque_colgante.js?v=2611261833",
-  "./js/zones/ciudad_engranajes.js": "./js/zones/ciudad_engranajes.js?v=2611261833",
-  "./js/zones/ciudadela_orden.js": "./js/zones/ciudadela_orden.js?v=2611261833",
-  "./js/zones/desafios.js": "./js/zones/desafios.js?v=2611261833",
-  "./js/zones/eco_olvidado.js": "./js/zones/eco_olvidado.js?v=2611261833",
-  "./js/zones/forja_ignis.js": "./js/zones/forja_ignis.js?v=2611261833",
-  "./js/zones/glaciar_eco.js": "./js/zones/glaciar_eco.js?v=2611261833",
-  "./js/zones/puerto_bruma.js": "./js/zones/puerto_bruma.js?v=2611261833",
-  "./js/zones/routegen.js": "./js/zones/routegen.js?v=2611261833",
-  "./js/zones/ruinas_vidrio.js": "./js/zones/ruinas_vidrio.js?v=2611261833",
-  "./js/zones/senderos.js": "./js/zones/senderos.js?v=2611261833"
+  "./js/arena.js": "./js/arena.js?v=2611261846",
+  "./js/audio.js": "./js/audio.js?v=2611261846",
+  "./js/autonav.js": "./js/autonav.js?v=2611261846",
+  "./js/camera.js": "./js/camera.js?v=2611261846",
+  "./js/characters.js": "./js/characters.js?v=2611261846",
+  "./js/combat.js": "./js/combat.js?v=2611261846",
+  "./js/credits.js": "./js/credits.js?v=2611261846",
+  "./js/derby.js": "./js/derby.js?v=2611261846",
+  "./js/endless.js": "./js/endless.js?v=2611261846",
+  "./js/fx.js": "./js/fx.js?v=2611261846",
+  "./js/garage.js": "./js/garage.js?v=2611261846",
+  "./js/gear.js": "./js/gear.js?v=2611261846",
+  "./js/glbload.js": "./js/glbload.js?v=2611261846",
+  "./js/hazards.js": "./js/hazards.js?v=2611261846",
+  "./js/hd.js": "./js/hd.js?v=2611261846",
+  "./js/heroes.js": "./js/heroes.js?v=2611261846",
+  "./js/icons.js": "./js/icons.js?v=2611261846",
+  "./js/input.js": "./js/input.js?v=2611261846",
+  "./js/intro.js": "./js/intro.js?v=2611261846",
+  "./js/logros.js": "./js/logros.js?v=2611261846",
+  "./js/main.js": "./js/main.js?v=2611261846",
+  "./js/music.js": "./js/music.js?v=2611261846",
+  "./js/net.js": "./js/net.js?v=2611261846",
+  "./js/physics.js": "./js/physics.js?v=2611261846",
+  "./js/piezas.js": "./js/piezas.js?v=2611261846",
+  "./js/player.js": "./js/player.js?v=2611261846",
+  "./js/powers.js": "./js/powers.js?v=2611261846",
+  "./js/props.js": "./js/props.js?v=2611261846",
+  "./js/race.js": "./js/race.js?v=2611261846",
+  "./js/racehaz.js": "./js/racehaz.js?v=2611261846",
+  "./js/raceitems.js": "./js/raceitems.js?v=2611261846",
+  "./js/reef.js": "./js/reef.js?v=2611261846",
+  "./js/report.js": "./js/report.js?v=2611261846",
+  "./js/rig.js": "./js/rig.js?v=2611261846",
+  "./js/save.js": "./js/save.js?v=2611261846",
+  "./js/sea.js": "./js/sea.js?v=2611261846",
+  "./js/seafoes.js": "./js/seafoes.js?v=2611261846",
+  "./js/showroom.js": "./js/showroom.js?v=2611261846",
+  "./js/songs.js": "./js/songs.js?v=2611261846",
+  "./js/traps.js": "./js/traps.js?v=2611261846",
+  "./js/vfx.js": "./js/vfx.js?v=2611261846",
+  "./js/world.js": "./js/world.js?v=2611261846",
+  "./js/worldnet.js": "./js/worldnet.js?v=2611261846",
+  "./js/zones/abismo_mareth.js": "./js/zones/abismo_mareth.js?v=2611261846",
+  "./js/zones/bosque_colgante.js": "./js/zones/bosque_colgante.js?v=2611261846",
+  "./js/zones/ciudad_engranajes.js": "./js/zones/ciudad_engranajes.js?v=2611261846",
+  "./js/zones/ciudadela_orden.js": "./js/zones/ciudadela_orden.js?v=2611261846",
+  "./js/zones/desafios.js": "./js/zones/desafios.js?v=2611261846",
+  "./js/zones/eco_olvidado.js": "./js/zones/eco_olvidado.js?v=2611261846",
+  "./js/zones/forja_ignis.js": "./js/zones/forja_ignis.js?v=2611261846",
+  "./js/zones/glaciar_eco.js": "./js/zones/glaciar_eco.js?v=2611261846",
+  "./js/zones/puerto_bruma.js": "./js/zones/puerto_bruma.js?v=2611261846",
+  "./js/zones/routegen.js": "./js/zones/routegen.js?v=2611261846",
+  "./js/zones/ruinas_vidrio.js": "./js/zones/ruinas_vidrio.js?v=2611261846",
+  "./js/zones/senderos.js": "./js/zones/senderos.js?v=2611261846"
 } }
 </script>
 </head>
@@ -873,11 +890,11 @@
   <div class="sub">Karts por las pistas de cada isla.</div>
   <div class="raceOpts" id="raceMode"></div>
   <div id="raceTracks"></div>
-  <div class="sub" style="margin:4px 0 2px;font-size:15px">Vueltas</div>
+  <div class="sub" style="margin:4px 0 2px;font-size:15px" id="raceLapsLbl">Vueltas</div>
   <div class="raceOpts" id="raceLaps"></div>
   <div class="raceOpts" id="raceWho"></div>
   <div id="raceOnline" class="hidden"><div class="arenaRow"><input id="raceCode" maxlength="8" placeholder="CÓDIGO" autocomplete="off"><button class="btn alt small" id="bRaceNewCode">Código nuevo</button></div>
-    <div class="keysNote">Comparte el código: quien abra el juego y escriba el mismo código entra en tu sala (hasta 8 jugadores). Los lugares libres los ocupa la CPU.</div><div class="sub" id="raceNetMsg" style="font-size:14px;margin:2px 0"></div></div>
+    <div class="keysNote">Comparte el código: quien abra el juego y escriba el mismo código entra en tu sala (hasta 8 jugadores)<span id="raceCpuNote">. Los lugares libres los ocupa la CPU</span>.</div><div class="sub" id="raceNetMsg" style="font-size:14px;margin:2px 0"></div></div>
   <div class="sub" style="margin:4px 0 2px;font-size:15px" id="raceRivLbl">Rivales de la CPU</div>
   <div class="raceOpts" id="raceRivals"></div>
   <div class="raceSoon">Cajas ❓ en la pista: 🔥 nitro · 💣 bomba · 🚀 cohete · 🎯 teledirigido · 🫧 escudo<br>Cada pista tiene rampas, túnel y puente colgante… y esconde secretos: un atajo tapado y un carril colgante al que solo llegas saltando con nitro</div>
@@ -1047,6 +1064,6 @@
   </div>
 </div>
 
-<script type="module" src="js/main.js?v=2611261833"></script>
+<script type="module" src="js/main.js?v=2611261846"></script>
 </body>
 </html>

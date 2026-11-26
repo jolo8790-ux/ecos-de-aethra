@@ -70,6 +70,11 @@ const P = {
 };
 // medallas de color (oro, plata, bronce)
 const MED = (fill, n) => `<path d="M8 2h3l2 6.5h-3zM16 2h-3l-2 6.5h3z" fill="#7ad7ff" stroke="#3a8ac0" stroke-width="1.4"/><circle cx="12" cy="15" r="6.2" fill="${fill}" stroke="rgba(0,0,0,.35)" stroke-width="1.4"/><text x="12" y="18.3" text-anchor="middle" font-size="9" font-weight="800" fill="rgba(0,0,0,.55)" stroke="none" font-family="system-ui,sans-serif">${n}</text>`;
+// arena de destrucción
+P.metralla = '<path class="d" d="M3 9h13v4H9l-1.5 5h-3L6 13H3z"/><path d="M3 9h13v4H9l-1.5 5h-3L6 13H3z"/><path d="M16 10h5M16 12h5M7 9V6.5h4V9"/>';
+P.mina = '<ellipse class="d" cx="12" cy="15" rx="8" ry="4"/><ellipse cx="12" cy="15" rx="8" ry="4"/><path d="M12 11V8M8 11.5 6.5 9M16 11.5 17.5 9"/><circle cx="12" cy="6.5" r="1.5"/>';
+P.boom = '<path class="d" d="M12 2.5l2 5 5-2-2 5 4.5 2-4.5 2 2 5-5-2-2 5-2-5-5 2 2-5-4.5-2 4.5-2-2-5 5 2z"/><path d="M12 2.5l2 5 5-2-2 5 4.5 2-4.5 2 2 5-5-2-2 5-2-5-5 2 2-5-4.5-2 4.5-2-2-5 5 2z"/>';
+P.camion = '<path class="d" d="M2.5 15V9h9v-3h5l3.5 4.5V15z"/><path d="M2.5 15V9h9v-3h5l3.5 4.5V15z"/><path d="M11.5 9h8.5M14 6v3"/><circle cx="7" cy="17" r="3"/><circle cx="17" cy="17" r="3"/>';
 P.oro = MED('#ffd24a', 1); P.plata = MED('#d8e0ea', 2); P.bronce = MED('#d08a4a', 3);
 
 // emoji (o símbolo que el sistema pinta como emoji) → icono
@@ -81,7 +86,7 @@ export const EMOJI_ICON = {
   '⛨': 'escudo', '🛡': 'peto', '🪶': 'pluma', '🗡': 'espada', '❓': 'caja', '☯': 'equilibrio', '➶': 'ave', '♨': 'calor', '🌄': 'ocaso',
   '🍀': 'trebol', '💨': 'viento', '🌬': 'viento', '⚱': 'vasija', '✊': 'puno', '✋': 'mano', '👁': 'ojo', '🏹': 'arco', '🪄': 'baston',
   '👕': 'tunica', '🐚': 'concha', '🌋': 'volcan', '⏳': 'arena', '☁': 'nube', '🏆': 'trofeo', '🥇': 'oro', '🥈': 'plata', '🥉': 'bronce',
-  '❤': 'corazon', '📏': 'regla', '🤖': 'robot', '🎨': 'paleta', '🧑': 'piloto', '😈': 'villano', '✔': 'ok', '🏅': 'medalla', '💎': 'cristal', '🏮': 'farol', '🎪': 'carpa', '🛒': 'carrito', '👻': 'fantasma', '🛸': 'ovni',
+  '❤': 'corazon', '📏': 'regla', '🤖': 'robot', '🎨': 'paleta', '🧑': 'piloto', '😈': 'villano', '✔': 'ok', '🏅': 'medalla', '💎': 'cristal', '🏮': 'farol', '🎪': 'carpa', '🔫': 'metralla', '🧨': 'mina', '💥': 'boom', '🚚': 'camion', '🛒': 'carrito', '👻': 'fantasma', '🛸': 'ovni',
 };
 
 export const icon = (name, cls = '') => P[name] ? `<svg class="gi ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name]}</svg>` : '';
