@@ -997,7 +997,7 @@ export class Race {
     const G0 = garageOf(sv), myDriver = G0.driver || 'hero';
     const pool = DRIVERS.filter(d => d.id !== 'hero' && d.id !== myDriver && !(myDriver === 'hero' && d.look === mine)).map(d => d.id).sort(() => Math.random() - 0.5);
     const level = LEVEL[sv.difficulty || 'normal'] || LEVEL.normal;
-    const n = clamp(opts.rivals ?? 5, 1, 7);
+    const duel = opts.duel || null, n = duel ? 1 : clamp(opts.rivals ?? 5, 1, 7);
     this.racers = [];
     this.net = opts.net || null; this.isHost = !!opts.isHost; this.ep = opts.ep || 0; this.netSeen = {};
     const G = garageOf(sv), P = PAINTS.find(p => p.id === G.paint) || PAINTS[0];
@@ -1017,7 +1017,11 @@ export class Race {
     }
     const others = KARTS.filter(k => k.id !== G.kart && !k.secret); // cada rival en un kart distinto (y distinto del tuyo)
     const cupR = opts.cup && opts.cup.roster;
-    if (!opts.online) for (let k = 0; k < n; k++) { const h = cupR ? cupR[k % cupR.length] : pool[k % pool.length], D = DRIVERS.find(d => d.id === h); grid.push(new Racer(this, { id: 'cpu' + k, name: D.name, color: COLORS[(k + 1) % COLORS.length], kartId: others[k % others.length].id, paint: null, trail: ['fuego', 'hielo', 'veneno', 'dorada'][k % 4], look: driverLook(sv, h), skill: level * (0.94 + 0.08 * (k / Math.max(1, n - 1))), lane: ((k % 3) - 1) * 0.45 })); }
+    if (duel) { // misión: uno contra uno contra un villano con uno de los mejores karts
+      const D = DRIVERS.find(d => d.id === duel.villain), V = new Racer(this, { id: 'villano', name: D.name, color: COLORS[1], kartId: duel.kart, paint: duel.paint ?? null, trail: duel.trail || 'fuego', look: driverLook(sv, duel.villain), skill: level * duel.skill, lane: 0.3 });
+      V.mods = kartMods(KARTS.find(k => k.id === duel.kart).stats); V.duel = duel; V.bombT = 2.5; V.lead = false; grid.push(V);
+    }
+    if (!opts.online && !duel) for (let k = 0; k < n; k++) { const h = cupR ? cupR[k % cupR.length] : pool[k % pool.length], D = DRIVERS.find(d => d.id === h); grid.push(new Racer(this, { id: 'cpu' + k, name: D.name, color: COLORS[(k + 1) % COLORS.length], kartId: others[k % others.length].id, paint: null, trail: ['fuego', 'hielo', 'veneno', 'dorada'][k % 4], look: driverLook(sv, h), skill: level * (0.94 + 0.08 * (k / Math.max(1, n - 1))), lane: ((k % 3) - 1) * 0.45 })); }
     // la jugadora sale desde el medio de la parrilla
     if (!opts.online) grid.splice(Math.min(grid.length, Math.floor(n * 0.6)), 0, me);
     // en la copa, desde la 2.ª carrera la parrilla va al revés de la clasificación (el líder sale el último)
@@ -1035,7 +1039,7 @@ export class Race {
     this.gridMid = T.c[(T.N - 6 - Math.floor((grid.length - 1) / 2) * 13) % T.N].clone();
     this.items = new RaceItems(this);
     if (T.tube) for (const o of this.root.children) if (o.userData.grid) T.bend(o);
-    buildHazards(this, level);
+    this.hz = []; if (!duel) buildHazards(this, level); // en las misiones, el peligro es el villano
     // prepara de antemano los materiales de la escena: si no, se compilan en plena presentación y la cámara da tirones
     try { if (this.ctx.renderer) this.ctx.renderer.compile(this.ctx.scene, this.ctx.camera); } catch (e) {}
     // salida: presentación de la parrilla, semáforo de cinco luces y ¡fuera! (en línea, la misma espera para todos)
@@ -1116,7 +1120,7 @@ export class Race {
     } else {
       // goma elástica suave: quien va muy atrás de la jugadora acelera un poco, quien va muy adelante afloja
       const gap = (this.me.progress - R.progress) / T.L;
-      R.skillNow = R.skill * clamp(1 + gap * 0.22, 0.9, 1.1);
+      R.skillNow = R.skill * (R.duel ? clamp(1 + gap * 0.35, 0.86, 1.12) : clamp(1 + gap * 0.22, 0.9, 1.1)); // el villano no te deja escapar
     }
     R.laneT = (R.laneT || 0) - dt;
     if (R.laneT <= 0) { R.laneT = 2 + Math.random() * 3; R.laneW = clamp((R.lane || 0) + (Math.random() - 0.5) * 0.5, -0.6, 0.6); }
@@ -1304,13 +1308,14 @@ export class Race {
     // los que faltan llegan con el tiempo estimado
     if (!this.net) { this.place(); for (const R of this.order) if (!R.done) { R.done = true; R.time = Math.max(this.clock + 0.1, this.clock + (this.laps * this.track.L - R.progress) / Math.max(10, MAXV * (R.skill || 0.9))); this.results.push(R); R.finishOrder = this.results.length; } }
     this.place();
-    const p = this.me.place, rew = (this.def.reward[p - 1] || 5) * (this.laps === 5 ? 2 : 1);
+    const p = this.me.place, rew = this.opts.duel ? (p === 1 ? this.opts.duel.reward : 15) : (this.def.reward[p - 1] || 5) * (this.laps === 5 ? 2 : 1);
     // primero la pantalla final (pase lo que pase con el guardado, siempre se puede salir)
     $('raceEndTitle').innerHTML = p === 1 ? ICO.cup + '¡Primer lugar!' : p <= 3 ? ICO.medal + `¡Podio! ${p}.º lugar` : `${p}.º lugar`;
     $('raceEndSub').textContent = `${this.def.name} · ${this.laps} vueltas · +${rew} Ecos`;
     try { this._endList(); } catch (e) { console.warn('tabla final', e); }
     $('bRaceAgain').innerHTML = this.net ? ICO.globe + ' Volver a la sala' : ICO.rep + ' Repetir carrera';
     if (this.opts.cup) try { this._cupEnd(); } catch (e) { console.warn('copa', e); }
+    if (this.opts.duel) try { this._duelEnd(); } catch (e) { console.warn('misión', e); }
     $('raceEnd').classList.remove('hidden'); $('racePause').classList.add('hidden'); document.body.classList.add('raceover');
     try {
       C.addEcos(rew);
@@ -1324,11 +1329,26 @@ export class Race {
         if (p <= 3) { r.podiums = (r.podiums || 0) + 1; (r.podiumAt = r.podiumAt || {})[t] = true; }
         if (p === 1) { r.wins = (r.wins || 0) + 1; (r.wonAt = r.wonAt || {})[t] = true; if (this.laps === 5) r.won5 = (r.won5 || 0) + 1; }
         this.newUnlocks = this.ctx.unlocksAfter ? this.ctx.unlocksAfter() : [];
+        if (this.opts.duel && p === 1) { const d = r.duels = r.duels || {}; d[this.opts.duel.id] = (d[this.opts.duel.id] || 0) + 1; }
         if (this.ctx.onFinish && !this.opts.cup) setTimeout(() => { try { this.ctx.onFinish(); } catch (e) {} }, 4000);
         if (this.newUnlocks.length) { $('raceEndSub').innerHTML += `<div class="raceUnl">${ICO.unlock}¡Desbloqueaste ${this.newUnlocks.map(u => u.name).join(', ')}!</div>`; C.audio.play('unlock'); }
         C.save && C.save();
       }
     } catch (e) { console.warn('No se pudo guardar el resultado de la carrera', e); }
+  }
+  // ---------- misión: duelo contra un villano ----------
+  _duelEnd() {
+    const D = this.opts.duel, V = this.racers.find(R => R.duel), won = this.me.place === 1, gap = Math.abs((V.time || 0) - (this.me.time || 0));
+    $('raceEndTitle').innerHTML = won ? `${ICO.cup}¡Venciste a ${V.name}!` : `${V.name} te ganó`;
+    $('raceEndSub').innerHTML = (won ? `«${D.lose}»` : `«${D.win}»`) + `<br>${won ? 'Le sacaste' : 'Te sacó'} ${gap.toFixed(2)} s · ${won ? `Premio: +${D.reward} Ecos` : 'Inténtalo otra vez'}`;
+    $('bRaceAgain').innerHTML = won && D.next ? ICO.play + ' Siguiente misión' : ICO.rep + (won ? ' Repetir misión' : ' Revancha');
+  }
+  // el villano te adelanta o lo adelantas: avisa (lo llama raceitems en cada paso)
+  duelTick(V, lead) {
+    if (lead === V.lead) return; V.lead = lead;
+    if (this.phase !== 'race' || this.clock < 2) return;
+    if (lead) { this._flash(`¡${V.name} te pasó!`, '#ff8a7a'); this.ctx.audio.play('powerFail'); }
+    else { this._flash(`¡Pasaste a ${V.name}!`, '#7affa0'); this.ctx.audio.play('checkpoint'); }
   }
   // ---------- copa: puntos por carrera y clasificación general ----------
   _cupEnd() {

@@ -3104,6 +3104,24 @@ const CUPS = [
   { id: 'abismo', name: 'Copa Abismo', icon: '🏆', tracks: ['cloaca', 'forja', 'vidrio', 'engranajes'], reward: [420, 250, 150], lock: 'brisa' },
   { id: 'estrella', name: 'Copa Estrella', icon: '🏆', tracks: ['faroles', 'cumbre', 'circo', 'sombras', 'ovni'], reward: [600, 360, 220], lock: 'abismo' },
 ];
+// ---------- Misiones: duelos uno contra uno contra un villano ----------
+// El villano lleva uno de los mejores karts, no necesita cajas y, cuando te adelanta, siembra bombas.
+const DUELS = [
+  { id: 'brumanegra', villain: 'brumanegra', icon: '💣', track: 'puerto', kart: 'dragon', skill: 1.06, rate: 1.9, fx: null, reward: 250, next: 'escarcha',
+    title: 'Los barriles del Capitán', desc: 'El Capitán Brumanegra robó los vientos del puerto. Si te pasa, llena la pista de bombas.',
+    win: '¡Ja! El viento siempre sopla a favor de Brumanegra.', lose: '¡Arrr! Me ganaste… esta vez.' },
+  { id: 'escarcha', villain: 'escarcha', icon: '❄', track: 'glaciar', kart: 'espectro', skill: 1.09, rate: 1.7, fx: 'congela', reward: 350, next: 'sombra', lock: 'brumanegra',
+    title: 'La reina del hielo', desc: 'La Reina Escarcha deja bombas de hielo que te congelan. Y gira como nadie.',
+    win: 'Tu corazón se quedó helado de envidia.', lose: 'Imposible… nadie me había alcanzado.' },
+  { id: 'sombra', villain: 'sombra', icon: '👻', track: 'sombras', kart: 'sombra', skill: 1.11, rate: 1.5, fx: 'oscura', reward: 450, next: 'vaelor', lock: 'escarcha',
+    title: 'Tu propia sombra', desc: 'El Eco Sombrío copia cada curva tuya y siembra bombas de sombra.',
+    win: 'Soy tú, pero más rápido.', lose: 'La sombra… vuelve a la luz.' },
+  { id: 'vaelor', villain: 'vaelor', icon: '⚔', track: 'forja', kart: 'ecos', skill: 1.13, rate: 1.4, fx: null, rocket: true, reward: 700, lock: 'sombra',
+    title: 'El caballero oscuro', desc: 'Vaelor corre con el Carro de los Ecos. Bombas y cohetes hacia atrás: el duelo final.',
+    win: 'Arrodíllate ante el campeón de la Ciudadela.', lose: 'Tienes el corazón de un verdadero héroe.' },
+];
+const duelOk = (sv, D) => !D.lock || !!(((sv.race || {}).duels || {})[D.lock]);
+function startDuel(D) { raceUI.duelId = D.id; race.start({ track: D.track, laps: 3, rivals: 1, from: raceUI.from, duel: D }); }
 const cupOk = (sv, C) => !C.lock || ((sv.race || {}).cups || {})[C.lock] <= 3;
 const medalOf = p => p === 1 ? 'oro' : p === 2 ? 'plata' : p === 3 ? 'bronce' : '';
 function newCup(C, event = null) {
@@ -3157,12 +3175,22 @@ function openRace(from) {
 function refreshRaceMenu() {
   const sv = save || {}, best = (sv.race || {})[raceUI.track + '_' + raceUI.laps];
   // modo: carrera suelta, copa (contra la CPU) o torneo semanal (con todos)
-  $('raceMode').innerHTML = [['suelta', '🏁 Carrera'], ['copa', '🏆 Copas'], ['torneo', '🌐 Torneo']].map(([m, t]) => `<button class="btn alt small${raceUI.mode === m ? ' sel' : ''}" data-m="${m}">${t}</button>`).join('');
+  $('raceMode').innerHTML = [['suelta', '🏁 Carrera'], ['mision', '⚔ Misiones'], ['copa', '🏆 Copas'], ['torneo', '🌐 Torneo']].map(([m, t]) => `<button class="btn alt small${raceUI.mode === m ? ' sel' : ''}" data-m="${m}">${t}</button>`).join('');
   $('raceMode').querySelectorAll('button').forEach(b => b.onclick = () => { raceUI.mode = b.dataset.m; audio.play('uiMove'); refreshRaceMenu(); });
   document.body.classList.toggle('raceCupMode', raceUI.mode !== 'suelta');
   if (raceUI.mode !== 'suelta') {
     const tb = $('raceTracks'); tb.innerHTML = '';
-    if (raceUI.mode === 'copa') {
+    if (raceUI.mode === 'mision') {
+      const row = document.createElement('div'); row.className = 'trackRow'; tb.appendChild(row);
+      for (const D of DUELS) { const ok = duelOk(sv, D), done = ((sv.race || {}).duels || {})[D.id], V = DRIVERS.find(d => d.id === D.villain), b = document.createElement('button');
+        b.className = 'trackCard' + (raceUI.duelId === D.id ? ' sel' : '') + (ok ? '' : ' locked');
+        b.innerHTML = `<span class="ic">${ok ? (done ? '✔' : D.icon) : '🔒'}</span><b>${ok ? V.name : '???'}</b><small>${ok ? D.title : 'Vence al villano anterior'}</small>`;
+        b.onclick = () => { if (!ok) { audio.play('powerFail'); toast('🔒 Vence primero al villano anterior'); return; } raceUI.duelId = D.id; audio.play('uiMove'); refreshRaceMenu(); };
+        row.appendChild(b); }
+      const D = DUELS.find(d => d.id === raceUI.duelId && duelOk(sv, d)) || DUELS[0], K = kartById(D.kart), done = ((sv.race || {}).duels || {})[D.id];
+      raceUI.duelId = D.id;
+      tb.insertAdjacentHTML('beforeend', `<div class="raceCard"><span class="ic">${D.icon}</span><div><b>${D.title}</b><small>${D.desc} Pista: ${TRACKS[D.track].name} · kart: ${K.name} · premio: ✧ ${D.reward}.</small><em>${done ? `Lo venciste ${done === 1 ? 'una vez' : done + ' veces'}` : 'Uno contra uno, a 3 vueltas'}</em></div></div>`);
+    } else if (raceUI.mode === 'copa') {
       const row = document.createElement('div'); row.className = 'trackRow'; tb.appendChild(row);
       for (const C of CUPS) { const ok = cupOk(sv, C), med = ((sv.race || {}).cups || {})[C.id], b = document.createElement('button');
         b.className = 'trackCard' + (raceUI.cupId === C.id ? ' sel' : '') + (ok ? '' : ' locked');
@@ -3176,12 +3204,12 @@ function refreshRaceMenu() {
       tb.querySelectorAll('.torTabs button').forEach(b => b.onclick = () => { TOR.zone = b.dataset.z; audio.play('uiMove'); refreshRaceMenu(); });
     }
     const opts2 = (box, list, key, label) => { box.innerHTML = ''; for (const v of list) { const b = document.createElement('button'); b.className = 'btn alt small' + (raceUI[key] === v ? ' sel' : ''); b.textContent = label(v); b.onclick = () => { raceUI[key] = v; audio.play('uiMove'); refreshRaceMenu(); }; box.appendChild(b); } };
-    if (raceUI.mode === 'torneo') raceUI.laps = 3;
-    opts2($('raceLaps'), raceUI.mode === 'torneo' ? [3] : RACE_LAPS, 'laps', v => `${v} vueltas`);
+    if (raceUI.mode === 'torneo' || raceUI.mode === 'mision') raceUI.laps = 3;
+    opts2($('raceLaps'), raceUI.mode !== 'copa' ? [3] : RACE_LAPS, 'laps', v => `${v} vueltas`);
     $('raceWho').innerHTML = ''; $('raceOnline').classList.add('hidden'); $('raceRivals').innerHTML = ''; $('raceRivLbl').textContent = '';
-    $('bRaceGo').textContent = raceUI.mode === 'torneo' ? '🏆 Correr el torneo' : '🏆 Empezar la copa';
+    $('bRaceGo').textContent = raceUI.mode === 'mision' ? '⚔ ¡Al duelo!' : raceUI.mode === 'torneo' ? '🏆 Correr el torneo' : '🏆 Empezar la copa';
     $('bRaceGo').disabled = raceUI.mode === 'torneo' && !TOR.ev;
-    const G = garageOf(save), K = kartById(G.kart); $('raceKart').innerHTML = `Tu kart: <b>${K.name}</b> · 7 rivales de la CPU`;
+    const G = garageOf(save), K = kartById(G.kart); $('raceKart').innerHTML = `Tu kart: <b>${K.name}</b> · ${raceUI.mode === 'mision' ? 'uno contra uno' : '7 rivales de la CPU'}`;
     return;
   }
   $('bRaceGo').disabled = false;
@@ -3352,7 +3380,8 @@ $('bRaceGo').onclick = async () => {
   if (dialog) closeDialog(false);
   if (endless.active) { if (endless.inZone) stopEndlessInZone(true); else stopEndless(); }
   state = 'race';
-  if (cup) race.start({ track: cup.tracks[0], laps: raceUI.laps, rivals: 7, from: raceUI.from, cup });
+  if (raceUI.mode === 'mision') startDuel(DUELS.find(d => d.id === raceUI.duelId) || DUELS[0]);
+  else if (cup) race.start({ track: cup.tracks[0], laps: raceUI.laps, rivals: 7, from: raceUI.from, cup });
   else race.start({ track: raceUI.track, laps: raceUI.laps, rivals: raceUI.rivals, from: raceUI.from });
 };
 // ---------- Carreras en línea: sala de espera ----------
@@ -3460,7 +3489,8 @@ $('bRaceErrExit').onclick = () => { $('raceErr').classList.add('hidden'); try { 
 $('bRaceErrHide').onclick = () => $('raceErr').classList.add('hidden');
 $('bRaceAgain').onclick = () => {
   if (race.net) { backToLobby(); return; }
-  const cup = race.opts && race.opts.cup;
+  const cup = race.opts && race.opts.cup, duel = race.opts && race.opts.duel;
+  if (duel) { const N = duel.next && race.me.place === 1 && DUELS.find(d => d.id === duel.next); if (N) { const o = race.opts; race.exit(true); startDuel(N); void o; } else race.again(); return; }
   if (!cup) { race.again(); return; }
   if (race.phase === 'podium') { raceChangeTrack(); return; } // terminar: vuelve al menú de Carreras
   if (cup.round + 1 < cup.tracks.length) { cup.round++; race.next(cup.tracks[cup.round]); return; }

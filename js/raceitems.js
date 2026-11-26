@@ -90,7 +90,7 @@ export class RaceItems {
         if (Math.hypot(R.pos.x - B.m.position.x, R.pos.z - B.m.position.z) < 2.1 && Math.abs(R.pos.y - B.m.position.y) < 2.5) { // la caja se rompe siempre; da objeto si tienes la mano libre
           B.t = B.gold ? 6 : 3; this._pop(B.m.position, 0xffd24a, B.gold ? 2 : 1.2); this._shards(B.m.position);
           if (R.you) race.ctx.audio.play(R.item || R.roll > 0 ? 'crack' : 'crystal');
-          if (!R.item && !(R.roll > 0) && !R.remote) { R.roll = R.you ? 1.0 : 0.4; R.rollFor = B.gold ? rollGold() : roll(R.place, race.racers.length); if (B.gold && R.you) race._flash('¡Caja dorada!', '#ffd24a'); }
+          if (!R.item && !(R.roll > 0) && !R.remote && !R.duel) { R.roll = R.you ? 1.0 : 0.4; R.rollFor = B.gold ? rollGold() : roll(R.place, race.racers.length); if (B.gold && R.you) race._flash('¡Caja dorada!', '#ffd24a'); }
         }
       }
     }
@@ -100,6 +100,7 @@ export class RaceItems {
       if (R.shieldT > 0) { R.shieldT -= dt; if (!R.bubble) { R.bubble = new THREE.Mesh(new THREE.SphereGeometry(1.9, 20, 14), this.shield); R.bubble.position.y = 0.9; R.root.add(R.bubble); } R.bubble.scale.setScalar(1 + Math.sin(time * 6) * 0.04); }
       else if (R.bubble) { R.root.remove(R.bubble); R.bubble = null; }
       if (!R.you && !R.remote && R.item && race.phase === 'race') this._cpuThink(R, dt);
+      if (R.duel && !R.remote) this._bomber(R, dt);
     }
     this._shots(dt, time);
     for (let k = this.bits.length - 1; k >= 0; k--) {
@@ -129,6 +130,20 @@ export class RaceItems {
     else if (id === 'guiado') this._fire(R, 'guiado', false);
     if (--R.uses <= 0) R.item = null;
   }
+  // el villano de la misión: no necesita cajas; cuando te supera, va sembrando bombas detrás de él
+  _bomber(R, dt) {
+    const race = this.race, me = race.me, D = R.duel, lead = R.progress - me.progress;
+    race.duelTick(R, lead > 0);
+    if (race.phase !== 'race' || R.done || R.spin > 0 || R.stunT > 0) return;
+    if (lead > 2 && lead < 110) {
+      if ((R.bombT -= dt) > 0) return;
+      R.bombT = D.rate * (0.65 + Math.random() * 0.7); R.shots = (R.shots || 0) + 1;
+      if (D.rocket && R.shots % 3 === 0 && lead < 60) { this._fire(R, 'cohete', true); return; } // Vaelor también dispara hacia atrás
+      this._fire(R, 'bomba', true, null, D.fx);
+      const S = this.shots[this.shots.length - 1], r = race.track.r[R.i], lat = (Math.random() * 2 - 1) * race.track.hw * 0.55; // por doquier: a lo ancho de la pista
+      S.pos.x += r.x * lat; S.pos.z += r.z * lat;
+    } else R.bombT = Math.max(R.bombT, 0.8);
+  }
   _cpuThink(R, dt) {
     if ((R.cpuWait -= dt) > 0) return;
     const race = this.race, L = race.track.L;
@@ -146,11 +161,12 @@ export class RaceItems {
   }
 
   // ---------- proyectiles ----------
-  _fire(R, kind, back, spec = null) {
+  _fire(R, kind, back, spec = null, fx = null) {
     const race = this.race, A = race.ctx.audio, dir = R.yaw + (back ? Math.PI : 0);
     const g = new THREE.Group(); this.root.add(g);
     if (kind === 'bomba') {
-      const b = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 12), new THREE.MeshStandardMaterial({ color: 0x22222c, roughness: 0.4, metalness: 0.3 })); b.castShadow = true; g.add(b);
+      const BC = { congela: [0x8fd8ff, 0x2a6aa0], oscura: [0x3a1a5a, 0x9a5aff] }[fx] || [0x22222c, 0];
+      const b = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 12), new THREE.MeshStandardMaterial({ color: BC[0], roughness: 0.4, metalness: 0.3, emissive: BC[1], emissiveIntensity: 0.4 })); b.castShadow = true; g.add(b);
       const fuse = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffb040 })); fuse.position.y = 0.5; g.add(fuse);
       const sk = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.06, 6, 12), new THREE.MeshStandardMaterial({ color: 0xffc83a })); sk.rotation.x = Math.PI / 2; sk.position.y = 0.42; g.add(sk);
     } else {
@@ -162,14 +178,14 @@ export class RaceItems {
       const fl = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.9, 10), new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending }));
       fl.rotation.x = -Math.PI / 2; fl.position.z = -1.05; g.add(fl); g.userData.flame = fl;
     }
-    const S = { kind, g, owner: R, yaw: dir, t: 0, i: R.i, pos: R.pos.clone(), vy: 0, y: 0.9, target: null };
+    const S = { kind, g, owner: R, yaw: dir, t: 0, i: R.i, pos: R.pos.clone(), vy: 0, y: 0.9, target: null, fx };
     S.pos.x += Math.sin(dir) * 2.4; S.pos.z += Math.cos(dir) * 2.4;
     if (kind === 'bomba') { S.speed = back ? 0 : 24; S.vy = back ? 0 : 7; S.y = back ? 0.5 : 1.2; S.life = back ? 12 : 6; }
     else if (kind === 'cohete') { S.speed = 64; S.life = 2.6; }
     else { S.speed = 52; S.life = 6; const ahead = race.racers.filter(o => o !== R && o.progress > R.progress).sort((a, b) => a.progress - b.progress); S.target = ahead[0] || null; }
     if (R.you) A.play(kind === 'bomba' ? 'swing' : 'shoot');
     if (spec) { // copia de un disparo de otro jugador: solo se ve (quien disparó decide si acierta)
-      S.remote = true; S.id = spec.id; S.pos.set(+spec.x, R.pos.y, +spec.z); S.yaw = +spec.yw; S.target = spec.tg ? race.racers.find(o => o.id === spec.tg) || null : S.target;
+      S.remote = true; S.id = spec.id; S.fx = spec.fx || null; S.pos.set(+spec.x, R.pos.y, +spec.z); S.yaw = +spec.yw; S.target = spec.tg ? race.racers.find(o => o.id === spec.tg) || null : S.target;
     } else if (race.net) {
       S.id = race.me.id + ':' + (this.sid = (this.sid || 0) + 1);
       race.net.event({ t: 'shot', ep: race.ep, id: S.id, k: kind, b: back ? 1 : 0, o: R.id, x: Math.round(S.pos.x * 100) / 100, z: Math.round(S.pos.z * 100) / 100, yw: Math.round(S.yaw * 1000) / 1000, tg: S.target ? S.target.id : null });
@@ -223,16 +239,17 @@ export class RaceItems {
   }
   _explode(S, direct, visual = false) {
     const race = this.race, A = race.ctx.audio, p = S.g.position.clone();
-    const r = S.kind === 'bomba' ? 4 : 2.2;
-    this._pop(p, S.kind === 'guiado' ? 0xc08aff : 0xffa040, r);
+    const r = S.kind === 'bomba' ? 4 : 2.2, kind = S.fx || 'quema';
+    this._pop(p, kind === 'congela' ? 0xbff0ff : kind === 'oscura' ? 0x9a5aff : S.kind === 'guiado' ? 0xc08aff : 0xffa040, r);
     const me = race.me, d = me.pos.distanceTo(p);
     if (d < 40) { A.play(S.kind === 'bomba' ? 'slam' : 'fire'); }
     if (visual) return;
     for (const R of race.racers) {
       const dd = Math.hypot(R.pos.x - p.x, R.pos.z - p.z);
       if (R === direct || dd < r) {
-        if (R.remote) { if (race.net && !R.gone) race.net.event({ t: 'hit', ep: race.ep, v: R.id, o: S.owner.id, k: 'quema' }); if (S.owner.you) this._hitFx(R); }
-        else this.hit(R, S.owner, false, 'quema');
+        const hk = kind === 'oscura' ? 'quema' : kind;
+        if (R.remote) { if (race.net && !R.gone) race.net.event({ t: 'hit', ep: race.ep, v: R.id, o: S.owner.id, k: hk }); if (S.owner.you) this._hitFx(R); }
+        else this.hit(R, S.owner, false, hk);
       }
     }
   }
