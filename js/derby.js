@@ -642,7 +642,7 @@ export class Derby {
   _near(c) { const m = this.me; return c.you || Math.hypot(c.x - m.x, c.z - m.z) < 45; }
   // sonido grabado desde un lugar de la arena (si aún no cargó, usa el sintetizado)
   // cada vehículo dispara con su calibre: [sonido, variantes, volumen, tono, separación mínima]
-  static GUNS = { chatarra: ['ligero', 3, 0.5, 1, 0.03], cisterna: ['ligero', 3, 0.5, 0.9, 0.03], monstruo: ['pesado', 3, 0.6, 1, 0.04], ariete: ['pesado', 3, 0.58, 1.06, 0.04], pincho: ['plasma', 2, 0.5, 1, 0.05], excavadora: ['autocanon', 2, 0.62, 1.05, 0.06], tanque: ['autocanon', 2, 0.65, 0.95, 0.06] };
+  static GUNS = { chatarra: ['ligero', 3, 0.5, 1, 0.03], cisterna: ['ligero', 3, 0.5, 0.9, 0.03], monstruo: ['pesado', 3, 0.6, 1, 0.04], ariete: ['pesado', 3, 0.58, 1.06, 0.04], pincho: ['fusil', 3, 0.52, 1, 0.035], excavadora: ['autocanon', 2, 0.62, 1.05, 0.06], tanque: ['autocanon', 2, 0.65, 0.95, 0.06] };
   _gunSfx(c, x, z) { const G = Derby.GUNS[c.V.id] || ['mg', 3, 0.5, 1, 0.03]; const k = G[0] + (1 + Math.floor(Math.random() * G[1])); this._sfx(k, x, z, G[2] * (c.you ? 1.1 : 0.9), 'shoot', { gap: G[4], vary: 0.08, rate: G[3] }); }
   _sfx(key, x, z, vol = 1, alt = null, o = {}) { const A = this.ctx.audio; if (A.sample && A.sample(key, { vol, pos: { x, z }, ...o })) return; if (alt) A.play(alt, { x, z }); }
 

@@ -234,3 +234,6 @@ d = 0.9; fb = noise(d); wh = np.zeros(int(SR * d))
 for i in range(0, len(wh), B):
     q = i / len(wh); f = 300 + 1500 * np.sin(np.pi * q); wh[i:i + B] = bp(fb[max(0, i - 256):i + B], f * 0.6, f * 1.6)[-len(fb[i:i + B]):]
 save('lanzar', reverb(sat(wh * np.sin(np.pi * t(d) / d) * 1.3, 1.6), 0.5, 0.15, 4000), maxd=1.0)
+
+# fusil de asalto (Escorpión): chasquido seco, cuerpo medio y eco corto
+for i in range(3): save(f'fusil{i + 1}', gun(70 + i, low=128, bright=3600, body_dec=0.02, thump=0.85, tail=0.1, click=3100, wet=0.2), maxd=0.5)
