@@ -42,7 +42,7 @@ const rnd = (a, b) => a + Math.random() * (b - a);
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[<>&]/g, '');
 
-const RA = 74; // radio del campo de juego
+const RA = 118; // radio del campo de juego (grande: para que las batallas no se amontonen)
 export const ROUND = 180; // segundos por ronda
 
 // ---------- vehículos ----------
@@ -85,6 +85,17 @@ export const WEAPONS = {
   escudo: { icon: '🫧', name: 'Escudo', n: 1, w: 1 },
   nitro: { icon: '💨', name: 'Nitro', n: 2, w: 1.5 },
 };
+WEAPONS.especial = { icon: '★', name: 'Poder especial', n: 1, w: 0 };
+// el poder especial de cada vehículo (sale de las cajas doradas)
+export const SPECIALS = {
+  chatarra: { icon: '🔫', name: 'Ametralladora doble', desc: '4 s de ráfaga continua con dos cañones' },
+  monstruo: { icon: '🚚', name: 'Aplastamonstruo', desc: 'Salta muy alto y aplasta todo al caer' },
+  ariete: { icon: '⛨', name: 'Embestida imparable', desc: '5 s sin recibir daño y con embestidas brutales' },
+  pincho: { icon: '🎯', name: 'Enjambre de aguijones', desc: '4 misiles teledirigidos' },
+  excavadora: { icon: '⚒', name: 'Terremoto', desc: 'Una onda que sacude y daña todo alrededor' },
+  cisterna: { icon: '🔥', name: 'Mar de fuego', desc: '4 s rodeada de llamas que queman a todos cerca' },
+  tanque: { icon: '💣', name: 'Bombardeo', desc: '5 cañonazos en abanico' },
+};
 function rollWeapon(hpFrac) {
   let s = 0; const w = {}; for (const [k, W] of Object.entries(WEAPONS)) { w[k] = W.w * (k === 'reparar' ? (hpFrac < 0.5 ? 3 : 0.4) : 1); s += w[k]; }
   let r = Math.random() * s; for (const k in w) { r -= w[k]; if (r <= 0) return k; } return 'cohete';
@@ -109,7 +120,7 @@ const groundTex = () => _ground || (_ground = canvasTex(512, 512, (c, w, h) => {
   for (let k = 0; k < 30; k++) { let x = Math.random() * w, y = Math.random() * h; c.beginPath(); c.moveTo(x, y); for (let s = 0; s < 6; s++) { x += rnd(-22, 22); y += rnd(-22, 22); c.lineTo(x, y); } c.stroke(); }
   c.strokeStyle = 'rgba(60,35,20,.22)'; c.lineWidth = 7; // huellas de neumáticos
   for (let k = 0; k < 8; k++) { c.beginPath(); const x0 = Math.random() * w, y0 = Math.random() * h; c.moveTo(x0, y0); c.bezierCurveTo(x0 + rnd(-200, 200), y0 + rnd(-200, 200), x0 + rnd(-200, 200), y0 + rnd(-200, 200), x0 + rnd(-260, 260), y0 + rnd(-260, 260)); c.stroke(); }
-}, 6));
+}, 10));
 const crateTex = () => _crate || (_crate = canvasTex(128, 128, (c, w, h) => {
   c.fillStyle = '#8a5a2a'; c.fillRect(0, 0, w, h);
   c.fillStyle = 'rgba(0,0,0,.18)'; for (let y = 0; y < h; y += 16) c.fillRect(0, y, w, 2);
@@ -226,22 +237,22 @@ function buildVehicleParts(V, paint = null) {
 // ---------- el campo ----------
 function buildField(D) {
   const g = new THREE.Group(); const obs = []; const ramps = []; const barrels = [];
-  const ground = new THREE.Mesh(new THREE.CircleGeometry(150, 64), new THREE.MeshStandardMaterial({ map: groundTex(), roughness: 0.95, metalness: 0 }));
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(260, 72), new THREE.MeshStandardMaterial({ map: groundTex(), roughness: 0.95, metalness: 0 }));
   ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; g.add(ground);
   const rockM = new THREE.MeshStandardMaterial({ color: 0x9a6a44, roughness: 0.95, flatShading: true });
   const rock = (x, z, s, h = 1) => { const m = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), rockM); m.position.set(x, s * 0.45 * h, z); m.scale.y = h; m.rotation.set(rnd(0, 3), rnd(0, 3), rnd(0, 3)); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
   // muralla de rocas y chatarra alrededor
-  for (let k = 0; k < 64; k++) { const a = k / 64 * Math.PI * 2, rr = RA + 4 + rnd(0, 6); rock(Math.sin(a) * rr, Math.cos(a) * rr, rnd(3.5, 6.5), rnd(1, 1.8)); }
-  for (let k = 0; k < 26; k++) { const a = rnd(0, 6.28), rr = rnd(95, 140); rock(Math.sin(a) * rr, Math.cos(a) * rr, rnd(8, 18), rnd(1.2, 2.6)); } // mesetas lejanas
+  for (let k = 0; k < 96; k++) { const a = k / 96 * Math.PI * 2, rr = RA + 4 + rnd(0, 7); rock(Math.sin(a) * rr, Math.cos(a) * rr, rnd(4, 7.5), rnd(1, 1.9)); }
+  for (let k = 0; k < 34; k++) { const a = rnd(0, 6.28), rr = rnd(150, 230); rock(Math.sin(a) * rr, Math.cos(a) * rr, rnd(12, 26), rnd(1.2, 2.6)); } // mesetas lejanas
   const fence = new THREE.MeshStandardMaterial({ color: 0x6a5040, map: rustTex(), roughness: 0.8, metalness: 0.4 });
-  for (let k = 0; k < 40; k++) { const a = (k + 0.5) / 40 * Math.PI * 2, m = new THREE.Mesh(new THREE.BoxGeometry(11.5, rnd(2.2, 3.4), 0.25), fence); m.position.set(Math.sin(a) * (RA + 1.5), 1.2, Math.cos(a) * (RA + 1.5)); m.rotation.y = a + Math.PI / 2; m.rotation.z = rnd(-0.06, 0.06); m.castShadow = true; g.add(m); }
+  for (let k = 0; k < 62; k++) { const a = (k + 0.5) / 62 * Math.PI * 2, m = new THREE.Mesh(new THREE.BoxGeometry(12.4, rnd(2.2, 3.4), 0.25), fence); m.position.set(Math.sin(a) * (RA + 1.5), 1.2, Math.cos(a) * (RA + 1.5)); m.rotation.y = a + Math.PI / 2; m.rotation.z = rnd(-0.06, 0.06); m.castShadow = true; g.add(m); }
   // obstáculos: rocas, chatarra, contenedores, pilas de neumáticos
   const rnd2 = (() => { let s = 1234567; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
   const free = (x, z, r) => Math.hypot(x, z) < RA - r - 6 && obs.every(o => Math.hypot(o.x - x, o.z - z) > o.r + r + 5) && ramps.every(R => Math.hypot(R.x - x, R.z - z) > 12);
   const place = (r, tries = 40) => { for (let t = 0; t < tries; t++) { const a = rnd2() * 6.28, d = 10 + rnd2() * (RA - 20); const x = Math.sin(a) * d, z = Math.cos(a) * d; if (free(x, z, r)) return [x, z]; } return null; };
   // rampas
   const rampM = new THREE.MeshStandardMaterial({ color: 0x7a6a5a, map: rustTex(), roughness: 0.7, metalness: 0.5 });
-  for (const [x, z, yaw] of [[0, 26, 0], [-30, -18, 2.1], [32, -14, -2.0], [0, -40, Math.PI]]) {
+  for (const [x, z, yaw] of [[0, 26, 0], [-30, -18, 2.1], [32, -14, -2.0], [0, -44, Math.PI], [70, 40, -0.8], [-72, 38, 0.9], [62, -70, 2.6], [-66, -66, -2.4], [0, 88, Math.PI], [96, -10, -1.6], [-98, -4, 1.6]]) {
     const L = 8, W = 5, H = 2.2, geo = new THREE.BufferGeometry(); // cuña
     const v = [-W / 2, 0, -L / 2, W / 2, 0, -L / 2, W / 2, H, L / 2, -W / 2, H, L / 2, -W / 2, 0, L / 2, W / 2, 0, L / 2];
     geo.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); geo.setIndex([0, 3, 2, 0, 2, 1, 4, 3, 0, 1, 2, 5, 4, 5, 2, 4, 2, 3]); geo.computeVertexNormals();
@@ -252,27 +263,29 @@ function buildField(D) {
   }
   const scrap = new THREE.MeshStandardMaterial({ color: 0x5a4a40, map: rustTex(), roughness: 0.85, metalness: 0.5 });
   const cont = [0xb04a30, 0x3a6a9a, 0x5a8a4a, 0xc8a040].map(c => new THREE.MeshStandardMaterial({ color: c, map: rustTex(), roughness: 0.7, metalness: 0.45 }));
-  for (let k = 0; k < 7; k++) { const p = place(3.2); if (!p) continue; const s = rnd(2.4, 3.4); rock(p[0], p[1], s, rnd(0.9, 1.6)); obs.push({ x: p[0], z: p[1], r: s * 0.95 }); }
-  for (let k = 0; k < 4; k++) { const p = place(4.5); if (!p) continue; // contenedores (dos círculos)
+  for (let k = 0; k < 16; k++) { const p = place(3.2); if (!p) continue; const s = rnd(2.4, 3.4); rock(p[0], p[1], s, rnd(0.9, 1.6)); obs.push({ x: p[0], z: p[1], r: s * 0.95 }); }
+  for (let k = 0; k < 9; k++) { const p = place(4.5); if (!p) continue; // contenedores (dos círculos)
     const yaw = rnd2() * 3.14, m = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 7.5), cont[k % 4]); m.position.set(p[0], 1.5, p[1]); m.rotation.y = yaw; m.castShadow = m.receiveShadow = true; g.add(m);
     for (const d of [-2.3, 0, 2.3]) obs.push({ x: p[0] + Math.sin(yaw) * d, z: p[1] + Math.cos(yaw) * d, r: 1.9 }); }
-  for (let k = 0; k < 5; k++) { const p = place(2.6); if (!p) continue; // autos chatarra aplastados
+  for (let k = 0; k < 12; k++) { const p = place(2.6); if (!p) continue; // autos chatarra aplastados
     const yaw = rnd2() * 6.28, c = new THREE.Group(); c.position.set(p[0], 0, p[1]); c.rotation.set(rnd(-0.1, 0.1), yaw, rnd(-0.2, 0.2)); g.add(c);
     c.add(box(2.1, 0.8, 4.0, scrap, 0, 0.45, 0)); c.add(box(1.8, 0.5, 1.8, scrap, 0, 1.0, -0.3)); obs.push({ x: p[0], z: p[1], r: 2.1 }); }
   const tireM = M(0x1c1a18, { r: 0.95, m: 0 });
-  for (let k = 0; k < 6; k++) { const p = place(1.4); if (!p) continue; const n = 2 + Math.floor(rnd2() * 3);
+  for (let k = 0; k < 14; k++) { const p = place(1.4); if (!p) continue; const n = 2 + Math.floor(rnd2() * 3);
     for (let j = 0; j < n; j++) { const t = new THREE.Mesh(new THREE.TorusGeometry(0.75, 0.32, 8, 16), tireM); t.rotation.x = Math.PI / 2; t.position.set(p[0], 0.32 + j * 0.6, p[1]); t.castShadow = true; g.add(t); } obs.push({ x: p[0], z: p[1], r: 1.15, soft: true }); }
   // lugares de las cajas (fijos)
-  const spots = []; for (let k = 0; k < 40 && spots.length < 11; k++) { const p = place(1.2); if (p && spots.every(q => Math.hypot(q[0] - p[0], q[1] - p[1]) > 14)) spots.push(p); }
+  const spots = []; for (let k = 0; k < 120 && spots.length < 24; k++) { const p = place(1.2); if (p && spots.every(q => Math.hypot(q[0] - p[0], q[1] - p[1]) > 16)) spots.push(p); }
+  // cajas doradas: el poder especial de cada vehículo (pocas y repartidas)
+  const gold = []; for (const [a, d] of [[0.5, 52], [2.1, 60], [3.7, 55], [5.3, 62], [1.3, 95], [4.4, 92]]) { const x = Math.sin(a) * d, z = Math.cos(a) * d; if (obs.every(o => Math.hypot(o.x - x, o.z - z) > o.r + 4)) gold.push([x, z]); }
   // barriles explosivos
   const bm = M(0xc8301a, { r: 0.5, m: 0.5 }), bs = M(0xffc81a, { r: 0.6 });
-  for (let k = 0; k < 10; k++) { const p = place(0.9); if (!p) continue; const b = new THREE.Group(); b.position.set(p[0], 0, p[1]); g.add(b);
+  for (let k = 0; k < 20; k++) { const p = place(0.9); if (!p) continue; const b = new THREE.Group(); b.position.set(p[0], 0, p[1]); g.add(b);
     const c = cyl(0.55, 0.55, 1.3, bm, 14); c.position.y = 0.65; b.add(c); const s = cyl(0.57, 0.57, 0.18, bs, 14); s.position.y = 0.9; b.add(s);
     const o = { x: p[0], z: p[1], r: 0.7, barrel: b, t: 0 }; obs.push(o); barrels.push(o); }
   // luces de obra con humo y polvo al viento (ambiente)
-  const dust = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(Array.from({ length: 900 }, (_, i) => i % 3 === 1 ? rnd(0.3, 9) : rnd(-90, 90)), 3)), new THREE.PointsMaterial({ color: 0xe8c090, size: 0.25, transparent: true, opacity: 0.5, depthWrite: false }));
+  const dust = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(Array.from({ length: 1500 }, (_, i) => i % 3 === 1 ? rnd(0.3, 9) : rnd(-140, 140)), 3)), new THREE.PointsMaterial({ color: 0xe8c090, size: 0.25, transparent: true, opacity: 0.5, depthWrite: false }));
   g.add(dust);
-  return { g, obs, ramps, barrels, dust, spots };
+  return { g, obs, ramps, barrels, dust, spots, gold };
 }
 function rampH(R, x, z) { // altura de la rampa en (x, z) y si estás encima
   const dx = x - R.x, dz = z - R.z, c = Math.cos(R.yaw), s = Math.sin(R.yaw);
@@ -308,7 +321,7 @@ export class Derby {
     const C = this.ctx; this.opts = opts; this.active = true; this.paused = false; this.over = false; this.gen = (this.gen || 0) + 1;
     this.root = new THREE.Group(); this.root.name = 'chatarreria';
     C.loadRaceZone({ id: 'derby', arena: true, race: true, title: 'La Chatarrería', subtitle: 'Arena de destrucción', seed: 9,
-      sky: { top: 0x3a3a6a, bottom: 0xf0a060, fog: 0xd89a68, fogNear: 70, fogFar: 230 }, light: { hemiSky: 0xffe0c0, hemiGround: 0x8a5a3a, sun: 0xffd0a0 },
+      sky: { top: 0x3a3a6a, bottom: 0xf0a060, fog: 0xd89a68, fogNear: 90, fogFar: 330 }, light: { hemiSky: 0xffe0c0, hemiGround: 0x8a5a3a, sun: 0xffd0a0 },
       palette: {}, start: { id: 'salida', pos: [0, 0, 0], facing: 0 }, islands: [], houses: [], trees: [], lighthouses: [], props: [], pines: [], bigTrees: [], mushrooms: [], snow: 0, airships: [] });
     C.scene.add(this.root);
     const F = this.F = buildField(this); this.root.add(F.g);
@@ -324,10 +337,12 @@ export class Derby {
     for (const c of this.cars) this._spawn(c, true);
     this.crateMat = new THREE.MeshStandardMaterial({ map: crateTex(), roughness: 0.7, emissive: 0x332200, emissiveIntensity: 0.3 });
     for (let k = 0; k < this.F.spots.length; k++) this._crate(k);
+    this.golds = []; this.goldMat = new THREE.MeshStandardMaterial({ map: crateTex(), color: 0xffd860, roughness: 0.35, metalness: 0.7, emissive: 0xc08000, emissiveIntensity: 0.55 });
+    for (let k = 0; k < this.F.gold.length; k++) this._goldCrate(k);
     this._pairT = {}; this.clock = 0; this.left = opts.endless ? 1e9 : opts.time || ROUND; this.camPos = null; this.phase = 'count'; this.st = 0;
     this.remotes = new Map();
     if (this.net) { this.net.onEvent((from, ev) => { try { this._onNet(from, ev); } catch (e) { console.warn('red', e); } }); }
-    this._hud(true); C.music.play('arena', { fade: 1.2 });
+    this._hud(true); C.music.play('chatarra', { fade: 1.2 });
     try { if (C.renderer) C.renderer.compile(C.scene, C.camera); } catch (e) {}
   }
   _addBot(id, d, k) {
@@ -343,7 +358,7 @@ export class Derby {
       if (near > bd) { bd = near; best = [x, z]; } }
     if (!best) best = [0, 0];
     c.x = best[0]; c.z = best[1]; c.y = 0; c.vy = 0; c.yaw = Math.atan2(-c.x, -c.z) + rnd(-0.6, 0.6); c.vx = c.vz = 0;
-    c.hp = c.V.hp; c.dead = 0; c.inv = first ? 0 : 2.5; c.lost = 0; c.item = null; c.n = 0; c.fireT = 0; c.burst = 0; c.shieldT = 0; c.boostT = 0; c.lastBy = null;
+    c.hp = c.V.hp; c.dead = 0; c.inv = first ? 0 : 2.5; c.lost = 0; c.item = null; c.n = 0; c.fireT = 0; c.burst = 0; c.shieldT = 0; c.boostT = 0; c.lastBy = null; c.mgT = 0; c.rageT = 0; c.ringT = 0; c.slam = false;
     c.root.visible = true; c.shadow.visible = true; this._restore(c);
   }
   _restore(c) { // vuelve a ponerle todas sus piezas
@@ -360,6 +375,40 @@ export class Derby {
     this.crates.push({ m, i, x: p[0], z: p[1], t: 0, ph: i * 1.7 });
   }
 
+  _goldCrate(i) { // caja dorada: el poder especial del vehículo que la toque
+    if (this.golds.some(c => c.i === i)) return; const p = this.F.gold[i]; if (!p) return;
+    const m = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.8, 1.8), this.goldMat); m.castShadow = true; this.root.add(m);
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 30, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0xffd040, transparent: true, opacity: 0.16, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); beam.position.y = 14; m.add(beam);
+    const halo = new THREE.Mesh(new THREE.RingGeometry(1.6, 2.2, 28), new THREE.MeshBasicMaterial({ color: 0xffe070, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide })); halo.rotation.x = -Math.PI / 2; halo.position.y = -1.15; m.add(halo);
+    this.golds.push({ m, i, x: p[0], z: p[1], ph: i * 2.3, beam });
+  }
+  // ---------- poderes especiales ----------
+  _special(c) {
+    const id = c.V.id, A = this.ctx.audio, SP = SPECIALS[id];
+    if (c.you) { this._flash(`★ ${SP.name}`, '#ffd27a'); A.play('unlock'); this.ctx.input.rumble(260, 0.8); }
+    if (this.net && !c.remote) this.net.event({ t: 'sp', ep: this.ep, o: c.id });
+    this._specialFx(c, false);
+  }
+  _specialFx(c, remote) { // remote: solo se ve (el daño lo cuenta el dueño)
+    const id = c.V.id;
+    if (id === 'chatarra') { c.mgT = 4; c.mgFire = 0; }
+    else if (id === 'monstruo') { if (!remote) { c.vy = 17; c.air = true; c.slam = true; } else this._shock(c, 9, 0); }
+    else if (id === 'ariete') { c.rageT = 5; if (!remote) c.boostT = 5; }
+    else if (id === 'pincho') { if (!remote) for (let k = 0; k < 4; k++) setTimeout(() => { if (this.active && !c.dead) this._fire(c, 'misil'); }, k * 160); }
+    else if (id === 'excavadora') this._shock(c, 13, remote ? 0 : 38);
+    else if (id === 'cisterna') { c.ringT = 4; }
+    else if (id === 'tanque') { if (!remote) for (let k = 0; k < 5; k++) setTimeout(() => { if (!this.active || c.dead) return; const y0 = c.yaw; c.yaw += (k - 2) * 0.17; this._fire(c, 'cohete'); c.yaw = y0; const S = this.shots[this.shots.length - 1]; if (S) { S.dmg = 22; S.speed = 85; } }, k * 120); }
+  }
+  _shock(c, r, dmg) { // onda expansiva: anillo de polvo que crece y empuja
+    const ring = this._ringG || (this._ringG = new THREE.TorusGeometry(1, 0.18, 6, 40).rotateX(Math.PI / 2));
+    this._p(ring, 0xffd8a0, { x: c.x, y: c.y + 0.4, z: c.z, life: 0.6, s0: 1, s1: r, a: 0.9, add: true });
+    this._p(ring, 0xc89060, { x: c.x, y: c.y + 0.2, z: c.z, life: 0.9, s0: 1, s1: r * 1.1, a: 0.6 });
+    this._dust(c.x, c.z, 24); this.shake = Math.max(this.shake || 0, this._near(c) ? 0.8 : 0); if (this._near(c)) this.ctx.audio.play('slam');
+    if (!dmg) return;
+    for (const o of this.cars) { if (o === c || o.dead) continue; const dx = o.x - c.x, dz = o.z - c.z, d = Math.hypot(dx, dz); if (d > r) continue;
+      const f = 1 - d / r * 0.5; this._damage(o, dmg * f, c, 'especial'); if (!o.remote && !o.V.tracks) { o.vy = 9 * f; o.air = true; o.vx += dx / (d || 1) * 14 * f; o.vz += dz / (d || 1) * 14 * f; } }
+    for (const o of this.F.barrels) if (!(o.t > 0) && Math.hypot(o.x - c.x, o.z - c.z) < r) this._barrelBoom(o, c);
+  }
   // ---------- un paso ----------
   update(dt) {
     if (!this.active) return;
@@ -418,7 +467,7 @@ export class Derby {
     c.x += c.vx * dt; c.z += c.vz * dt;
     // altura: rampas y saltos
     let gh = 0; for (const R of this.F.ramps) { const h = rampH(R, c.x, c.z); if (h > gh) gh = h; }
-    if (c.air) { c.vy -= 30 * dt; c.y += c.vy * dt; if (c.y <= gh) { const hard = -c.vy; c.y = gh; c.air = false; c.vy = 0; c.bump = clamp(hard / 14, 0, 1); if (hard > 6) { this._dust(c.x, c.z, 10); if (this._near(c)) this.ctx.audio.play('land'); } } }
+    if (c.air) { c.vy -= 30 * dt; c.y += c.vy * dt; if (c.y <= gh) { const hard = -c.vy; c.y = gh; c.air = false; c.vy = 0; c.bump = clamp(hard / 14, 0, 1); if (c.slam) { c.slam = false; this._shock(c, 10, 42); } if (hard > 6) { this._dust(c.x, c.z, 10); if (this._near(c)) this.ctx.audio.play('land'); } } }
     else { const climb = (gh - c.y) / Math.max(dt, 1e-3); if (gh < c.y - 0.05) { c.air = true; c.vy = Math.max(0, c.lastClimb || 0) * (V.id === 'monstruo' ? 1.25 : 1); } else c.y = gh; c.lastClimb = climb; }
     c.fwdV = fwd; c.ctl = ctl;
   }
@@ -454,7 +503,7 @@ export class Derby {
       if (rel > 7 && (this._pairT[a.id + b.id] || 0) < this.clock) { // embestida: daña más al que recibe (quien va más rápido hacia el otro es el que embiste)
         this._pairT[a.id + b.id] = this.clock + 0.5;
         const pa = Math.max(0, avn), pb = Math.max(0, -bvn), tot = pa + pb || 1;
-        const dmgB = (rel - 5) * 2.1 * a.V.ram * (pa / tot) / Math.sqrt(mb), dmgA = (rel - 5) * 2.1 * b.V.ram * (pb / tot) / Math.sqrt(ma);
+        const dmgB = (rel - 5) * 2.1 * a.V.ram * (a.rageT > 0 ? 2.5 : 1) * (pa / tot) / Math.sqrt(mb), dmgA = (rel - 5) * 2.1 * b.V.ram * (b.rageT > 0 ? 2.5 : 1) * (pb / tot) / Math.sqrt(ma);
         if (dmgB > 2 && !b.remote) this._damage(b, dmgB, a, 'embestida'); if (dmgA > 2 && !a.remote) this._damage(a, dmgA, b, 'embestida'); // cada uno se cuenta sus propios golpes
         this._sparks((a.x + b.x) / 2, (a.y + b.y) / 2 + 1, (a.z + b.z) / 2, 14);
         if (this._near(a) || this._near(b)) { this.ctx.audio.play('hitHeavy'); if (a.you || b.you) this.ctx.input.rumble(220, 0.8); }
@@ -475,6 +524,7 @@ export class Derby {
       return;
     }
     if (c.inv > 0) return;
+    if (c.rageT > 0 && kind !== 'choque') { this._sparks(c.x, c.y + 1, c.z, 4); return; }
     if (c.shieldT > 0) { this._pop(c.x, c.y + 1.2, c.z, 0x9fe3ff, 3); if (c.you) this.ctx.audio.play('reflect'); return; }
     c.hp -= dmg; if (by && by !== c) { c.lastBy = by.id; c.lastByT = this.clock; }
     c.flashT = 0.12;
@@ -528,7 +578,8 @@ export class Derby {
     }
     if (!c.item || c.n <= 0) return;
     const id = c.item, A = this.ctx.audio;
-    if (id === 'metralla') { c.burst = 7; c.burstT = 0; }
+    if (id === 'especial') this._special(c);
+    else if (id === 'metralla') { c.burst = 7; c.burstT = 0; }
     else if (id === 'cohete') this._fire(c, 'cohete');
     else if (id === 'misil') this._fire(c, 'misil');
     else if (id === 'minas') this._fire(c, 'mina');
@@ -557,6 +608,11 @@ export class Derby {
         if (!c.remote) for (const o of this.F.barrels) if (!(o.t > 0) && Math.hypot(o.x - c.x, o.z - c.z) < 8 && Math.abs(angD(Math.atan2(o.x - c.x, o.z - c.z), c.yaw)) < 0.45) this._barrelBoom(o, c);
       }
       if (c.burnT > 0) c.burnT -= dt;
+      if (c.mgT > 0) { c.mgT -= dt; if ((c.mgFire -= dt) <= 0) { c.mgFire = 0.06; const y0 = c.yaw; c.yaw += (c.mgSide = -(c.mgSide || 0.05)); this._fire(c, 'bala'); c.yaw = y0; const S = this.shots[this.shots.length - 1]; if (S) S.dmg = 7; } }
+      if (c.rageT > 0) { c.rageT -= dt; if (Math.random() < 0.6) this._flame(c.x + rnd(-1.2, 1.2), c.y + 1, c.z + rnd(-1.2, 1.2), 0, 2, 0); }
+      if (c.ringT > 0) { c.ringT -= dt; // mar de fuego alrededor
+        for (let k = 0; k < 4; k++) { const a = rnd(0, 6.28), r = rnd(3, 7); this._flame(c.x + Math.sin(a) * r, 0.5, c.z + Math.cos(a) * r, 0, rnd(2, 5), 0); }
+        if (!c.remote) for (const o of this.cars) { if (o === c || o.dead) continue; if (Math.hypot(o.x - c.x, o.z - c.z) < 7.5) { o.burnT = 0.6; this._damage(o, 30 * dt, c, 'fuego'); } } }
     }
   }
   _fire(c, kind, spec = null) {
@@ -632,6 +688,20 @@ export class Derby {
   _barrels(dt) { for (const o of this.F.barrels) if (o.t > 0 && (o.t -= dt) <= 0) { o.t = 0; o.barrel.visible = true; o.barrel.scale.setScalar(0.01); } else if (o.barrel.scale.x < 1) o.barrel.scale.setScalar(Math.min(1, o.barrel.scale.x + dt * 2)); }
   _crates(dt) {
     const t = this.clock;
+    for (let k = this.golds.length - 1; k >= 0; k--) {
+      const B = this.golds[k]; B.m.position.set(B.x, 1.4 + Math.sin(t * 2 + B.ph) * 0.3, B.z); B.m.rotation.y = t * 1.6 + B.ph; B.beam.material.opacity = 0.12 + Math.sin(t * 3 + B.ph) * 0.05;
+      for (const c of this.cars) {
+        if (c.dead || c.remote || c.y > 3) continue;
+        if (Math.hypot(c.x - B.x, c.z - B.z) < 2.8) {
+          this.root.remove(B.m); this.golds.splice(k, 1); this._pop(B.x, 1.4, B.z, 0xffe070, 3);
+          c.item = 'especial'; c.n = 1; c.botWait = rnd(0.2, 0.8);
+          if (c.you) { this.ctx.audio.play('energy'); this._flash(`★ ${SPECIALS[c.V.id].name}`, '#ffd27a'); }
+          const gen = this.gen; setTimeout(() => { if (this.active && this.gen === gen) this._goldCrate(B.i); }, 25000);
+          if (this.net) this.net.event({ t: 'oro', ep: this.ep, i: B.i });
+          break;
+        }
+      }
+    }
     for (let k = this.crates.length - 1; k >= 0; k--) {
       const B = this.crates[k]; B.m.position.set(B.x, 1.1 + Math.sin(t * 2.2 + B.ph) * 0.2, B.z); B.m.rotation.y = t * 1.1 + B.ph;
       for (const c of this.cars) {
@@ -652,8 +722,8 @@ export class Derby {
   _bot(c, dt) {
     const tgtCar = () => { let best = null, bs = 1e9; for (const o of this.cars) { if (o === c || o.dead) continue; const d = Math.hypot(o.x - c.x, o.z - c.z) * (o.you ? 0.8 : 1) * (0.6 + o.hp / o.V.hp * 0.6); if (d < bs) { bs = d; best = o; } } return best; };
     if ((c.thinkT = (c.thinkT || 0) - dt) <= 0) { c.thinkT = 0.5 + Math.random() * 0.4; c.foe = tgtCar();
-      if (!c.item) { let bc = null, bd = 1e9; for (const B of this.crates) { const d = Math.hypot(B.x - c.x, B.z - c.z); if (d < bd) { bd = d; bc = B; } } c.goal = bc && (!c.foe || bd < Math.hypot(c.foe.x - c.x, c.foe.z - c.z) * 1.4 || bd < 25) ? { x: bc.x, z: bc.z } : null; }
-      else c.goal = null; }
+      if (!c.item || c.item !== 'especial' && Math.random() < 0.3) { let bc = null, bd = 1e9; for (const B of this.crates) { const d = Math.hypot(B.x - c.x, B.z - c.z); if (!c.item && d < bd) { bd = d; bc = B; } } for (const B of this.golds) { const d = Math.hypot(B.x - c.x, B.z - c.z) * 0.6; if (d < bd) { bd = d; bc = B; } } c.goal = bc && (!c.foe || bd < Math.hypot(c.foe.x - c.x, c.foe.z - c.z) * 1.4 || bd < 25) ? { x: bc.x, z: bc.z } : null; }
+      else if (c.item) c.goal = null; }
     const F = c.foe, ctl = { steer: 0, throttle: 1, brake: 0, drift: false, use: false };
     let tx, tz;
     if (c.goal) { tx = c.goal.x; tz = c.goal.z; } else if (F) { const lead = Math.hypot(F.x - c.x, F.z - c.z) / 60; tx = F.x + F.vx * lead; tz = F.z + F.vz * lead; } else { tx = 0; tz = 0; }
@@ -675,6 +745,7 @@ export class Derby {
       const id = c.item; let go = false;
       if (id === 'metralla') go = d < 40 && a < 0.12; else if (id === 'cohete') go = d < 50 && a < 0.1; else if (id === 'misil') go = d < 60 && a < 0.9;
       else if (id === 'bomba') go = d > 8 && d < 26 && a < 0.2; else if (id === 'fuego') go = d < 8 && a < 0.4; else if (id === 'minas') go = behind && d < 18;
+      else if (id === 'especial') go = ['pincho', 'tanque', 'chatarra'].includes(c.V.id) ? d < 45 && a < 0.25 : d < 12;
       else if (id === 'reparar') go = c.hp < c.V.hp * 0.45; else if (id === 'escudo') go = c.hp < c.V.hp * 0.6 && d < 20; else if (id === 'nitro') go = d > 25 || (a < 0.2 && d < 18);
       if (!go && Math.random() < 0.004) go = true;
       if (go) { ctl.use = true; c.botWait = rnd(0.25, 0.8); }
@@ -749,7 +820,7 @@ export class Derby {
       if (d.t > d.life) { d.m.scale.multiplyScalar(0.9); if (d.t > d.life + 0.6) { this.fx.remove(d.m); this.debris.splice(k, 1); } }
     }
     // polvo en el aire, a la deriva
-    const P = this.F.dust.geometry.attributes.position; for (let i = 0; i < P.count; i++) { let x = P.getX(i) + dt * 3, z = P.getZ(i) + dt * 1.2; if (x > 90) x -= 180; if (z > 90) z -= 180; P.setX(i, x); P.setZ(i, z); } P.needsUpdate = true;
+    const P = this.F.dust.geometry.attributes.position; for (let i = 0; i < P.count; i++) { let x = P.getX(i) + dt * 3, z = P.getZ(i) + dt * 1.2; if (x > 140) x -= 280; if (z > 140) z -= 280; P.setX(i, x); P.setZ(i, z); } P.needsUpdate = true;
   }
   _camera(dt) {
     const cam = this.ctx.camera, c = this.me;
@@ -809,6 +880,8 @@ export class Derby {
     if (ev.ep !== this.ep) return;
     const o = this.cars.find(c => c.id === (ev.o || from));
     if (ev.t === 'dshot' && o) this._fire(o, ev.k, ev);
+    else if (ev.t === 'sp' && o) this._specialFx(o, true);
+    else if (ev.t === 'oro') { const k = this.golds.findIndex(B => B.i === ev.i); if (k >= 0) { const B = this.golds[k], gen = this.gen; this.root.remove(B.m); this.golds.splice(k, 1); this._pop(B.x, 1.4, B.z, 0xffe070, 3); setTimeout(() => { if (this.active && this.gen === gen) this._goldCrate(B.i); }, 25000); } }
     else if (ev.t === 'act' && o) { if (ev.k === 'metralla') { o.burst = 7; o.burstT = 0; } }
     else if (ev.t === 'dhit') { const v = this.cars.find(c => c.id === ev.v && !c.remote), by = this.cars.find(c => c.id === ev.o); if (v) this._damage(v, Math.min(80, +ev.d || 0), by, ev.k); } // a mí o a uno de mis vehículos de la CPU
     else if (ev.t === 'ko') { const v = this.cars.find(c => c.id === ev.v), by = ev.by && this.cars.find(c => c.id === ev.by); if (by && by.you) { by.kills++; this._flash(`¡Destrozaste a ${v ? v.name : 'un rival'}!`, '#7affa0'); this.ctx.audio.play('unlock'); } if (v) this._feed(by || null, v); }
@@ -857,7 +930,7 @@ export class Derby {
     const t = Math.ceil(this.left); $('raceTime').textContent = `${Math.floor(Math.max(0, t) / 60)}:${String(Math.max(0, t) % 60).padStart(2, '0')}`;
     $('raceSpeed').innerHTML = `${Math.round(me.speed * 4)}<small> km/h</small>`;
     const key = (me.item || '') + me.n + (me.V.cannon && !me.item ? (me.canT > 0 ? 'c' + Math.ceil(me.canT) : 'cok') : '');
-    if (key !== this._itemKey) { this._itemKey = key; const W = me.item && WEAPONS[me.item]; $('raceItem').innerHTML = W ? `<span class="ic">${W.icon}</span><small>${W.name}${me.n > 1 ? ' ×' + me.n : ''}</small>` : me.V.cannon ? `<span class="ic">🎯</span><small>${me.canT > 0 ? Math.ceil(me.canT) + ' s' : 'Cañón'}</small>` : '<span class="q">?</span>'; $('raceItem').classList.toggle('has', !!W || (me.V.cannon && !(me.canT > 0))); }
+    if (key !== this._itemKey) { this._itemKey = key; const W = me.item && (me.item === 'especial' ? { ...SPECIALS[me.V.id], icon: '★' } : WEAPONS[me.item]); $('raceItem').innerHTML = W ? `<span class="ic">${W.icon}</span><small>${W.name}${me.n > 1 ? ' ×' + me.n : ''}</small>` : me.V.cannon ? `<span class="ic">🎯</span><small>${me.canT > 0 ? Math.ceil(me.canT) + ' s' : 'Cañón'}</small>` : '<span class="q">?</span>'; $('raceItem').classList.toggle('has', !!W || (me.V.cannon && !(me.canT > 0))); }
     if ((this._boardT = (this._boardT || 0) - 1) <= 0) { this._boardT = 15;
       $('raceBoard').innerHTML = sorted.slice(0, 8).map((c, k) => `<div class="${c.you ? 'me' : ''}"><b>${k + 1}</b> ${esc(c.name).slice(0, 14)} <em>💥${c.kills}</em></div>`).join(''); }
   }

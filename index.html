@@ -510,6 +510,15 @@
   body.touch #raceItem { right: auto; left: 50%; transform: translateX(-50%); top: 48px; width: 58px; height: 58px; } body.touch #raceItem span { font-size: 24px; }
   body.touch #raceTip { top: 112px; }
   .raceSoon { opacity: .6; font-size: 13px; margin: 4px 0 10px; }
+  /* botones de carrera y arena como pedales semitransparentes */
+  .rtb { border-radius: 16px 16px 26px 26px !important; border: 2px solid rgba(255,255,255,.55) !important; flex-direction: column; justify-content: flex-end !important; padding-bottom: 10px; box-sizing: border-box;
+    background-image: repeating-linear-gradient(180deg, rgba(255,255,255,.22) 0 5px, transparent 5px 14px), linear-gradient(180deg, rgba(255,255,255,.18), rgba(0,0,0,.25)) !important;
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.35), 0 6px 0 rgba(0,0,0,.35); transform: perspective(300px) rotateX(16deg); transform-origin: 50% 100%; backdrop-filter: blur(2px); letter-spacing: .5px; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+  .rtb.on { transform: perspective(300px) rotateX(34deg) translateY(4px) !important; filter: brightness(1.35); box-shadow: inset 0 2px 0 rgba(255,255,255,.35), 0 2px 0 rgba(0,0,0,.35); }
+  #rtDrift { right: calc(24px + env(safe-area-inset-right)); bottom: 22px; width: 96px !important; height: 138px !important; font-size: 13px !important; background-color: rgba(60,140,255,.42) !important; }
+  #rtBrake { right: calc(132px + env(safe-area-inset-right)); bottom: 22px; width: 82px !important; height: 112px !important; font-size: 13px !important; background-color: rgba(255,80,70,.4) !important; }
+  #rtUse { right: calc(226px + env(safe-area-inset-right)) !important; bottom: 22px !important; width: 80px !important; height: 92px !important; font-size: 13px !important; background-color: rgba(255,200,58,.42) !important; border-radius: 18px !important; }
+
   /* ---------- Taller ---------- */
   .tallWrap { display: flex; gap: 16px; width: min(1100px, 96vw); align-items: stretch; }
   .tallStage { position: relative; flex: 1.15; height: min(420px, 60vh); align-self: flex-start; border-radius: 20px; background: radial-gradient(ellipse at 50% 70%, rgba(150,110,255,.35), rgba(20,16,50,.6) 70%); border: 2px solid rgba(255,255,255,.12); overflow: hidden; }
@@ -659,61 +668,61 @@
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-  "./js/arena.js": "./js/arena.js?v=2611270201",
-  "./js/audio.js": "./js/audio.js?v=2611270201",
-  "./js/autonav.js": "./js/autonav.js?v=2611270201",
-  "./js/camera.js": "./js/camera.js?v=2611270201",
-  "./js/characters.js": "./js/characters.js?v=2611270201",
-  "./js/combat.js": "./js/combat.js?v=2611270201",
-  "./js/credits.js": "./js/credits.js?v=2611270201",
-  "./js/derby.js": "./js/derby.js?v=2611270201",
-  "./js/endless.js": "./js/endless.js?v=2611270201",
-  "./js/fx.js": "./js/fx.js?v=2611270201",
-  "./js/garage.js": "./js/garage.js?v=2611270201",
-  "./js/gear.js": "./js/gear.js?v=2611270201",
-  "./js/glbload.js": "./js/glbload.js?v=2611270201",
-  "./js/hazards.js": "./js/hazards.js?v=2611270201",
-  "./js/hd.js": "./js/hd.js?v=2611270201",
-  "./js/heroes.js": "./js/heroes.js?v=2611270201",
-  "./js/icons.js": "./js/icons.js?v=2611270201",
-  "./js/input.js": "./js/input.js?v=2611270201",
-  "./js/intro.js": "./js/intro.js?v=2611270201",
-  "./js/logros.js": "./js/logros.js?v=2611270201",
-  "./js/main.js": "./js/main.js?v=2611270201",
-  "./js/music.js": "./js/music.js?v=2611270201",
-  "./js/net.js": "./js/net.js?v=2611270201",
-  "./js/physics.js": "./js/physics.js?v=2611270201",
-  "./js/piezas.js": "./js/piezas.js?v=2611270201",
-  "./js/player.js": "./js/player.js?v=2611270201",
-  "./js/powers.js": "./js/powers.js?v=2611270201",
-  "./js/props.js": "./js/props.js?v=2611270201",
-  "./js/race.js": "./js/race.js?v=2611270201",
-  "./js/racehaz.js": "./js/racehaz.js?v=2611270201",
-  "./js/raceitems.js": "./js/raceitems.js?v=2611270201",
-  "./js/reef.js": "./js/reef.js?v=2611270201",
-  "./js/report.js": "./js/report.js?v=2611270201",
-  "./js/rig.js": "./js/rig.js?v=2611270201",
-  "./js/save.js": "./js/save.js?v=2611270201",
-  "./js/sea.js": "./js/sea.js?v=2611270201",
-  "./js/seafoes.js": "./js/seafoes.js?v=2611270201",
-  "./js/showroom.js": "./js/showroom.js?v=2611270201",
-  "./js/songs.js": "./js/songs.js?v=2611270201",
-  "./js/traps.js": "./js/traps.js?v=2611270201",
-  "./js/vfx.js": "./js/vfx.js?v=2611270201",
-  "./js/world.js": "./js/world.js?v=2611270201",
-  "./js/worldnet.js": "./js/worldnet.js?v=2611270201",
-  "./js/zones/abismo_mareth.js": "./js/zones/abismo_mareth.js?v=2611270201",
-  "./js/zones/bosque_colgante.js": "./js/zones/bosque_colgante.js?v=2611270201",
-  "./js/zones/ciudad_engranajes.js": "./js/zones/ciudad_engranajes.js?v=2611270201",
-  "./js/zones/ciudadela_orden.js": "./js/zones/ciudadela_orden.js?v=2611270201",
-  "./js/zones/desafios.js": "./js/zones/desafios.js?v=2611270201",
-  "./js/zones/eco_olvidado.js": "./js/zones/eco_olvidado.js?v=2611270201",
-  "./js/zones/forja_ignis.js": "./js/zones/forja_ignis.js?v=2611270201",
-  "./js/zones/glaciar_eco.js": "./js/zones/glaciar_eco.js?v=2611270201",
-  "./js/zones/puerto_bruma.js": "./js/zones/puerto_bruma.js?v=2611270201",
-  "./js/zones/routegen.js": "./js/zones/routegen.js?v=2611270201",
-  "./js/zones/ruinas_vidrio.js": "./js/zones/ruinas_vidrio.js?v=2611270201",
-  "./js/zones/senderos.js": "./js/zones/senderos.js?v=2611270201"
+  "./js/arena.js": "./js/arena.js?v=2611270225",
+  "./js/audio.js": "./js/audio.js?v=2611270225",
+  "./js/autonav.js": "./js/autonav.js?v=2611270225",
+  "./js/camera.js": "./js/camera.js?v=2611270225",
+  "./js/characters.js": "./js/characters.js?v=2611270225",
+  "./js/combat.js": "./js/combat.js?v=2611270225",
+  "./js/credits.js": "./js/credits.js?v=2611270225",
+  "./js/derby.js": "./js/derby.js?v=2611270225",
+  "./js/endless.js": "./js/endless.js?v=2611270225",
+  "./js/fx.js": "./js/fx.js?v=2611270225",
+  "./js/garage.js": "./js/garage.js?v=2611270225",
+  "./js/gear.js": "./js/gear.js?v=2611270225",
+  "./js/glbload.js": "./js/glbload.js?v=2611270225",
+  "./js/hazards.js": "./js/hazards.js?v=2611270225",
+  "./js/hd.js": "./js/hd.js?v=2611270225",
+  "./js/heroes.js": "./js/heroes.js?v=2611270225",
+  "./js/icons.js": "./js/icons.js?v=2611270225",
+  "./js/input.js": "./js/input.js?v=2611270225",
+  "./js/intro.js": "./js/intro.js?v=2611270225",
+  "./js/logros.js": "./js/logros.js?v=2611270225",
+  "./js/main.js": "./js/main.js?v=2611270225",
+  "./js/music.js": "./js/music.js?v=2611270225",
+  "./js/net.js": "./js/net.js?v=2611270225",
+  "./js/physics.js": "./js/physics.js?v=2611270225",
+  "./js/piezas.js": "./js/piezas.js?v=2611270225",
+  "./js/player.js": "./js/player.js?v=2611270225",
+  "./js/powers.js": "./js/powers.js?v=2611270225",
+  "./js/props.js": "./js/props.js?v=2611270225",
+  "./js/race.js": "./js/race.js?v=2611270225",
+  "./js/racehaz.js": "./js/racehaz.js?v=2611270225",
+  "./js/raceitems.js": "./js/raceitems.js?v=2611270225",
+  "./js/reef.js": "./js/reef.js?v=2611270225",
+  "./js/report.js": "./js/report.js?v=2611270225",
+  "./js/rig.js": "./js/rig.js?v=2611270225",
+  "./js/save.js": "./js/save.js?v=2611270225",
+  "./js/sea.js": "./js/sea.js?v=2611270225",
+  "./js/seafoes.js": "./js/seafoes.js?v=2611270225",
+  "./js/showroom.js": "./js/showroom.js?v=2611270225",
+  "./js/songs.js": "./js/songs.js?v=2611270225",
+  "./js/traps.js": "./js/traps.js?v=2611270225",
+  "./js/vfx.js": "./js/vfx.js?v=2611270225",
+  "./js/world.js": "./js/world.js?v=2611270225",
+  "./js/worldnet.js": "./js/worldnet.js?v=2611270225",
+  "./js/zones/abismo_mareth.js": "./js/zones/abismo_mareth.js?v=2611270225",
+  "./js/zones/bosque_colgante.js": "./js/zones/bosque_colgante.js?v=2611270225",
+  "./js/zones/ciudad_engranajes.js": "./js/zones/ciudad_engranajes.js?v=2611270225",
+  "./js/zones/ciudadela_orden.js": "./js/zones/ciudadela_orden.js?v=2611270225",
+  "./js/zones/desafios.js": "./js/zones/desafios.js?v=2611270225",
+  "./js/zones/eco_olvidado.js": "./js/zones/eco_olvidado.js?v=2611270225",
+  "./js/zones/forja_ignis.js": "./js/zones/forja_ignis.js?v=2611270225",
+  "./js/zones/glaciar_eco.js": "./js/zones/glaciar_eco.js?v=2611270225",
+  "./js/zones/puerto_bruma.js": "./js/zones/puerto_bruma.js?v=2611270225",
+  "./js/zones/routegen.js": "./js/zones/routegen.js?v=2611270225",
+  "./js/zones/ruinas_vidrio.js": "./js/zones/ruinas_vidrio.js?v=2611270225",
+  "./js/zones/senderos.js": "./js/zones/senderos.js?v=2611270225"
 } }
 </script>
 </head>
@@ -757,7 +766,7 @@
   <div id="raceWrong"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="29" fill="#e8303a" stroke="#fff" stroke-width="4"/><rect x="13" y="27" width="38" height="10" rx="3" fill="#fff"/></svg><b>¡Contramano!</b><small>Date la vuelta</small></div>
   <div id="raceSpeed">0<small> km/h</small></div>
   <div id="racePlace">1<small>.º</small></div>
-  <div class="rtb" id="rtDrift">DERRAPE<br>↯</div>
+  <div class="rtb" id="rtDrift">↯<br>DERRAPE</div>
   <div class="rtb" id="rtBrake">FRENO</div>
   <div id="raceItem"><span class="q">?</span></div><div class="rtb" id="rtUse">USAR</div>
   <div id="racePause" class="hidden"><h2>Carrera en pausa</h2><button class="btn" id="bRaceResume"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16l13-8z" fill="currentColor"/></svg> Seguir</button><button class="btn alt" id="bRaceRestart"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 21v-5h5"/></svg> Repetir carrera</button><button class="btn alt" id="bRaceTrack2"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V4"/><path d="M4 4h13l-2 4 2 4H4"/></svg> Cambiar pista</button><button class="btn alt" id="bRaceMenu2"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg> Menú principal</button><button class="btn alt" id="bRaceReport"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/><path d="M10 7v2.5M10 11.5h.01"/></svg> Reportar un problema</button><button class="btn warn" id="bRaceLeave"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h4v16h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg> Salir de la carrera</button></div>
@@ -1081,6 +1090,6 @@
   </div>
 </div>
 
-<script type="module" src="js/main.js?v=2611270201"></script>
+<script type="module" src="js/main.js?v=2611270225"></script>
 </body>
 </html>

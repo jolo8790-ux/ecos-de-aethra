@@ -7,7 +7,7 @@ const FILE_SONGS = { title: { url: 'assets/intro/tema.mp3', vol: 0.6 } };
 // banda sonora orquestal grabada (generada con Artlist): sustituye a las canciones sintetizadas que tienen versión
 {
   const M = n => ({ url: `assets/music/${n}.mp3`, vol: 0.55 });
-  for (const n of ['puerto', 'bosque', 'ruinas', 'ciudad', 'glaciar', 'ciudadela', 'mareth', 'forja', 'eco', 'boss', 'vaelor', 'finale', 'arena', 'infinito', 'desafio', 'creditos']) FILE_SONGS[n] = M(n);
+  for (const n of ['puerto', 'bosque', 'ruinas', 'ciudad', 'glaciar', 'ciudadela', 'mareth', 'forja', 'eco', 'boss', 'vaelor', 'finale', 'arena', 'infinito', 'desafio', 'creditos', 'chatarra']) FILE_SONGS[n] = M(n);
   for (const n of ['boss_raiz', 'boss_escorpion', 'boss_coloso', 'boss_sierpe', 'boss_eco']) FILE_SONGS[n] = M('boss');
   FILE_SONGS.desafio_noche = M('desafio');
 }
