@@ -43,7 +43,9 @@ export class Showroom {
   // muestra un kart (se rehace solo si cambió el kart o la pintura); trail: color de la estela o 'rainbow'
   // opts: { locked: silueta oscura, lib + look + lookKey: piloto sentado }
   show(kartId, paint, trail, opts = {}) {
-    const key = kartId + ':' + paint + ':' + !!opts.locked + ':' + (opts.lookKey || '') + ':' + !!opts.lib;
+    const key = kartId + ':' + paint + ':' + !!opts.locked + ':' + (opts.lookKey || '') + ':' + !!opts.lib + ':' + !!opts.loading;
+    this.waiting = !!opts.loading; this._loadUI(!!opts.loading);
+    if (opts.loading) { if (this.kart) { this.holder.remove(this.kart); this.kart = null; } this.key = key; return; } // mientras llega el modelo: una rueda de carga, nunca el kart de reserva
     if (key !== this.key) {
       this.key = key;
       if (this.kart) this.holder.remove(this.kart);
@@ -56,6 +58,10 @@ export class Showroom {
     this.locked = !!opts.locked;
     this.trail = trail;
     if (trail !== 'rainbow') this.flameMat.color.setHex(trail);
+  }
+  _loadUI(on) {
+    if (!this.loadEl) { const p = this.canvas.parentElement; if (!p) return; const el = this.loadEl = document.createElement('div'); el.className = 'kartLoading'; el.innerHTML = '<i></i><span>Cargando kart…</span>'; p.appendChild(el); }
+    this.loadEl.style.display = on ? '' : 'none';
   }
   celebrate() { this.burst = 1.2; this.spin = 1; }
   start() {

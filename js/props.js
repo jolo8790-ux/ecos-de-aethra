@@ -46,6 +46,8 @@ function prepare(root) {
 export const hasProp = id => !!cache[id];
 // modelos que se cargan solo cuando hacen falta (p. ej. los karts, al entrar a Carreras)
 const pending = {};
+// en fila (uno detrás de otro): en el teléfono, abrir muchos modelos a la vez se come la memoria y lo traba
+export async function loadPropSeq(ids, onEach) { for (const id of ids) { await loadPropIds([id]); onEach && onEach(id); } }
 export function loadPropIds(ids) {
   const loader = new GLTFLoader();
   return Promise.all(ids.map(id => cache[id] ? null : (pending[id] = pending[id] || (async () => {

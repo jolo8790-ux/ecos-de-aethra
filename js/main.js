@@ -17,7 +17,7 @@ import { loadProps } from './props.js';
 import { Race, TRACKS, RACE_LAPS, driverLook } from './race.js';
 import { Derby, VEHICLES, UPGRADES, DPAINTS, derbyGarage, upOf, loadVehicleModels, vehicleOk } from './derby.js';
 import { KARTS, STATS, UP_COST, PAINTS, TRAILS, PARTS, DRIVERS, RETOS, retoOk, newUnlocks, garageOf, kartById, kartPoints } from './garage.js';
-import { loadPropIds } from './props.js';
+import { loadPropIds, loadPropSeq, hasProp } from './props.js';
 import { Showroom } from './showroom.js';
 import { newSave, loadSave, peekSave, getSlot, setSlot, SLOTS, freeSlot, listSaves, writeSlot, deleteSave, writeSave as writeSaveRaw, loadSettings, writeSettings, exportCode, importCode } from './save.js';
 import puertoBruma from './zones/puerto_bruma.js';
@@ -3326,7 +3326,9 @@ async function startDerby() {
 }
 const KART_MODELS = KARTS.map(k => k.model);
 let kartsLoading = null;
-const loadKarts = () => kartsLoading || (kartsLoading = loadPropIds(KART_MODELS));
+// los karts se cargan de a uno en segundo plano; el que necesitas ya (el tuyo, el que miras en el taller) pasa primero
+const loadKarts = () => kartsLoading || (kartsLoading = loadPropSeq(KART_MODELS, () => { if (!$('taller').classList.contains('hidden') && showroom && showroom.waiting) { showroom.key = ''; buildTaller(); } }));
+const loadKartNow = id => loadPropIds([kartById(id).model, 'kart']);
 // ---------- Taller de karts ----------
 const tallUI = { tab: 'karts', from: 'raceMenu', view: null };
 let showroom = null;
@@ -3335,7 +3337,7 @@ function openTaller(from = 'raceMenu') {
   $(from).classList.add('hidden'); $('taller').classList.remove('hidden');
   if (!showroom) { try { showroom = new Showroom($('tallCanvas')); } catch (e) { console.warn('vitrina', e); } }
   buildTaller(); if (showroom) showroom.start();
-  loadKarts().then(() => { if (!$('taller').classList.contains('hidden')) { if (showroom) showroom.key = ''; buildTaller(); } });
+  loadKarts();
 }
 const colorOf = list => id => { const it = list.find(x => x.id === id) || list[0]; return it.color; };
 const driverOk = (sv, D) => D.lock ? retoOk(sv, D.lock) : D.hero ? heroUnlocked(HEROES.find(h => h.id === D.id) || {}, pieceCount(sv)) : true;
@@ -3351,8 +3353,10 @@ function buildTaller() {
   // piloto en la vitrina: el elegido (o el que se está mirando en la pestaña Pilotos)
   const dId = tallUI.tab === 'pilotos' && tallUI.driverView ? tallUI.driverView : (G.driver || 'hero');
   const D = DRIVERS.find(d => d.id === dId) || DRIVERS[0];
+  const ready = hasProp(V.model);
+  if (!ready) loadKartNow(V.id).then(() => { if (!$('taller').classList.contains('hidden') && showroom) { showroom.key = ''; buildTaller(); } });
   if (showroom) showroom.show(V.id, mine ? colorOf(PAINTS)(G.paint) : null, mine ? colorOf(TRAILS)(G.trail) : 0xffa040,
-    { locked: secretLocked, lib: charLib, look: driverLook(sv, D.id), lookKey: D.id, lockedDriver: !driverOk(sv, D) });
+    { loading: !ready, locked: secretLocked, lib: charLib, look: driverLook(sv, D.id), lookKey: D.id, lockedDriver: !driverOk(sv, D) });
   const tabs = [['karts', '🏎', 'Karts'], ['mejoras', '⚙', 'Mejoras'], ['piezas', '🛞', 'Piezas'], ['pintura', '🎨', 'Pintura'], ['estela', '🔥', 'Estela'], ['pilotos', '🧑‍✈️', 'Pilotos']];
   $('tallTabs').innerHTML = tabs.map(([id, ic, n]) => `<button class="${tallUI.tab === id ? 'sel' : ''}" data-t="${id}"><b>${ic}</b><small>${n}</small></button>`).join('');
   $('tallTabs').querySelectorAll('button').forEach(b => b.onclick = () => { tallUI.tab = b.dataset.t; tallUI.driverView = null; audio.play('uiMove'); buildTaller(); });
@@ -3458,7 +3462,7 @@ $('bRaceGo').onclick = async () => {
   let cup = null;
   if (raceUI.mode === 'copa') cup = newCup(CUPS.find(c => c.id === raceUI.cupId) || CUPS[0]);
   if (raceUI.mode === 'torneo') { if (!TOR.ev) { toast('El torneo todavía no cargó'); return; } cup = newCup(CUPS.find(c => c.id === TOR.ev.cup) || CUPS[0], TOR.ev); }
-  $('bRaceGo').textContent = 'Cargando karts…'; await loadKarts(); $('bRaceGo').textContent = '¡A correr!';
+  $('bRaceGo').textContent = 'Cargando karts…'; await loadKartNow(garageOf(save).kart); loadKarts(); $('bRaceGo').textContent = '¡A correr!';
   if (state === 'pause') writeSave(save);
   $('raceMenu').classList.add('hidden'); showOverlay(null);
   if (dialog) closeDialog(false);
@@ -3542,7 +3546,7 @@ async function lobbyGo(from, ev) {
   if (from !== lobbyHostId() && from !== N.me) return; // solo el anfitrión da la salida
   if (!Array.isArray(ev.g) || !ev.g.some(g => g.id === N.me)) { lobbyChat('', 'La carrera empezó sin ti (la sala estaba llena). Espera la próxima.', true); return; }
   if (!TRACKS[ev.tr]) return;
-  clearInterval(lobby.timer); await loadKarts();
+  clearInterval(lobby.timer); await loadKartNow(garageOf(save).kart); loadKarts();
   $('raceLobby').classList.add('hidden'); showOverlay(null);
   if (dialog) closeDialog(false);
   if (endless.active) { if (endless.inZone) stopEndlessInZone(true); else stopEndless(); }

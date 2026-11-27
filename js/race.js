@@ -1015,7 +1015,7 @@ export class Race {
         return R;
       });
     }
-    const others = KARTS.filter(k => k.id !== G.kart && !k.secret); // cada rival en un kart distinto (y distinto del tuyo)
+    const others0 = KARTS.filter(k => k.id !== G.kart && !k.secret), loaded = others0.filter(k => hasProp(k.model)), others = loaded.length >= 3 ? loaded : others0; // cada rival en un kart distinto (y de los modelos que ya están cargados)
     const cupR = opts.cup && opts.cup.roster;
     if (duel) { // misión: uno contra uno contra un villano con uno de los mejores karts
       const D = DRIVERS.find(d => d.id === duel.villain), V = new Racer(this, { id: 'villano', name: D.name, color: COLORS[1], kartId: duel.kart, paint: duel.paint ?? null, trail: duel.trail || 'fuego', look: driverLook(sv, duel.villain), skill: level * duel.skill, lane: 0.3 });
