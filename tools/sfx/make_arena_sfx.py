@@ -148,3 +148,62 @@ rise = sat(rise * env(d, 0.6, 0.35) * 0.7, 2.0)
 hit = sine_sweep(150, 60, 0.4, 10) * env(0.4, 0.001, 0.1)
 shine = bp(noise(d), 4000, 9000) * env(d, 0.7, 0.3) * 0.2
 save('especial', maxd=1.8, x=reverb(mix(rise, pad(np.zeros(int(SR * 0.62)), 0), np.concatenate([np.zeros(int(SR * 0.62)), hit])[:int(SR * d)], shine), 1.0, 0.3, 6000))
+
+# ================= calibres por vehículo y sonidos extra =================
+def gun(seed, low=110, bright=2600, body_dec=0.022, thump=0.9, tail=0.09, click=2800, wet=0.18):
+    r = np.random.default_rng(seed); d = 0.5
+    crack = hp(noise(0.006), 2500) * env(0.006, 0.0003, 0.002)
+    body = bp(noise(0.14), 160, bright) * env(0.14, 0.0008, body_dec)
+    th = sine_sweep(low + r.uniform(-8, 8), low * 0.42, 0.14, 30) * env(0.14, 0.001, 0.035 * (110 / low) ** 0.5) * thump
+    ck = np.sin(2 * np.pi * (click + r.uniform(-250, 250)) * t(0.008)) * env(0.008, 0.0002, 0.0025) * 0.25
+    tl = lp(noise(d), 1400) * env(d, 0.003, tail) * 0.35
+    return reverb(sat(mix(pad(crack, d) * 0.9, pad(body, d), pad(th, d), pad(ck, d), tl) * 1.6, 2.5), 0.6, wet, 3000)
+# fusil ligero (tipo ametralladora de escuadra): seco, agudo, rápido
+for i in range(3): save(f'ligero{i + 1}', gun(30 + i, low=150, bright=4200, body_dec=0.016, thump=0.55, tail=0.06, click=3400), maxd=0.4)
+# pesada (calibre .50): grave y con cola
+for i in range(3): save(f'pesado{i + 1}', gun(40 + i, low=85, bright=2000, body_dec=0.03, thump=1.25, tail=0.13, click=2200, wet=0.24), maxd=0.6)
+# autocañón: golpe muy grave, eco largo
+for i in range(2): save(f'autocanon{i + 1}', gun(50 + i, low=62, bright=1600, body_dec=0.05, thump=1.6, tail=0.2, click=1600, wet=0.32), maxd=0.9)
+
+# disparo de plasma, doble ráfaga (el Escorpión)
+def zap(f0=1900, f1=260, d=0.16):
+    tt = t(d); f = f1 + (f0 - f1) * np.exp(-tt * 28); ph = np.cumsum(f) / SR
+    x = np.sin(2 * np.pi * ph + 2.2 * np.sin(2 * np.pi * ph * 2.01)) * env(d, 0.001, 0.05)
+    return x + bp(noise(d), 2000, 7000) * env(d, 0.0005, 0.015) * 0.4
+for i in range(2):
+    d = 0.42; a = zap(1900 + i * 150); b = zap(1750 + i * 150)
+    x = np.zeros(int(SR * d)); x[:len(a)] += a; o = int(SR * 0.085); x[o:o + len(b)] += b * 0.9
+    save(f'plasma{i + 1}', reverb(sat(x * 1.3, 1.8), 0.5, 0.2, 6000), maxd=0.6)
+
+# caja que se rompe: crujido de madera, golpe y astillas
+def crate(seed):
+    r = np.random.default_rng(seed); d = 0.8
+    knock = sine_sweep(220, 120, 0.12, 25) * env(0.12, 0.001, 0.03)
+    snap = np.zeros(int(SR * d))
+    for k in range(5):
+        p = int(SR * (0.004 + k * r.uniform(0.008, 0.02))); g = bp(noise(0.05), 700, 3800) * env(0.05, 0.0005, 0.012) * r.uniform(0.5, 1); snap[p:p + len(g)] += g
+    spl = np.zeros(int(SR * d))
+    for _ in range(26):
+        p = int(SR * r.uniform(0.05, 0.55)); g = bp(noise(0.02), 1800, 6500) * env(0.02, 0.0002, 0.005) * r.uniform(0.04, 0.2); spl[p:p + len(g)] += g[:len(spl) - p]
+    thud = lp(noise(0.25), 500) * env(0.25, 0.002, 0.05) * 0.6
+    return reverb(sat(mix(pad(knock, d), snap, spl, pad(thud, d)) * 1.5, 2), 0.5, 0.15, 4000)
+save('caja1', crate(61), maxd=0.7); save('caja2', crate(62), maxd=0.7)
+
+# caja dorada: silbido que pasa rapidísimo y chirría (como una nave), y destello
+d = 1.2; hiss = noise(d); wz = np.zeros(int(SR * d)); B = 1024
+for i in range(0, len(wz), B):
+    q = i / len(wz); f = 600 + 7000 * q ** 1.6; wz[i:i + B] = bp(hiss[max(0, i - 256):i + B], f * 0.7, min(f * 1.4, 20000))[-len(hiss[i:i + B]):]
+wz *= np.sin(np.pi * np.minimum(1, t(d) / d)) ** 1.5
+scr = np.sin(2 * np.pi * np.cumsum(900 + 2600 * (t(d) / d) ** 2) / SR) * env(d, 0.5, 0.25) * 0.25
+save('dorada', reverb(sat(mix(wz, scr) * 1.4, 1.6), 0.7, 0.2, 7000), maxd=1.4)
+
+# nitro: encendido de propulsor
+d = 1.4; ign = bp(noise(0.08), 200, 3000) * env(0.08, 0.001, 0.02)
+roar = sweep_lp(noise(d), 600, 2600, 0.5) * env(d, 0.05, 0.5) + lp(noise(d), 200) * env(d, 0.05, 0.6) * 0.8
+save('nitro', reverb(sat(mix(pad(ign, d), roar) * 1.4, 2), 0.6, 0.2, 5000), maxd=1.4)
+
+# bomba lanzada: zumbido de bola de fuego
+d = 0.9; fb = noise(d); wh = np.zeros(int(SR * d))
+for i in range(0, len(wh), B):
+    q = i / len(wh); f = 300 + 1500 * np.sin(np.pi * q); wh[i:i + B] = bp(fb[max(0, i - 256):i + B], f * 0.6, f * 1.6)[-len(fb[i:i + B]):]
+save('lanzar', reverb(sat(wh * np.sin(np.pi * t(d) / d) * 1.3, 1.6), 0.5, 0.15, 4000), maxd=1.0)

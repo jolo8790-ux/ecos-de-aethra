@@ -393,7 +393,7 @@ export class Derby {
     const id = c.V.id;
     if (id === 'chatarra') { c.mgT = 4; c.mgFire = 0; }
     else if (id === 'monstruo') { if (!remote) { c.vy = 17; c.air = true; c.slam = true; } else this._shock(c, 9, 0); }
-    else if (id === 'ariete') { c.rageT = 5; if (!remote) c.boostT = 5; }
+    else if (id === 'ariete') { c.rageT = 5; if (!remote) c.boostT = 5; this._sfx('nitro', c.x, c.z, 0.9, null, { rate: 0.85 }); }
     else if (id === 'pincho') { if (!remote) for (let k = 0; k < 4; k++) setTimeout(() => { if (this.active && !c.dead) this._fire(c, 'misil'); }, k * 160); }
     else if (id === 'excavadora') this._shock(c, 13, remote ? 0 : 38);
     else if (id === 'cisterna') { c.ringT = 4; this._sfx('fuego', c.x, c.z, 1, null); setTimeout(() => { if (this.active && c.ringT > 0) this._sfx('fuego', c.x, c.z, 1, null); }, 2200); }
@@ -515,6 +515,9 @@ export class Derby {
   }
   _near(c) { const m = this.me; return c.you || Math.hypot(c.x - m.x, c.z - m.z) < 45; }
   // sonido grabado desde un lugar de la arena (si aún no cargó, usa el sintetizado)
+  // cada vehículo dispara con su calibre: [sonido, variantes, volumen, tono, separación mínima]
+  static GUNS = { chatarra: ['ligero', 3, 0.5, 1, 0.03], cisterna: ['ligero', 3, 0.5, 0.9, 0.03], monstruo: ['pesado', 3, 0.6, 1, 0.04], ariete: ['pesado', 3, 0.58, 1.06, 0.04], pincho: ['plasma', 2, 0.5, 1, 0.05], excavadora: ['autocanon', 2, 0.62, 1.05, 0.06], tanque: ['autocanon', 2, 0.65, 0.95, 0.06] };
+  _gunSfx(c, x, z) { const G = Derby.GUNS[c.V.id] || ['mg', 3, 0.5, 1, 0.03]; const k = G[0] + (1 + Math.floor(Math.random() * G[1])); this._sfx(k, x, z, G[2] * (c.you ? 1.1 : 0.9), 'shoot', { gap: G[4], vary: 0.08, rate: G[3] }); }
   _sfx(key, x, z, vol = 1, alt = null, o = {}) { const A = this.ctx.audio; if (A.sample && A.sample(key, { vol, pos: { x, z }, ...o })) return; if (alt) A.play(alt, { x, z }); }
 
   // ---------- daño y destrucción ----------
@@ -589,7 +592,7 @@ export class Derby {
     else if (id === 'fuego') { c.fireT = c.V.boom ? 3.6 : 2.4; this._sfx('fuego', c.x, c.z, 0.8, 'fire'); }
     else if (id === 'reparar') { c.hp = Math.min(c.V.hp, c.hp + c.V.hp * 0.5); this._restoreSome(c); this._pop(c.x, c.y + 1, c.z, 0x7affa0, 3); if (c.you) A.play('heal'); }
     else if (id === 'escudo') { c.shieldT = 7; if (c.you) A.play('shieldUp'); }
-    else if (id === 'nitro') { c.boostT = 2.2; if (c.you) { A.play('dash'); this.ctx.input.rumble(140, 0.5); } }
+    else if (id === 'nitro') { c.boostT = 2.2; this._sfx('nitro', c.x, c.z, c.you ? 0.8 : 0.55, c.you ? 'dash' : null); if (c.you) this.ctx.input.rumble(140, 0.5); }
     if (--c.n <= 0) { c.item = null; c.n = 0; }
     if (this.net && !c.remote && /metralla|fuego|escudo|nitro|reparar/.test(id)) this.net.event({ t: 'act', ep: this.ep, o: c.id, k: id });
   }
@@ -634,7 +637,8 @@ export class Derby {
     S.id = c.id + ':' + (this.sid = (this.sid || 0) + 1); S.remote = !!c.remote; // lo que dispara otro jugador solo se ve: el daño lo cuenta quien disparó
     if (spec) { S.remote = true; S.id = spec.id; S.x = +spec.x; S.z = +spec.z; S.yaw = +spec.yw; if (spec.tg) S.target = this.cars.find(o => o.id === spec.tg) || null; }
     else if (this.net && kind !== 'bala' && !c.remote) this.net.event({ t: 'dshot', ep: this.ep, id: S.id, k: kind, o: c.id, x: Math.round(S.x * 100) / 100, z: Math.round(S.z * 100) / 100, yw: Math.round(S.yaw * 1000) / 1000, tg: S.target ? S.target.id : null });
-    if (kind === 'bala') this._sfx('mg' + (1 + Math.floor(Math.random() * 3)), S.x, S.z, c.you ? 0.55 : 0.45, 'shoot', { gap: 0.03, vary: 0.1 });
+    if (kind === 'bala') this._gunSfx(c, S.x, S.z);
+    else if (kind === 'bomba') this._sfx('lanzar', S.x, S.z, 0.7, 'fire', { vary: 0.08 });
     else if (kind === 'cohete' && c.V.cannon && !c.item) this._sfx('canon', S.x, S.z, 0.9, 'fire');
     else if (kind === 'cohete' || kind === 'misil') this._sfx('cohete', S.x, S.z, 0.75, 'fire', { rate: kind === 'misil' ? 0.85 : 1 });
     else if (this._near(c)) A.play('swing');
@@ -700,7 +704,7 @@ export class Derby {
         if (Math.hypot(c.x - B.x, c.z - B.z) < 2.8) {
           this.root.remove(B.m); this.golds.splice(k, 1); this._pop(B.x, 1.4, B.z, 0xffe070, 3);
           c.item = 'especial'; c.n = 1; c.botWait = rnd(0.2, 0.8);
-          if (c.you) { this._sfx('especial', B.x, B.z, 0.7, 'energy'); this._flash(`★ ${SPECIALS[c.V.id].name}`, '#ffd27a'); }
+          this._sfx('dorada', B.x, B.z, c.you ? 0.85 : 0.5, 'energy'); if (c.you) { setTimeout(() => this._sfx('especial', c.x, c.z, 0.6, null), 450); this._flash(`★ ${SPECIALS[c.V.id].name}`, '#ffd27a'); }
           const gen = this.gen; setTimeout(() => { if (this.active && this.gen === gen) this._goldCrate(B.i); }, 25000);
           if (this.net) this.net.event({ t: 'oro', ep: this.ep, i: B.i });
           break;
@@ -712,10 +716,9 @@ export class Derby {
       for (const c of this.cars) {
         if (c.dead || c.remote || c.y > 2.5) continue;
         if (Math.hypot(c.x - B.x, c.z - B.z) < 2.4) {
-          this.root.remove(B.m); this.crates.splice(k, 1); this._pop(B.x, 1.1, B.z, 0xffc81a, 1.8);
-          if (!c.item) { const id = rollWeapon(c.hp / c.V.hp); c.item = id; c.n = WEAPONS[id].n; if (c.you) { this.ctx.audio.play('energy'); this._flash(WEAPONS[id].name, '#ffd27a'); } c.botWait = rnd(0.3, 1.2); }
-          else if (c.you) this.ctx.audio.play('crack');
-          const gen = this.gen; setTimeout(() => { if (this.active && this.gen === gen) this._crate(B.i); }, 6000);
+          this.root.remove(B.m); this.crates.splice(k, 1); this._pop(B.x, 1.1, B.z, 0xffc81a, 1.8); this._sfx(Math.random() < 0.5 ? 'caja1' : 'caja2', B.x, B.z, c.you ? 0.8 : 0.5, 'crack', { vary: 0.08 });
+          if (!c.item) { const id = rollWeapon(c.hp / c.V.hp); c.item = id; c.n = WEAPONS[id].n; if (c.you) { this._flash(WEAPONS[id].name, '#ffd27a'); } c.botWait = rnd(0.3, 1.2); }
+                    const gen = this.gen; setTimeout(() => { if (this.active && this.gen === gen) this._crate(B.i); }, 6000);
           if (this.net) this.net.event({ t: 'caja', ep: this.ep, i: B.i });
           break;
         }
@@ -887,12 +890,12 @@ export class Derby {
     const o = this.cars.find(c => c.id === (ev.o || from));
     if (ev.t === 'dshot' && o) this._fire(o, ev.k, ev);
     else if (ev.t === 'sp' && o) this._specialFx(o, true);
-    else if (ev.t === 'oro') { const k = this.golds.findIndex(B => B.i === ev.i); if (k >= 0) { const B = this.golds[k], gen = this.gen; this.root.remove(B.m); this.golds.splice(k, 1); this._pop(B.x, 1.4, B.z, 0xffe070, 3); setTimeout(() => { if (this.active && this.gen === gen) this._goldCrate(B.i); }, 25000); } }
-    else if (ev.t === 'act' && o) { if (ev.k === 'metralla') { o.burst = 7; o.burstT = 0; } else if (ev.k === 'fuego') { o.fireT = o.V.boom ? 3.6 : 2.4; this._sfx('fuego', o.x, o.z, 0.8, null); } }
+    else if (ev.t === 'oro') { const k = this.golds.findIndex(B => B.i === ev.i); if (k >= 0) { const B = this.golds[k], gen = this.gen; this.root.remove(B.m); this.golds.splice(k, 1); this._pop(B.x, 1.4, B.z, 0xffe070, 3); this._sfx('dorada', B.x, B.z, 0.5, null); setTimeout(() => { if (this.active && this.gen === gen) this._goldCrate(B.i); }, 25000); } }
+    else if (ev.t === 'act' && o) { if (ev.k === 'metralla') { o.burst = 7; o.burstT = 0; } else if (ev.k === 'fuego') { o.fireT = o.V.boom ? 3.6 : 2.4; this._sfx('fuego', o.x, o.z, 0.8, null); } else if (ev.k === 'nitro') this._sfx('nitro', o.x, o.z, 0.55, null); }
     else if (ev.t === 'dhit') { const v = this.cars.find(c => c.id === ev.v && !c.remote), by = this.cars.find(c => c.id === ev.o); if (v) this._damage(v, Math.min(80, +ev.d || 0), by, ev.k); } // a mí o a uno de mis vehículos de la CPU
     else if (ev.t === 'ko') { const v = this.cars.find(c => c.id === ev.v), by = ev.by && this.cars.find(c => c.id === ev.by); if (by && by.you) { by.kills++; this._flash(`¡Destrozaste a ${v ? v.name : 'un rival'}!`, '#7affa0'); this.ctx.audio.play('unlock'); } if (v) this._feed(by || null, v); }
     else if (ev.t === 'barril') { const b = this.F.barrels[ev.i]; if (b && !(b.t > 0)) { b.t = 20; b.barrel.visible = false; this._explode(b.x, 0.8, b.z, 1.2); } }
-    else if (ev.t === 'caja') { const k = this.crates.findIndex(B => B.i === ev.i); if (k >= 0) { const B = this.crates[k], gen = this.gen; this.root.remove(B.m); this.crates.splice(k, 1); this._pop(B.x, 1.1, B.z, 0xffc81a, 1.8); setTimeout(() => { if (this.active && this.gen === gen) this._crate(B.i); }, 6000); } }
+    else if (ev.t === 'caja') { const k = this.crates.findIndex(B => B.i === ev.i); if (k >= 0) { const B = this.crates[k], gen = this.gen; this.root.remove(B.m); this.crates.splice(k, 1); this._pop(B.x, 1.1, B.z, 0xffc81a, 1.8); this._sfx('caja' + (1 + (ev.i & 1)), B.x, B.z, 0.5, null); setTimeout(() => { if (this.active && this.gen === gen) this._crate(B.i); }, 6000); } }
   }
   _tagFor(c) {
     const el = document.createElement('div'); el.className = 'derbyTag'; el.innerHTML = `<span>${esc(c.name)}</span><i><b></b></i>`; $('raceHud').appendChild(el); c.tag = el; c.tagHp = el.querySelector('b');
