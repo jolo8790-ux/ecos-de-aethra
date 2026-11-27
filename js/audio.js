@@ -70,7 +70,7 @@ export class Audio {
   // efectos grabados de la arena de destrucción (assets/sfx/arena): se cargan al entrar
   loadArena() {
     if (!this.ctx) return; this.smp = this.smp || {};
-    for (const n of ['mg1', 'mg2', 'mg3', 'canon', 'cohete', 'explosion', 'explosion2', 'ko', 'choque', 'choque2', 'golpe', 'fuego', 'onda', 'especial', 'ligero1', 'ligero2', 'ligero3', 'pesado1', 'pesado2', 'pesado3', 'autocanon1', 'autocanon2', 'plasma1', 'plasma2', 'caja1', 'caja2', 'dorada', 'nitro', 'lanzar']) this._fetch(`assets/sfx/arena/${n}.mp3`, 'arena/' + n);
+    for (const n of ['mg1', 'mg2', 'mg3', 'canon', 'cohete', 'explosion', 'explosion2', 'ko', 'choque', 'choque2', 'golpe', 'fuego', 'onda', 'especial', 'ligero1', 'ligero2', 'ligero3', 'pesado1', 'pesado2', 'pesado3', 'autocanon1', 'autocanon2', 'plasma1', 'plasma2', 'caja1', 'caja2', 'dorada', 'nitro', 'lanzar']) this._fetch(`assets/sfx/arena/${n}.mp3?v=2`, 'arena/' + n);
   }
   // pos: {x, z} para que suene desde ahí (más bajo lejos y del lado que corresponde)
   sample(key, { vol = 1, rate = 1, pos = null, vary = 0.06, gap = 0 } = {}) {

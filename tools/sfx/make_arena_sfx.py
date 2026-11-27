@@ -113,9 +113,36 @@ def crash(d, seed, heavy=1.0):
         p = int(SR * r.uniform(0.05, d * 0.7)); g = bp(noise(0.015), 2000, 8000) * env(0.015, 0.0002, 0.003) * r.uniform(0.05, 0.2); deb[p:p + len(g)] += g[:len(deb) - p]
     x = mix(pad(thump, d), pad(crunch, d), grind, ring, deb)
     return reverb(sat(x * 1.4, 2.2), 0.7, 0.2, 3500)
-save('choque', crash(1.1, 3, 1.2), maxd=1.4)
-save('choque2', crash(1.1, 8, 1.0), maxd=1.4)
-save('golpe', crash(0.7, 12, 0.7), maxd=0.9)
+# choque de autos: golpe de carrocería, chapa que se arruga (granos densos), vidrio que estalla y piezas que caen
+def carcrash(d, seed, heavy=1.0, glass=1.0, crumple=0.32):
+    r = np.random.default_rng(seed); N = int(SR * d); x = np.zeros(N)
+    # golpe: cuerpo grave con ruido (no un tono limpio)
+    body = lp(noise(0.3), 260, 4) * env(0.3, 0.001, 0.07) * 1.6 * heavy + sine_sweep(95, 42, 0.3, 14) * env(0.3, 0.001, 0.08) * 0.9 * heavy
+    slap = bp(noise(0.06), 400, 2500) * env(0.06, 0.0005, 0.012) * 1.2
+    x[:len(body)] += body; x[:len(slap)] += slap
+    # chapa arrugándose: cientos de granos cortos, más densos al principio
+    for _ in range(int(260 * heavy)):
+        q = r.random() ** 2.2; p = int(SR * (0.004 + q * crumple)); L = r.uniform(0.003, 0.018)
+        lo = r.uniform(180, 1100); g = bp(noise(L), lo, lo * r.uniform(2, 4)) * env(L, 0.0003, L / 4) * r.uniform(0.4, 1.1) * (1 - q * 0.7)
+        e = min(N, p + len(g)); x[p:e] += g[:e - p]
+    # resonancias de panel muy amortiguadas (sin campana)
+    x += metal(d, [140, 310, 520, 860, 1290], 0.05, seed) * 0.35 * heavy
+    # vidrio: estallido brillante y luego trocitos que tintinean
+    if glass > 0:
+        sh0 = int(SR * r.uniform(0.02, 0.05)); sh = hp(noise(0.25), 3500) * env(0.25, 0.001, 0.05) * 0.3 * glass; x[sh0:sh0 + len(sh)] += sh[:N - sh0]
+        for _ in range(int(55 * glass)):
+            p = int(SR * (0.03 + r.random() ** 1.5 * d * 0.65)); L = r.uniform(0.01, 0.05); f = r.uniform(3500, 9500)
+            g = (np.sin(2 * np.pi * f * t(L)) * 0.6 + hp(noise(L), 4000)) * env(L, 0.0002, L / 5) * r.uniform(0.03, 0.14)
+            e = min(N, p + len(g)); x[p:e] += g[:e - p]
+    # piezas y escombros que rebotan
+    for _ in range(9):
+        p = int(SR * r.uniform(0.18, d * 0.85)); L = r.uniform(0.03, 0.08); lo = r.uniform(300, 900)
+        g = bp(noise(L), lo, lo * 3) * env(L, 0.0005, L / 4) * r.uniform(0.1, 0.35)
+        e = min(N, p + len(g)); x[p:e] += g[:e - p]
+    return reverb(sat(x * 1.3, 2.4), 0.6, 0.14, 3500)
+save('choque', carcrash(1.3, 3, 1.2, 1.0), maxd=1.4)
+save('choque2', carcrash(1.3, 8, 1.0, 0.7), maxd=1.4)
+save('golpe', carcrash(0.8, 12, 0.75, 0.0, 0.18), maxd=0.9)
 
 # ---------- lanzallamas ----------
 d = 2.6
