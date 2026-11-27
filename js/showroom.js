@@ -2,6 +2,7 @@
 // Se puede girar arrastrando con el dedo o el ratón. Al pintar o mejorar, cambia en vivo.
 import * as THREE from 'three';
 import { makeKart, seatDriver, rigWheel } from './race.js';
+import { buildVehicle, vehicleById } from './derby.js';
 const DARK = new THREE.MeshStandardMaterial({ color: 0x0c0a18, roughness: 1, metalness: 0, emissive: 0x150a30, emissiveIntensity: 0.6 });
 
 export class Showroom {
@@ -59,6 +60,18 @@ export class Showroom {
     this.trail = trail;
     if (trail !== 'rainbow') this.flameMat.color.setHex(trail);
   }
+  // un vehículo de la arena de destrucción (más grande que un kart: se achica para que entre igual)
+  showVehicle(vid, paint, opts = {}) {
+    const key = 'v:' + vid + ':' + paint + ':' + (opts.lookKey || '') + ':' + !!opts.lib + ':' + !!opts.loading;
+    this.waiting = !!opts.loading; this._loadUI(!!opts.loading);
+    if (opts.loading) { if (this.kart) { this.holder.remove(this.kart); this.kart = null; } this.key = key; return; }
+    if (key === this.key) return; this.key = key;
+    if (this.kart) this.holder.remove(this.kart);
+    const B = buildVehicle(vehicleById(vid), paint), g = new THREE.Group(); g.add(B.root);
+    const bb = new THREE.Box3().setFromObject(B.root), L = Math.max(bb.max.z - bb.min.z, bb.max.x - bb.min.x); g.scale.setScalar(2.25 / L);
+    if (opts.lib && opts.look) { const ch = seatDriver(B.body, opts.lib, opts.look, true); if (ch) ch.root.position.set(0, B.seat[0], B.seat[1]); }
+    this.kart = g; this.holder.add(g); this.locked = false; this.trail = 0xffa040; this.flameMat.opacity = 0; this.spin = 1;
+  }
   _loadUI(on) {
     if (!this.loadEl) { const p = this.canvas.parentElement; if (!p) return; const el = this.loadEl = document.createElement('div'); el.className = 'kartLoading'; el.innerHTML = '<i></i><span>Cargando kart…</span>'; p.appendChild(el); }
     this.loadEl.style.display = on ? '' : 'none';
@@ -92,6 +105,7 @@ export class Showroom {
     if (this.trail === 'rainbow') this.flameMat.color.setHSL((this.t * 1.5) % 1, 1, 0.6);
     this.flameMat.opacity += ((show ? 0.75 : 0) - this.flameMat.opacity) * Math.min(1, dt * 10);
     for (const f of this.flames) f.scale.set(1, 0.6 + Math.random() * 0.5 + (show ? 0.4 : 0), 1);
+    if (this.key.startsWith('v:')) this.flameMat.opacity = 0;
     for (const m of this.sparks) { const u = m.userData; u.y += u.v * dt * (this.burst > 0 ? 4 : 1); if (u.y > 2.6) u.y = 0; m.position.set(Math.cos(u.a + this.t * 0.4) * u.r, u.y, Math.sin(u.a + this.t * 0.4) * u.r); m.rotation.y += dt * 3; }
     this.beam.material.opacity = 0.07 + (this.burst > 0 ? 0.12 * this.burst : 0);
     this.r.render(this.scene, this.cam);

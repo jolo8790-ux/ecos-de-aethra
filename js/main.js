@@ -15,7 +15,7 @@ import { FX } from './fx.js';
 import { loadCharacterLibrary, createCharacter, customLook, CUSTOM, DEFAULT_CUSTOM, auraOf } from './characters.js';
 import { loadProps } from './props.js';
 import { Race, TRACKS, RACE_LAPS, driverLook } from './race.js';
-import { Derby, VEHICLES, UPGRADES, DPAINTS, derbyGarage, upOf, loadVehicleModels, vehicleOk } from './derby.js';
+import { Derby, VEHICLES, UPGRADES, DPAINTS, derbyGarage, upOf, loadVehicleModels, loadVehicleModelsDone, vehicleOk } from './derby.js';
 import { KARTS, STATS, UP_COST, PAINTS, TRAILS, PARTS, DRIVERS, RETOS, retoOk, newUnlocks, garageOf, kartById, kartPoints } from './garage.js';
 import { loadPropIds, loadPropSeq, hasProp } from './props.js';
 import { Showroom } from './showroom.js';
@@ -3283,18 +3283,8 @@ function derbyMenu(sv) {
   tb.insertAdjacentHTML('beforeend', `<div class="raceCard"><span class="ic">💥</span><div><b>${V.name}</b><small>${V.desc}</small>
     <div class="dStats"><span>Blindaje</span>${bar(V.hp, 200)}<span>Velocidad</span>${bar(V.spd, 34)}<span>Embestida</span>${bar(V.ram, 2.4)}<span>Giro</span>${bar(V.turn, 2.6)}</div>${V.perk ? `<div class="dPerk">★ ${V.perk}${vehicleOk(sv, V) ? '' : ` · 🔒 ${V.lock.text} (llevas ${V.lock.text.includes('Gana') ? (d.wins || 0) : (d.kills || 0)})`}</div>` : ''}
     <em>${d.games ? `${d.games} ${d.games === 1 ? 'partida' : 'partidas'} · ${d.kills || 0} ${d.kills === 1 ? 'destrozado' : 'destrozados'} · ${d.wins || 0} ${d.wins === 1 ? 'victoria' : 'victorias'}` : 'Arma de las cajas, embiste y destroza: gana quien destroce más en 3 minutos'}</em></div></div>
-    <div class="dTaller"><div class="dUps"></div><div class="dPaints"></div></div>`);
-  // taller: mejoras con Ecos y pintura
-  const DG = derbyGarage(save || {}), up = upOf(save || {}, V.id), ups = tb.querySelector('.dUps'), pts = tb.querySelector('.dPaints');
-  UPGRADES.forEach((U, k) => { const lv = up[k], cost = U.cost[lv], b = document.createElement('button'); b.className = 'dUp' + (lv >= 3 ? ' max' : '');
-    b.innerHTML = `<span>${U.icon} ${U.name}</span><span class="pips">${[0, 1, 2].map(i => `<i class="${i < lv ? 'on' : ''}"></i>`).join('')}</span><small>${lv >= 3 ? 'Al máximo' : `Mejorar · ✧ ${cost}`}</small>`; b.title = U.desc;
-    b.onclick = () => { if (lv >= 3) return; if ((save.ecos || 0) < cost) { audio.play('powerFail'); toast(`Te faltan ${cost - (save.ecos || 0)} Ecos`); return; }
-      save.ecos -= cost; const u = DG.up[V.id] = DG.up[V.id] || {}; u[U.id] = lv + 1; writeSave(save); try { updateHUD(); } catch (e) {} audio.play('unlock'); toast(`${U.name} nivel ${lv + 1} · −${cost} ✧`); refreshRaceMenu(); };
-    ups.appendChild(b); });
-  for (const P of DPAINTS) { const b = document.createElement('button'), cur = (DG.paint[V.id] || 'orig') === P.id; b.className = 'dPaint' + (cur ? ' sel' : ''); b.title = P.name;
-    b.style.background = P.c == null ? 'linear-gradient(135deg,#c8632a,#4a8a3a 50%,#6a7684)' : '#' + P.c.toString(16).padStart(6, '0');
-    b.onclick = () => { DG.paint[V.id] = P.id; writeSave(save); audio.play('uiMove'); refreshRaceMenu(); }; pts.appendChild(b); }
-  pts.insertAdjacentHTML('beforeend', `<span class="dEcos">✧ ${save ? save.ecos || 0 : 0}</span>`);
+`);
+  { const up = upOf(save || {}, V.id), pt = (derbyGarage(save || {}).paint[V.id]) || 'orig'; tb.querySelector('.raceCard em').insertAdjacentHTML('afterend', `<div class="dPerk" style="color:#9fd8ff">🔧 Taller: blindaje ${up[0]}/3 · motor ${up[1]}/3 · embestida ${up[2]}/3 · pintura ${(DPAINTS.find(p => p.id === pt) || DPAINTS[0]).name.toLowerCase()}</div>`); }
   const opts = (box, list, key, label) => { box.innerHTML = ''; for (const v of list) { const b = document.createElement('button'); b.className = 'btn alt small' + (raceUI[key] === v ? ' sel' : ''); b.textContent = label(v); b.onclick = () => { raceUI[key] = v; audio.play('uiMove'); refreshRaceMenu(); }; box.appendChild(b); } };
   $('raceLaps').innerHTML = '';
   if (raceUI.dWho === 'publica') { tb.insertAdjacentHTML('beforeend', arenaRankHTML()); tb.querySelectorAll('.torTabs button').forEach(b => b.onclick = () => { ARK.zone = b.dataset.z; audio.play('uiMove'); refreshRaceMenu(); }); }
@@ -3334,14 +3324,17 @@ const tallUI = { tab: 'karts', from: 'raceMenu', view: null };
 let showroom = null;
 function openTaller(from = 'raceMenu') {
   tallUI.from = from; tallUI.view = garageOf(save).kart; audio.play('open');
+  tallUI.derby = from === 'raceMenu' && raceUI.mode === 'derby'; if (tallUI.derby && !['mejoras', 'pintura', 'pilotos'].includes(tallUI.tab)) tallUI.tab = 'mejoras';
+  $('taller').querySelector('h2').textContent = tallUI.derby ? '🔧 Taller de la Chatarrería' : '🔧 Taller de karts';
   $(from).classList.add('hidden'); $('taller').classList.remove('hidden');
   if (!showroom) { try { showroom = new Showroom($('tallCanvas')); } catch (e) { console.warn('vitrina', e); } }
   buildTaller(); if (showroom) showroom.start();
-  loadKarts();
+  if (tallUI.derby) loadVehicleModels().then(() => { if (!$('taller').classList.contains('hidden') && showroom) { showroom.key = ''; buildTaller(); } }); else loadKarts();
 }
 const colorOf = list => id => { const it = list.find(x => x.id === id) || list[0]; return it.color; };
 const driverOk = (sv, D) => D.lock ? retoOk(sv, D.lock) : D.hero ? heroUnlocked(HEROES.find(h => h.id === D.id) || {}, pieceCount(sv)) : true;
 function buildTaller() {
+  if (tallUI.derby) { buildTallerDerby(); return; }
   const sv = save, G = garageOf(sv), ecos = sv.ecos || 0;
   if (tallUI.tab !== 'karts') tallUI.view = G.kart;
   const V = kartById(tallUI.view || G.kart), own = G.owned.includes(V.id), mine = V.id === G.kart;
@@ -3441,6 +3434,45 @@ function buildTaller() {
       };
       box.appendChild(b);
     }
+  }
+}
+// el taller en modo Destrucción: el vehículo elegido en el menú flota en la vitrina (aquí no se cambia)
+function buildTallerDerby() {
+  const sv = save, G = garageOf(sv), DG = derbyGarage(sv), ecos = sv.ecos || 0, V = VEHICLES.find(v => v.id === raceUI.vehicle) || VEHICLES[0], up = upOf(sv, V.id);
+  const pt = DPAINTS.find(p => p.id === (DG.paint[V.id] || 'orig')) || DPAINTS[0];
+  $('tallSub').innerHTML = `Tienes <b class="ecoTag">✧ ${ecos} Ecos</b><span class="long">. Ganas Ecos destrozando en la arena y en todo el juego.</span>`;
+  $('tallName').innerHTML = `${V.name}<small>${V.perk ? '★ ' + V.perk : 'Vehículo de la arena'}</small>`;
+  $('tallPrev').style.visibility = $('tallNext').style.visibility = 'hidden';
+  const dId = tallUI.tab === 'pilotos' && tallUI.driverView ? tallUI.driverView : (G.driver || 'hero'), D = DRIVERS.find(d => d.id === dId) || DRIVERS[0];
+  if (showroom) { const ready = loadVehicleModelsDone(); showroom.showVehicle(V.id, pt.c, { loading: !ready, lib: charLib, look: driverLook(sv, D.id), lookKey: D.id }); }
+  const tabs = [['mejoras', '⚙', 'Mejoras'], ['pintura', '🎨', 'Pintura'], ['pilotos', '🧑‍✈️', 'Pilotos']];
+  $('tallTabs').innerHTML = tabs.map(([id, ic, n]) => `<button class="${tallUI.tab === id ? 'sel' : ''}" data-t="${id}"><b>${ic}</b><small>${n}</small></button>`).join('');
+  $('tallTabs').querySelectorAll('button').forEach(b => b.onclick = () => { tallUI.tab = b.dataset.t; tallUI.driverView = null; audio.play('uiMove'); buildTaller(); });
+  const Dn = DRIVERS.find(d => d.id === (G.driver || 'hero')) || DRIVERS[0];
+  $('tallSum').innerHTML = `Llevas: <b>${V.name}</b> · ${Dn.id === 'hero' ? (sv.name || 'tu héroe') : Dn.name} · pintura ${pt.name.toLowerCase()} · blindaje ${up[0]} · motor ${up[1]} · embestida ${up[2]}`;
+  const body = $('tallBody'); body.innerHTML = '';
+  const save2 = msg => { writeSave(save); buildTaller(); refreshRaceMenu(); if (showroom) showroom.celebrate(); if (msg) toast('✔ ' + msg); };
+  if (tallUI.tab === 'mejoras') {
+    body.insertAdjacentHTML('beforeend', `<div class="sub" style="font-size:13px;margin:0 0 4px">${V.desc} Cada vehículo guarda sus mejoras.</div>`);
+    UPGRADES.forEach((U, k) => { const lv = up[k], cost = U.cost[lv], row = document.createElement('div'); row.className = 'statRow';
+      row.innerHTML = `<div><b>${U.icon} ${U.name}</b><small>${U.desc}</small></div><div class="bars">${[0, 1, 2].map(i => `<i class="${i < lv ? 'up' : ''}"></i>`).join('')}</div>`;
+      const b = document.createElement('button'); b.className = 'btn small' + (cost != null && ecos >= cost ? '' : ' alt'); b.textContent = lv >= 3 ? 'Al máximo' : `✧ ${cost}`; b.disabled = lv >= 3;
+      b.onclick = () => { if (ecos < cost) { audio.play('powerFail'); toast(`Te faltan ${cost - ecos} Ecos`); return; } sv.ecos = ecos - cost; audio.play('unlock'); const u = DG.up[V.id] = DG.up[V.id] || {}; u[U.id] = lv + 1; save2(`${U.name} nivel ${lv + 1}`); };
+      row.appendChild(b); body.appendChild(row); });
+  } else if (tallUI.tab === 'pintura') {
+    body.insertAdjacentHTML('beforeend', '<div class="sub" style="font-size:13px;margin:0 0 6px">Se pinta la chapa; el óxido y los golpes se quedan.</div>');
+    const box = document.createElement('div'); box.className = 'swatches'; body.appendChild(box);
+    for (const P of DPAINTS) { const on = pt.id === P.id, b = document.createElement('button'); b.className = 'swatch' + (on ? ' on' : '');
+      b.innerHTML = `<i style="background:${P.c == null ? 'linear-gradient(135deg,#c8632a,#4a8a3a 50%,#6a7684)' : '#' + P.c.toString(16).padStart(6, '0')}"></i><b>${P.name}</b><small>${on ? '✔ Puesta' : 'Gratis'}</small>`;
+      b.onclick = () => { DG.paint[V.id] = P.id; audio.play('open'); save2(`Pintura: ${P.name}`); }; box.appendChild(b); }
+  } else {
+    body.insertAdjacentHTML('beforeend', '<div class="sub" style="font-size:13px;margin:0 0 4px">El mismo piloto maneja tu kart y tu vehículo de la arena.</div>');
+    const box = document.createElement('div'); box.className = 'partGrid'; body.appendChild(box);
+    for (const Dr of DRIVERS) { const ok = driverOk(sv, Dr), on = (G.driver || 'hero') === Dr.id, b = document.createElement('button'), why = Dr.lock ? RETOS[Dr.lock].text : 'Reúne más Piezas especiales en la aventura';
+      b.className = 'partCard' + (on ? ' on' : '') + (ok ? '' : ' locked') + (Dr.villain ? ' villain' : '');
+      b.innerHTML = ok ? `<b>${Dr.villain ? '😈 ' : ''}${Dr.id === 'hero' ? (sv.name || Dr.name) : Dr.name}</b><small>${Dr.desc}</small><em>${on ? '✔ Al volante' : 'Elegir'}</em>` : `<b>🔒 ${Dr.villain ? 'Villano' : 'Héroe'}</b><small>${why}</small>`;
+      b.onclick = () => { tallUI.driverView = Dr.id; if (!ok) { audio.play('powerFail'); toast(`🔒 ${why}`); buildTaller(); return; } G.driver = Dr.id; audio.play('open'); save2(`Al volante: ${Dr.id === 'hero' ? (sv.name || 'tu héroe') : Dr.name}`); };
+      box.appendChild(b); }
   }
 }
 const tallStep = d => {

@@ -14,13 +14,15 @@ const httpURL = p => SERVER.replace(/^wss:/, 'https:').replace(/^ws:/, 'http:') 
 
 // carrocerías 3D (generadas con Artlist): se cargan al entrar a la arena; si no llegan, se usan las de piezas
 const GLB = {}; let glbLoading = null;
+let glbDone = false;
+export const loadVehicleModelsDone = () => glbDone;
 export function loadVehicleModels() {
   return glbLoading || (glbLoading = Promise.all(VEHICLES.map(v => v.id).map(async id => {
     try { const g = await new GLTFLoader().parseAsync(await glbBuffer(new URL(`../assets/vehicles/${id}.glb.js`, import.meta.url)), '');
       if (LOW_MEM) shrinkTextures(g.scene, 512);
       g.scene.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = false; if (m.material) { m.material.metalness = 0.15; m.material.roughness = 0.75; } } });
       GLB[id] = g.scene; } catch (e) { console.warn('vehículo 3D', id, e); }
-  })));
+  })).then(() => { glbDone = true; }));
 }
 // dónde van las ruedas, el asiento y el arma en cada carrocería (medido sobre los modelos; el frente es +z)
 const FIT = {
