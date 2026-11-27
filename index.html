@@ -627,11 +627,12 @@
   /* arena de destrucción */
   body.derby #raceMsg { font-size: clamp(26px, 5vw, 56px); top: 24%; }
   body.derby #raceLights, body.derby #raceWrong, body.derby #raceTurbo { display: none !important; }
-  #derbyHp { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(340px, 46vw); text-align: center; font-weight: 800; font-size: 13px; text-shadow: 0 1px 0 #000; }
+  #derbyHp { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); width: min(340px, 46vw); text-align: center; font-weight: 800; font-size: 13px; text-shadow: 0 1px 0 #000; }
   #derbyHp i { display: block; height: 14px; border-radius: 8px; background: rgba(10,16,40,.65); border: 2px solid rgba(255,255,255,.5); overflow: hidden; margin-bottom: 3px; }
   #derbyHp b { display: block; height: 100%; width: 100%; background: #6ad04a; transition: width .15s; }
-  body.touch #derbyHp { bottom: auto; top: 112px; width: 38vw; }
-  body.touch.derby #racePlace { font-size: 34px; }
+  body.touch #derbyHp { bottom: calc(6px + env(safe-area-inset-bottom)); width: 26vw; font-size: 11px; opacity: .9; }
+  body.touch #derbyHp i { height: 9px; border-width: 1.5px; margin-bottom: 1px; }
+  body.touch.derby #racePlace { display: none; } /* la tabla de arriba ya muestra el puesto */
   #derbyFeed { position: absolute; right: 14px; top: 92px; display: flex; flex-direction: column; gap: 3px; align-items: flex-end; font-size: 13px; pointer-events: none; }
   #derbyFeed div { background: rgba(10,16,40,.6); padding: 3px 10px; border-radius: 10px; } #derbyFeed div.sys { opacity: .75; font-style: italic; }
   body.touch #derbyFeed { top: auto; bottom: 150px; right: auto; left: 12px; align-items: flex-start; font-size: 11px; }
@@ -668,61 +669,61 @@
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-  "./js/arena.js": "./js/arena.js?v=2611271453",
-  "./js/audio.js": "./js/audio.js?v=2611271453",
-  "./js/autonav.js": "./js/autonav.js?v=2611271453",
-  "./js/camera.js": "./js/camera.js?v=2611271453",
-  "./js/characters.js": "./js/characters.js?v=2611271453",
-  "./js/combat.js": "./js/combat.js?v=2611271453",
-  "./js/credits.js": "./js/credits.js?v=2611271453",
-  "./js/derby.js": "./js/derby.js?v=2611271453",
-  "./js/endless.js": "./js/endless.js?v=2611271453",
-  "./js/fx.js": "./js/fx.js?v=2611271453",
-  "./js/garage.js": "./js/garage.js?v=2611271453",
-  "./js/gear.js": "./js/gear.js?v=2611271453",
-  "./js/glbload.js": "./js/glbload.js?v=2611271453",
-  "./js/hazards.js": "./js/hazards.js?v=2611271453",
-  "./js/hd.js": "./js/hd.js?v=2611271453",
-  "./js/heroes.js": "./js/heroes.js?v=2611271453",
-  "./js/icons.js": "./js/icons.js?v=2611271453",
-  "./js/input.js": "./js/input.js?v=2611271453",
-  "./js/intro.js": "./js/intro.js?v=2611271453",
-  "./js/logros.js": "./js/logros.js?v=2611271453",
-  "./js/main.js": "./js/main.js?v=2611271453",
-  "./js/music.js": "./js/music.js?v=2611271453",
-  "./js/net.js": "./js/net.js?v=2611271453",
-  "./js/physics.js": "./js/physics.js?v=2611271453",
-  "./js/piezas.js": "./js/piezas.js?v=2611271453",
-  "./js/player.js": "./js/player.js?v=2611271453",
-  "./js/powers.js": "./js/powers.js?v=2611271453",
-  "./js/props.js": "./js/props.js?v=2611271453",
-  "./js/race.js": "./js/race.js?v=2611271453",
-  "./js/racehaz.js": "./js/racehaz.js?v=2611271453",
-  "./js/raceitems.js": "./js/raceitems.js?v=2611271453",
-  "./js/reef.js": "./js/reef.js?v=2611271453",
-  "./js/report.js": "./js/report.js?v=2611271453",
-  "./js/rig.js": "./js/rig.js?v=2611271453",
-  "./js/save.js": "./js/save.js?v=2611271453",
-  "./js/sea.js": "./js/sea.js?v=2611271453",
-  "./js/seafoes.js": "./js/seafoes.js?v=2611271453",
-  "./js/showroom.js": "./js/showroom.js?v=2611271453",
-  "./js/songs.js": "./js/songs.js?v=2611271453",
-  "./js/traps.js": "./js/traps.js?v=2611271453",
-  "./js/vfx.js": "./js/vfx.js?v=2611271453",
-  "./js/world.js": "./js/world.js?v=2611271453",
-  "./js/worldnet.js": "./js/worldnet.js?v=2611271453",
-  "./js/zones/abismo_mareth.js": "./js/zones/abismo_mareth.js?v=2611271453",
-  "./js/zones/bosque_colgante.js": "./js/zones/bosque_colgante.js?v=2611271453",
-  "./js/zones/ciudad_engranajes.js": "./js/zones/ciudad_engranajes.js?v=2611271453",
-  "./js/zones/ciudadela_orden.js": "./js/zones/ciudadela_orden.js?v=2611271453",
-  "./js/zones/desafios.js": "./js/zones/desafios.js?v=2611271453",
-  "./js/zones/eco_olvidado.js": "./js/zones/eco_olvidado.js?v=2611271453",
-  "./js/zones/forja_ignis.js": "./js/zones/forja_ignis.js?v=2611271453",
-  "./js/zones/glaciar_eco.js": "./js/zones/glaciar_eco.js?v=2611271453",
-  "./js/zones/puerto_bruma.js": "./js/zones/puerto_bruma.js?v=2611271453",
-  "./js/zones/routegen.js": "./js/zones/routegen.js?v=2611271453",
-  "./js/zones/ruinas_vidrio.js": "./js/zones/ruinas_vidrio.js?v=2611271453",
-  "./js/zones/senderos.js": "./js/zones/senderos.js?v=2611271453"
+  "./js/arena.js": "./js/arena.js?v=2611271503",
+  "./js/audio.js": "./js/audio.js?v=2611271503",
+  "./js/autonav.js": "./js/autonav.js?v=2611271503",
+  "./js/camera.js": "./js/camera.js?v=2611271503",
+  "./js/characters.js": "./js/characters.js?v=2611271503",
+  "./js/combat.js": "./js/combat.js?v=2611271503",
+  "./js/credits.js": "./js/credits.js?v=2611271503",
+  "./js/derby.js": "./js/derby.js?v=2611271503",
+  "./js/endless.js": "./js/endless.js?v=2611271503",
+  "./js/fx.js": "./js/fx.js?v=2611271503",
+  "./js/garage.js": "./js/garage.js?v=2611271503",
+  "./js/gear.js": "./js/gear.js?v=2611271503",
+  "./js/glbload.js": "./js/glbload.js?v=2611271503",
+  "./js/hazards.js": "./js/hazards.js?v=2611271503",
+  "./js/hd.js": "./js/hd.js?v=2611271503",
+  "./js/heroes.js": "./js/heroes.js?v=2611271503",
+  "./js/icons.js": "./js/icons.js?v=2611271503",
+  "./js/input.js": "./js/input.js?v=2611271503",
+  "./js/intro.js": "./js/intro.js?v=2611271503",
+  "./js/logros.js": "./js/logros.js?v=2611271503",
+  "./js/main.js": "./js/main.js?v=2611271503",
+  "./js/music.js": "./js/music.js?v=2611271503",
+  "./js/net.js": "./js/net.js?v=2611271503",
+  "./js/physics.js": "./js/physics.js?v=2611271503",
+  "./js/piezas.js": "./js/piezas.js?v=2611271503",
+  "./js/player.js": "./js/player.js?v=2611271503",
+  "./js/powers.js": "./js/powers.js?v=2611271503",
+  "./js/props.js": "./js/props.js?v=2611271503",
+  "./js/race.js": "./js/race.js?v=2611271503",
+  "./js/racehaz.js": "./js/racehaz.js?v=2611271503",
+  "./js/raceitems.js": "./js/raceitems.js?v=2611271503",
+  "./js/reef.js": "./js/reef.js?v=2611271503",
+  "./js/report.js": "./js/report.js?v=2611271503",
+  "./js/rig.js": "./js/rig.js?v=2611271503",
+  "./js/save.js": "./js/save.js?v=2611271503",
+  "./js/sea.js": "./js/sea.js?v=2611271503",
+  "./js/seafoes.js": "./js/seafoes.js?v=2611271503",
+  "./js/showroom.js": "./js/showroom.js?v=2611271503",
+  "./js/songs.js": "./js/songs.js?v=2611271503",
+  "./js/traps.js": "./js/traps.js?v=2611271503",
+  "./js/vfx.js": "./js/vfx.js?v=2611271503",
+  "./js/world.js": "./js/world.js?v=2611271503",
+  "./js/worldnet.js": "./js/worldnet.js?v=2611271503",
+  "./js/zones/abismo_mareth.js": "./js/zones/abismo_mareth.js?v=2611271503",
+  "./js/zones/bosque_colgante.js": "./js/zones/bosque_colgante.js?v=2611271503",
+  "./js/zones/ciudad_engranajes.js": "./js/zones/ciudad_engranajes.js?v=2611271503",
+  "./js/zones/ciudadela_orden.js": "./js/zones/ciudadela_orden.js?v=2611271503",
+  "./js/zones/desafios.js": "./js/zones/desafios.js?v=2611271503",
+  "./js/zones/eco_olvidado.js": "./js/zones/eco_olvidado.js?v=2611271503",
+  "./js/zones/forja_ignis.js": "./js/zones/forja_ignis.js?v=2611271503",
+  "./js/zones/glaciar_eco.js": "./js/zones/glaciar_eco.js?v=2611271503",
+  "./js/zones/puerto_bruma.js": "./js/zones/puerto_bruma.js?v=2611271503",
+  "./js/zones/routegen.js": "./js/zones/routegen.js?v=2611271503",
+  "./js/zones/ruinas_vidrio.js": "./js/zones/ruinas_vidrio.js?v=2611271503",
+  "./js/zones/senderos.js": "./js/zones/senderos.js?v=2611271503"
 } }
 </script>
 </head>
@@ -1090,6 +1091,6 @@
   </div>
 </div>
 
-<script type="module" src="js/main.js?v=2611271453"></script>
+<script type="module" src="js/main.js?v=2611271503"></script>
 </body>
 </html>
