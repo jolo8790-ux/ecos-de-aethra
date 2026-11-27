@@ -2455,7 +2455,8 @@ function simulate(dt) {
   skyTick(dt);
   powers.update(dt); powers.statusFx(player, dt); goalFxTick(dt);
   if (state !== 'title') updatePowerHUD();
-  audio.listener = { x: camera.position.x, z: camera.position.z, yaw: cam.yaw, ref: 10 };
+  if (state === 'derby') { const f = camera.getWorldDirection(_lv); audio.listener = { x: camera.position.x, z: camera.position.z, yaw: Math.atan2(-f.x, -f.z), ref: 16 }; } // en la arena: se oye desde la cámara
+  else audio.listener = { x: camera.position.x, z: camera.position.z, yaw: cam.yaw, ref: 10 };
   musicMood(dt);
   soundHintTick(dt);
   fx.update(dt); if (vfx) vfx.update(dt, player.pos); if (reef) reef.update(dt);
@@ -3099,6 +3100,7 @@ const race = new Race({
     banner(Z.subtitle, Z.title);
   },
 });
+const _lv = new THREE.Vector3();
 // arena de destrucción: usa el mismo escenario y pantalla que las carreras
 const derby = new Derby({
   scene, camera, world, audio, music, input, player, toast, renderer,

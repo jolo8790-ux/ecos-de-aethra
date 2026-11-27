@@ -978,6 +978,7 @@ export class Race {
   constructor(ctx) { this.ctx = ctx; this.active = false; this.racers = []; }
 
   start(opts) {
+    try { this.ctx.audio.loadArena && this.ctx.audio.loadArena(); } catch (e) {} // explosiones y cohetes grabados
     const C = this.ctx, def = TRACKS[opts.track] || TRACKS.puerto;
     this.opts = opts; this.def = def; this.laps = opts.laps || 3; this.active = true; this.paused = false;
     this.root = new THREE.Group(); this.root.name = 'carrera';

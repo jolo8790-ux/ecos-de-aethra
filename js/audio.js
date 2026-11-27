@@ -67,6 +67,22 @@ export class Audio {
   spatial(src = null) { const a = this; return { src, play(name) { a.play(name, this.src); }, unlock() {} }; }
 
   // ---------- piezas básicas ----------
+  // efectos grabados de la arena de destrucción (assets/sfx/arena): se cargan al entrar
+  loadArena() {
+    if (!this.ctx) return; this.smp = this.smp || {};
+    for (const n of ['mg1', 'mg2', 'mg3', 'canon', 'cohete', 'explosion', 'explosion2', 'ko', 'choque', 'choque2', 'golpe', 'fuego', 'onda', 'especial']) this._fetch(`assets/sfx/arena/${n}.mp3`, 'arena/' + n);
+  }
+  // pos: {x, z} para que suene desde ahí (más bajo lejos y del lado que corresponde)
+  sample(key, { vol = 1, rate = 1, pos = null, vary = 0.06, gap = 0 } = {}) {
+    if (!this.ctx || this.volume <= 0 || this.ctx.state !== 'running' || !this.smp) return false;
+    const buf = this.smp['arena/' + key]; if (!buf) return false;
+    if (gap && !this._throttle('s_' + key, gap)) return true;
+    if (this.voices > (LOW_MEM ? MAX_LOW + 4 : MAX_VOICES + 8)) return true;
+    if (!this._prep(pos)) return true;
+    const c = this.ctx, s = c.createBufferSource(); s.buffer = buf; s.playbackRate.value = rate * (1 + (Math.random() - 0.5) * vary);
+    const g = this._out(0, 0); g.gain.value = vol * this._k * this._g; s.connect(g); s.start(); this.voices++; s.onended = () => { this.voices--; };
+    return true;
+  }
   _out(pan, delay) {
     const c = this.ctx, g = c.createGain();
     let node = g;

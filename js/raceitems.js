@@ -183,7 +183,7 @@ export class RaceItems {
     if (kind === 'bomba') { S.speed = back ? 0 : 24; S.vy = back ? 0 : 7; S.y = back ? 0.5 : 1.2; S.life = back ? 12 : 6; }
     else if (kind === 'cohete') { S.speed = 64; S.life = 2.6; }
     else { S.speed = 52; S.life = 6; const ahead = race.racers.filter(o => o !== R && o.progress > R.progress).sort((a, b) => a.progress - b.progress); S.target = ahead[0] || null; }
-    if (R.you) A.play(kind === 'bomba' ? 'swing' : 'shoot');
+    if (R.you) { if (kind === 'bomba' || !(A.sample && A.sample('cohete', { vol: 0.6, rate: kind === 'guiado' ? 0.85 : 1.1 }))) A.play(kind === 'bomba' ? 'swing' : 'shoot'); }
     if (spec) { // copia de un disparo de otro jugador: solo se ve (quien disparó decide si acierta)
       S.remote = true; S.id = spec.id; S.fx = spec.fx || null; S.pos.set(+spec.x, R.pos.y, +spec.z); S.yaw = +spec.yw; S.target = spec.tg ? race.racers.find(o => o.id === spec.tg) || null : S.target;
     } else if (race.net) {
@@ -242,7 +242,7 @@ export class RaceItems {
     const r = S.kind === 'bomba' ? 4 : 2.2, kind = S.fx || 'quema';
     this._pop(p, kind === 'congela' ? 0xbff0ff : kind === 'oscura' ? 0x9a5aff : S.kind === 'guiado' ? 0xc08aff : 0xffa040, r);
     const me = race.me, d = me.pos.distanceTo(p);
-    if (d < 40) { A.play(S.kind === 'bomba' ? 'slam' : 'fire'); }
+    if (d < 40) { const v = Math.max(0.2, 1 - d / 40) * (S.kind === 'bomba' ? 0.9 : 0.65); if (!(A.sample && A.sample(Math.random() < 0.5 ? 'explosion' : 'explosion2', { vol: v, rate: S.kind === 'bomba' ? 1 : 1.25, gap: 0.05 }))) A.play(S.kind === 'bomba' ? 'slam' : 'fire'); if (kind === 'congela') A.play('crystal'); }
     if (visual) return;
     for (const R of race.racers) {
       const dd = Math.hypot(R.pos.x - p.x, R.pos.z - p.z);

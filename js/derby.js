@@ -342,7 +342,7 @@ export class Derby {
     this._pairT = {}; this.clock = 0; this.left = opts.endless ? 1e9 : opts.time || ROUND; this.camPos = null; this.phase = 'count'; this.st = 0;
     this.remotes = new Map();
     if (this.net) { this.net.onEvent((from, ev) => { try { this._onNet(from, ev); } catch (e) { console.warn('red', e); } }); }
-    this._hud(true); C.music.play('chatarra', { fade: 1.2 });
+    this._hud(true); C.music.play('chatarra', { fade: 1.2 }); C.audio.loadArena && C.audio.loadArena();
     try { if (C.renderer) C.renderer.compile(C.scene, C.camera); } catch (e) {}
   }
   _addBot(id, d, k) {
@@ -385,7 +385,7 @@ export class Derby {
   // ---------- poderes especiales ----------
   _special(c) {
     const id = c.V.id, A = this.ctx.audio, SP = SPECIALS[id];
-    if (c.you) { this._flash(`★ ${SP.name}`, '#ffd27a'); A.play('unlock'); this.ctx.input.rumble(260, 0.8); }
+    if (c.you) { this._flash(`★ ${SP.name}`, '#ffd27a'); this.ctx.input.rumble(260, 0.8); } this._sfx('especial', c.x, c.z, c.you ? 0.9 : 0.6, 'unlock');
     if (this.net && !c.remote) this.net.event({ t: 'sp', ep: this.ep, o: c.id });
     this._specialFx(c, false);
   }
@@ -396,14 +396,14 @@ export class Derby {
     else if (id === 'ariete') { c.rageT = 5; if (!remote) c.boostT = 5; }
     else if (id === 'pincho') { if (!remote) for (let k = 0; k < 4; k++) setTimeout(() => { if (this.active && !c.dead) this._fire(c, 'misil'); }, k * 160); }
     else if (id === 'excavadora') this._shock(c, 13, remote ? 0 : 38);
-    else if (id === 'cisterna') { c.ringT = 4; }
+    else if (id === 'cisterna') { c.ringT = 4; this._sfx('fuego', c.x, c.z, 1, null); setTimeout(() => { if (this.active && c.ringT > 0) this._sfx('fuego', c.x, c.z, 1, null); }, 2200); }
     else if (id === 'tanque') { if (!remote) for (let k = 0; k < 5; k++) setTimeout(() => { if (!this.active || c.dead) return; const y0 = c.yaw; c.yaw += (k - 2) * 0.17; this._fire(c, 'cohete'); c.yaw = y0; const S = this.shots[this.shots.length - 1]; if (S) { S.dmg = 22; S.speed = 85; } }, k * 120); }
   }
   _shock(c, r, dmg) { // onda expansiva: anillo de polvo que crece y empuja
     const ring = this._ringG || (this._ringG = new THREE.TorusGeometry(1, 0.18, 6, 40).rotateX(Math.PI / 2));
     this._p(ring, 0xffd8a0, { x: c.x, y: c.y + 0.4, z: c.z, life: 0.6, s0: 1, s1: r, a: 0.9, add: true });
     this._p(ring, 0xc89060, { x: c.x, y: c.y + 0.2, z: c.z, life: 0.9, s0: 1, s1: r * 1.1, a: 0.6 });
-    this._dust(c.x, c.z, 24); this.shake = Math.max(this.shake || 0, this._near(c) ? 0.8 : 0); if (this._near(c)) this.ctx.audio.play('slam');
+    this._dust(c.x, c.z, 24); this.shake = Math.max(this.shake || 0, this._near(c) ? 0.8 : 0); this._sfx('onda', c.x, c.z, 1, 'slam');
     if (!dmg) return;
     for (const o of this.cars) { if (o === c || o.dead) continue; const dx = o.x - c.x, dz = o.z - c.z, d = Math.hypot(dx, dz); if (d > r) continue;
       const f = 1 - d / r * 0.5; this._damage(o, dmg * f, c, 'especial'); if (!o.remote && !o.V.tracks) { o.vy = 9 * f; o.air = true; o.vx += dx / (d || 1) * 14 * f; o.vz += dz / (d || 1) * 14 * f; } }
@@ -506,14 +506,16 @@ export class Derby {
         const dmgB = (rel - 5) * 2.1 * a.V.ram * (a.rageT > 0 ? 2.5 : 1) * (pa / tot) / Math.sqrt(mb), dmgA = (rel - 5) * 2.1 * b.V.ram * (b.rageT > 0 ? 2.5 : 1) * (pb / tot) / Math.sqrt(ma);
         if (dmgB > 2 && !b.remote) this._damage(b, dmgB, a, 'embestida'); if (dmgA > 2 && !a.remote) this._damage(a, dmgA, b, 'embestida'); // cada uno se cuenta sus propios golpes
         this._sparks((a.x + b.x) / 2, (a.y + b.y) / 2 + 1, (a.z + b.z) / 2, 14);
-        if (this._near(a) || this._near(b)) { this.ctx.audio.play('hitHeavy'); if (a.you || b.you) this.ctx.input.rumble(220, 0.8); }
+        this._sfx(Math.random() < 0.5 ? 'choque' : 'choque2', (a.x + b.x) / 2, (a.z + b.z) / 2, clamp(0.5 + (rel - 7) / 20, 0.5, 1), 'hitHeavy', { gap: 0.08 }); if (a.you || b.you) this.ctx.input.rumble(220, 0.8);
       }
     }
   }
   _wallHit(c, vn) {
-    if (vn > 11) { this._damage(c, (vn - 11) * 0.9, null, 'choque'); this._sparks(c.x, c.y + 0.8, c.z, 8); if (this._near(c)) this.ctx.audio.play('slam'); if (c.you) this.ctx.input.rumble(160, 0.6); }
+    if (vn > 11) { this._damage(c, (vn - 11) * 0.9, null, 'choque'); this._sparks(c.x, c.y + 0.8, c.z, 8); this._sfx('golpe', c.x, c.z, clamp(0.4 + (vn - 11) / 20, 0.4, 0.9), 'slam', { gap: 0.1 }); if (c.you) this.ctx.input.rumble(160, 0.6); }
   }
   _near(c) { const m = this.me; return c.you || Math.hypot(c.x - m.x, c.z - m.z) < 45; }
+  // sonido grabado desde un lugar de la arena (si aún no cargó, usa el sintetizado)
+  _sfx(key, x, z, vol = 1, alt = null, o = {}) { const A = this.ctx.audio; if (A.sample && A.sample(key, { vol, pos: { x, z }, ...o })) return; if (alt) A.play(alt, { x, z }); }
 
   // ---------- daño y destrucción ----------
   _damage(c, dmg, by, kind) {
@@ -548,7 +550,7 @@ export class Derby {
       const a = rnd(0, 6.28), sp = rnd(5, 12); this.debris.push({ m, vx: Math.sin(a) * sp, vz: Math.cos(a) * sp, vy: rnd(7, 14), rx: rnd(-9, 9), rz: rnd(-9, 9), t: 0, life: 3.5, r: 0.06, c: null, chunk: true }); }
     this._wreck(c);
     if (by && by !== c) { if (!by.remote) by.kills++; if (by.you) { this._flash(`¡Destrozaste a ${c.name}!`, '#7affa0'); this.ctx.audio.play('unlock'); } }
-    if (c.you) { this._flash(by ? `¡${by.name} te destrozó!` : '¡Quedaste hecho chatarra!', '#ff8a7a'); this.ctx.audio.play('slam'); this.ctx.input.rumble(500, 1); }
+    if (c.you) { this._flash(by ? `¡${by.name} te destrozó!` : '¡Quedaste hecho chatarra!', '#ff8a7a'); this.ctx.input.rumble(500, 1); }
     this._feed(by, c);
     if (this.net && !c.remote) this.net.event({ t: 'ko', ep: this.ep, v: c.id, by: by ? by.id : null });
   }
@@ -584,7 +586,7 @@ export class Derby {
     else if (id === 'misil') this._fire(c, 'misil');
     else if (id === 'minas') this._fire(c, 'mina');
     else if (id === 'bomba') this._fire(c, 'bomba');
-    else if (id === 'fuego') { c.fireT = c.V.boom ? 3.6 : 2.4; if (c.you) A.play('fire'); }
+    else if (id === 'fuego') { c.fireT = c.V.boom ? 3.6 : 2.4; this._sfx('fuego', c.x, c.z, 0.8, 'fire'); }
     else if (id === 'reparar') { c.hp = Math.min(c.V.hp, c.hp + c.V.hp * 0.5); this._restoreSome(c); this._pop(c.x, c.y + 1, c.z, 0x7affa0, 3); if (c.you) A.play('heal'); }
     else if (id === 'escudo') { c.shieldT = 7; if (c.you) A.play('shieldUp'); }
     else if (id === 'nitro') { c.boostT = 2.2; if (c.you) { A.play('dash'); this.ctx.input.rumble(140, 0.5); } }
@@ -632,7 +634,10 @@ export class Derby {
     S.id = c.id + ':' + (this.sid = (this.sid || 0) + 1); S.remote = !!c.remote; // lo que dispara otro jugador solo se ve: el daño lo cuenta quien disparó
     if (spec) { S.remote = true; S.id = spec.id; S.x = +spec.x; S.z = +spec.z; S.yaw = +spec.yw; if (spec.tg) S.target = this.cars.find(o => o.id === spec.tg) || null; }
     else if (this.net && kind !== 'bala' && !c.remote) this.net.event({ t: 'dshot', ep: this.ep, id: S.id, k: kind, o: c.id, x: Math.round(S.x * 100) / 100, z: Math.round(S.z * 100) / 100, yw: Math.round(S.yaw * 1000) / 1000, tg: S.target ? S.target.id : null });
-    if (this._near(c)) A.play(kind === 'bala' ? 'shoot' : kind === 'mina' ? 'swing' : kind === 'bomba' ? 'swing' : 'fire');
+    if (kind === 'bala') this._sfx('mg' + (1 + Math.floor(Math.random() * 3)), S.x, S.z, c.you ? 0.55 : 0.45, 'shoot', { gap: 0.03, vary: 0.1 });
+    else if (kind === 'cohete' && c.V.cannon && !c.item) this._sfx('canon', S.x, S.z, 0.9, 'fire');
+    else if (kind === 'cohete' || kind === 'misil') this._sfx('cohete', S.x, S.z, 0.75, 'fire', { rate: kind === 'misil' ? 0.85 : 1 });
+    else if (this._near(c)) A.play('swing');
     this.shots.push(S);
   }
   // modelos de proyectiles: se arman una vez y cada disparo es una copia (comparte geometría; la luz de cada mina/bomba es suya)
@@ -695,7 +700,7 @@ export class Derby {
         if (Math.hypot(c.x - B.x, c.z - B.z) < 2.8) {
           this.root.remove(B.m); this.golds.splice(k, 1); this._pop(B.x, 1.4, B.z, 0xffe070, 3);
           c.item = 'especial'; c.n = 1; c.botWait = rnd(0.2, 0.8);
-          if (c.you) { this.ctx.audio.play('energy'); this._flash(`★ ${SPECIALS[c.V.id].name}`, '#ffd27a'); }
+          if (c.you) { this._sfx('especial', B.x, B.z, 0.7, 'energy'); this._flash(`★ ${SPECIALS[c.V.id].name}`, '#ffd27a'); }
           const gen = this.gen; setTimeout(() => { if (this.active && this.gen === gen) this._goldCrate(B.i); }, 25000);
           if (this.net) this.net.event({ t: 'oro', ep: this.ep, i: B.i });
           break;
@@ -804,7 +809,8 @@ export class Derby {
     for (let i = 0; i < 10 * s; i++) this._smoke(x + rnd(-1.5, 1.5) * s, y + rnd(0, 1.5), z + rnd(-1.5, 1.5) * s, 0x3a3430, 1.3 * s);
     this._sparks(x, y, z, Math.round(12 * s));
     const m = this.me, d = Math.hypot(m.x - x, m.z - z);
-    if (d < 60) { this.ctx.audio.play('slam'); this.shake = Math.max(this.shake || 0, clamp(1 - d / 30, 0, 1) * 0.6 * s); }
+    this._sfx(s >= 1.5 ? 'ko' : Math.random() < 0.5 ? 'explosion' : 'explosion2', x, z, Math.min(1, 0.6 + s * 0.3), 'slam', { gap: 0.05 });
+    if (d < 60) this.shake = Math.max(this.shake || 0, clamp(1 - d / 30, 0, 1) * 0.6 * s);
   }
   _fxTick(dt) {
     for (let k = this.parts.length - 1; k >= 0; k--) {
@@ -882,7 +888,7 @@ export class Derby {
     if (ev.t === 'dshot' && o) this._fire(o, ev.k, ev);
     else if (ev.t === 'sp' && o) this._specialFx(o, true);
     else if (ev.t === 'oro') { const k = this.golds.findIndex(B => B.i === ev.i); if (k >= 0) { const B = this.golds[k], gen = this.gen; this.root.remove(B.m); this.golds.splice(k, 1); this._pop(B.x, 1.4, B.z, 0xffe070, 3); setTimeout(() => { if (this.active && this.gen === gen) this._goldCrate(B.i); }, 25000); } }
-    else if (ev.t === 'act' && o) { if (ev.k === 'metralla') { o.burst = 7; o.burstT = 0; } }
+    else if (ev.t === 'act' && o) { if (ev.k === 'metralla') { o.burst = 7; o.burstT = 0; } else if (ev.k === 'fuego') { o.fireT = o.V.boom ? 3.6 : 2.4; this._sfx('fuego', o.x, o.z, 0.8, null); } }
     else if (ev.t === 'dhit') { const v = this.cars.find(c => c.id === ev.v && !c.remote), by = this.cars.find(c => c.id === ev.o); if (v) this._damage(v, Math.min(80, +ev.d || 0), by, ev.k); } // a mí o a uno de mis vehículos de la CPU
     else if (ev.t === 'ko') { const v = this.cars.find(c => c.id === ev.v), by = ev.by && this.cars.find(c => c.id === ev.by); if (by && by.you) { by.kills++; this._flash(`¡Destrozaste a ${v ? v.name : 'un rival'}!`, '#7affa0'); this.ctx.audio.play('unlock'); } if (v) this._feed(by || null, v); }
     else if (ev.t === 'barril') { const b = this.F.barrels[ev.i]; if (b && !(b.t > 0)) { b.t = 20; b.barrel.visible = false; this._explode(b.x, 0.8, b.z, 1.2); } }
