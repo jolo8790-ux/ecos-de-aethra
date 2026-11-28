@@ -6,6 +6,31 @@
 <title>Ecos de Aethra</title>
 <meta name="description" content="Aventura y carreras de karts entre islas flotantes. Juega gratis en el navegador, solo o en línea con amigos.">
 <meta name="theme-color" content="#1a2050">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Aethra">
+<script>
+// En el celular, tocar con dos dedos a la vez (joystick + botones) puede hacer zoom y dejar el juego cortado.
+// Esto bloquea ese zoom y, si igual ocurre, devuelve la pantalla a su tamaño normal.
+(function () {
+  var stop = function (e) { e.preventDefault(); };
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (t) { document.addEventListener(t, stop, { passive: false }); });
+  document.addEventListener('touchmove', function (e) { if (e.touches && e.touches.length > 1 && e.scale !== undefined && e.scale !== 1) e.preventDefault(); }, { passive: false });
+  var vv = window.visualViewport, busy = false;
+  var reset = function () {
+    if (!vv || busy || (vv.scale < 1.02 && vv.offsetLeft < 2 && vv.offsetTop < 2)) return;
+    var a = document.activeElement; if (a && /INPUT|TEXTAREA/.test(a.tagName)) return; // mientras escribes no se toca
+    busy = true; var m = document.querySelector('meta[name=viewport]'), base = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no';
+    m.setAttribute('content', base + ', minimum-scale=1'); window.scrollTo(0, 0);
+    setTimeout(function () { m.setAttribute('content', base); window.scrollTo(0, 0); busy = false; }, 120);
+  };
+  if (vv) { vv.addEventListener('resize', reset); vv.addEventListener('scroll', reset); }
+  document.addEventListener('focusout', function () { setTimeout(reset, 250); });
+  window.addEventListener('orientationchange', function () { setTimeout(reset, 400); });
+  setInterval(reset, 1500);
+})();
+</script>
 <meta property="og:type" content="website">
 <meta property="og:title" content="Ecos de Aethra">
 <meta property="og:description" content="Aventura y carreras de karts entre islas flotantes. Juega gratis en el navegador, solo o en línea con amigos.">
@@ -386,7 +411,7 @@
   #chatLog div.old { opacity: 0; } #chatBox.open #chatLog div.old { opacity: .85; }
   #chatLog b { margin-right: 6px; } #chatLog .sys { font-style: italic; opacity: .8; }
   #chatRow { display: none; gap: 6px; pointer-events: auto; } #chatBox.open #chatRow { display: flex; }
-  #chatInput { flex: 1; font: inherit; font-size: 15px; padding: 8px 12px; border-radius: 12px; border: 2px solid rgba(255,255,255,.35); background: rgba(0,0,0,.55); color: #fff; }
+  #chatInput { flex: 1; font: inherit; font-size: 16px; padding: 8px 12px; border-radius: 12px; border: 2px solid rgba(255,255,255,.35); background: rgba(0,0,0,.55); color: #fff; }
   #chatQuick { display: none; gap: 5px; flex-wrap: wrap; pointer-events: auto; } #chatBox.open #chatQuick { display: flex; }
   #chatQuick button { font: inherit; font-size: 13px; padding: 4px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,.3); background: rgba(10,16,30,.7); color: #fff; cursor: pointer; }
   #chatBtn { position: absolute; left: 14px; bottom: 16px; pointer-events: auto; } #chatBox.open ~ #chatBtn, #chatBtn.hidden { display: none; }
@@ -599,7 +624,7 @@
   #lobbyLog { height: 30vh; overflow-y: auto; text-align: left; background: rgba(0,0,0,.25); border-radius: 10px; padding: 6px 10px; font-size: 14px; }
   #lobbyLog .sys { opacity: .7; font-style: italic; }
   #lobbyQuick { display: flex; flex-wrap: wrap; gap: 4px; } #lobbyQuick button { font: inherit; font-size: 13px; padding: 3px 8px; border-radius: 10px; border: 1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.08); color: #fff; cursor: pointer; }
-  #lobbyInput { flex: 1; padding: 6px 10px; border-radius: 10px; border: 2px solid rgba(255,255,255,.25); background: rgba(0,0,0,.3); color: #fff; font: inherit; }
+  #lobbyInput { flex: 1; padding: 6px 10px; border-radius: 10px; border: 2px solid rgba(255,255,255,.25); background: rgba(0,0,0,.3); color: #fff; font: inherit; font-size: 16px; }
   body.racing.netrace #netChat { display: block !important; }
   body.touch .lobbyWrap { gap: 8px; } body.touch #lobbyLog { height: 26vh; } body.touch #raceLobby h2 { font-size: 20px; margin: 0; }
   #raceLights { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); display: flex; gap: 12px; padding: 12px 16px; border-radius: 16px; background: rgba(12,12,20,.85); box-shadow: 0 6px 20px rgba(0,0,0,.4); }
@@ -632,6 +657,7 @@
   #derbyHp b { display: block; height: 100%; width: 100%; background: #6ad04a; transition: width .15s; }
   body.touch #derbyHp { bottom: calc(6px + env(safe-area-inset-bottom)); width: 26vw; font-size: 11px; opacity: .9; }
   body.touch #derbyHp i { height: 9px; border-width: 1.5px; margin-bottom: 1px; }
+  #rtDrift.cool { opacity: .4; filter: grayscale(.6); }
   body.touch.derby #racePlace { display: none; } /* la tabla de arriba ya muestra el puesto */
   #derbyFeed { position: absolute; right: 14px; top: 92px; display: flex; flex-direction: column; gap: 3px; align-items: flex-end; font-size: 13px; pointer-events: none; }
   #derbyFeed div { background: rgba(10,16,40,.6); padding: 3px 10px; border-radius: 10px; } #derbyFeed div.sys { opacity: .75; font-style: italic; }
@@ -669,61 +695,61 @@
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-  "./js/arena.js": "./js/arena.js?v=2611271503",
-  "./js/audio.js": "./js/audio.js?v=2611271503",
-  "./js/autonav.js": "./js/autonav.js?v=2611271503",
-  "./js/camera.js": "./js/camera.js?v=2611271503",
-  "./js/characters.js": "./js/characters.js?v=2611271503",
-  "./js/combat.js": "./js/combat.js?v=2611271503",
-  "./js/credits.js": "./js/credits.js?v=2611271503",
-  "./js/derby.js": "./js/derby.js?v=2611271503",
-  "./js/endless.js": "./js/endless.js?v=2611271503",
-  "./js/fx.js": "./js/fx.js?v=2611271503",
-  "./js/garage.js": "./js/garage.js?v=2611271503",
-  "./js/gear.js": "./js/gear.js?v=2611271503",
-  "./js/glbload.js": "./js/glbload.js?v=2611271503",
-  "./js/hazards.js": "./js/hazards.js?v=2611271503",
-  "./js/hd.js": "./js/hd.js?v=2611271503",
-  "./js/heroes.js": "./js/heroes.js?v=2611271503",
-  "./js/icons.js": "./js/icons.js?v=2611271503",
-  "./js/input.js": "./js/input.js?v=2611271503",
-  "./js/intro.js": "./js/intro.js?v=2611271503",
-  "./js/logros.js": "./js/logros.js?v=2611271503",
-  "./js/main.js": "./js/main.js?v=2611271503",
-  "./js/music.js": "./js/music.js?v=2611271503",
-  "./js/net.js": "./js/net.js?v=2611271503",
-  "./js/physics.js": "./js/physics.js?v=2611271503",
-  "./js/piezas.js": "./js/piezas.js?v=2611271503",
-  "./js/player.js": "./js/player.js?v=2611271503",
-  "./js/powers.js": "./js/powers.js?v=2611271503",
-  "./js/props.js": "./js/props.js?v=2611271503",
-  "./js/race.js": "./js/race.js?v=2611271503",
-  "./js/racehaz.js": "./js/racehaz.js?v=2611271503",
-  "./js/raceitems.js": "./js/raceitems.js?v=2611271503",
-  "./js/reef.js": "./js/reef.js?v=2611271503",
-  "./js/report.js": "./js/report.js?v=2611271503",
-  "./js/rig.js": "./js/rig.js?v=2611271503",
-  "./js/save.js": "./js/save.js?v=2611271503",
-  "./js/sea.js": "./js/sea.js?v=2611271503",
-  "./js/seafoes.js": "./js/seafoes.js?v=2611271503",
-  "./js/showroom.js": "./js/showroom.js?v=2611271503",
-  "./js/songs.js": "./js/songs.js?v=2611271503",
-  "./js/traps.js": "./js/traps.js?v=2611271503",
-  "./js/vfx.js": "./js/vfx.js?v=2611271503",
-  "./js/world.js": "./js/world.js?v=2611271503",
-  "./js/worldnet.js": "./js/worldnet.js?v=2611271503",
-  "./js/zones/abismo_mareth.js": "./js/zones/abismo_mareth.js?v=2611271503",
-  "./js/zones/bosque_colgante.js": "./js/zones/bosque_colgante.js?v=2611271503",
-  "./js/zones/ciudad_engranajes.js": "./js/zones/ciudad_engranajes.js?v=2611271503",
-  "./js/zones/ciudadela_orden.js": "./js/zones/ciudadela_orden.js?v=2611271503",
-  "./js/zones/desafios.js": "./js/zones/desafios.js?v=2611271503",
-  "./js/zones/eco_olvidado.js": "./js/zones/eco_olvidado.js?v=2611271503",
-  "./js/zones/forja_ignis.js": "./js/zones/forja_ignis.js?v=2611271503",
-  "./js/zones/glaciar_eco.js": "./js/zones/glaciar_eco.js?v=2611271503",
-  "./js/zones/puerto_bruma.js": "./js/zones/puerto_bruma.js?v=2611271503",
-  "./js/zones/routegen.js": "./js/zones/routegen.js?v=2611271503",
-  "./js/zones/ruinas_vidrio.js": "./js/zones/ruinas_vidrio.js?v=2611271503",
-  "./js/zones/senderos.js": "./js/zones/senderos.js?v=2611271503"
+  "./js/arena.js": "./js/arena.js?v=2611280234",
+  "./js/audio.js": "./js/audio.js?v=2611280234",
+  "./js/autonav.js": "./js/autonav.js?v=2611280234",
+  "./js/camera.js": "./js/camera.js?v=2611280234",
+  "./js/characters.js": "./js/characters.js?v=2611280234",
+  "./js/combat.js": "./js/combat.js?v=2611280234",
+  "./js/credits.js": "./js/credits.js?v=2611280234",
+  "./js/derby.js": "./js/derby.js?v=2611280234",
+  "./js/endless.js": "./js/endless.js?v=2611280234",
+  "./js/fx.js": "./js/fx.js?v=2611280234",
+  "./js/garage.js": "./js/garage.js?v=2611280234",
+  "./js/gear.js": "./js/gear.js?v=2611280234",
+  "./js/glbload.js": "./js/glbload.js?v=2611280234",
+  "./js/hazards.js": "./js/hazards.js?v=2611280234",
+  "./js/hd.js": "./js/hd.js?v=2611280234",
+  "./js/heroes.js": "./js/heroes.js?v=2611280234",
+  "./js/icons.js": "./js/icons.js?v=2611280234",
+  "./js/input.js": "./js/input.js?v=2611280234",
+  "./js/intro.js": "./js/intro.js?v=2611280234",
+  "./js/logros.js": "./js/logros.js?v=2611280234",
+  "./js/main.js": "./js/main.js?v=2611280234",
+  "./js/music.js": "./js/music.js?v=2611280234",
+  "./js/net.js": "./js/net.js?v=2611280234",
+  "./js/physics.js": "./js/physics.js?v=2611280234",
+  "./js/piezas.js": "./js/piezas.js?v=2611280234",
+  "./js/player.js": "./js/player.js?v=2611280234",
+  "./js/powers.js": "./js/powers.js?v=2611280234",
+  "./js/props.js": "./js/props.js?v=2611280234",
+  "./js/race.js": "./js/race.js?v=2611280234",
+  "./js/racehaz.js": "./js/racehaz.js?v=2611280234",
+  "./js/raceitems.js": "./js/raceitems.js?v=2611280234",
+  "./js/reef.js": "./js/reef.js?v=2611280234",
+  "./js/report.js": "./js/report.js?v=2611280234",
+  "./js/rig.js": "./js/rig.js?v=2611280234",
+  "./js/save.js": "./js/save.js?v=2611280234",
+  "./js/sea.js": "./js/sea.js?v=2611280234",
+  "./js/seafoes.js": "./js/seafoes.js?v=2611280234",
+  "./js/showroom.js": "./js/showroom.js?v=2611280234",
+  "./js/songs.js": "./js/songs.js?v=2611280234",
+  "./js/traps.js": "./js/traps.js?v=2611280234",
+  "./js/vfx.js": "./js/vfx.js?v=2611280234",
+  "./js/world.js": "./js/world.js?v=2611280234",
+  "./js/worldnet.js": "./js/worldnet.js?v=2611280234",
+  "./js/zones/abismo_mareth.js": "./js/zones/abismo_mareth.js?v=2611280234",
+  "./js/zones/bosque_colgante.js": "./js/zones/bosque_colgante.js?v=2611280234",
+  "./js/zones/ciudad_engranajes.js": "./js/zones/ciudad_engranajes.js?v=2611280234",
+  "./js/zones/ciudadela_orden.js": "./js/zones/ciudadela_orden.js?v=2611280234",
+  "./js/zones/desafios.js": "./js/zones/desafios.js?v=2611280234",
+  "./js/zones/eco_olvidado.js": "./js/zones/eco_olvidado.js?v=2611280234",
+  "./js/zones/forja_ignis.js": "./js/zones/forja_ignis.js?v=2611280234",
+  "./js/zones/glaciar_eco.js": "./js/zones/glaciar_eco.js?v=2611280234",
+  "./js/zones/puerto_bruma.js": "./js/zones/puerto_bruma.js?v=2611280234",
+  "./js/zones/routegen.js": "./js/zones/routegen.js?v=2611280234",
+  "./js/zones/ruinas_vidrio.js": "./js/zones/ruinas_vidrio.js?v=2611280234",
+  "./js/zones/senderos.js": "./js/zones/senderos.js?v=2611280234"
 } }
 </script>
 </head>
@@ -1091,6 +1117,6 @@
   </div>
 </div>
 
-<script type="module" src="js/main.js?v=2611271503"></script>
+<script type="module" src="js/main.js?v=2611280234"></script>
 </body>
 </html>

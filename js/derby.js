@@ -566,10 +566,11 @@ export class Derby {
     const steer = -clamp(I.move.x, -1, 1);
     const back = !!(k.KeyS || k.ArrowDown || I._padDodge || this.tBrake || (!touch && I.move.y < -0.5));
     const throttle = touch ? (this.tBrake ? 0 : 1) : ((k.KeyW || k.ArrowUp || I._padJump || I.move.y > 0.35) ? 1 : 0);
-    const drift = !!(k.Space || k.ShiftLeft || k.ShiftRight || I._padShield || this.tDrift);
+    const jk = !!(k.Space || k.ShiftLeft || k.ShiftRight || I._padShield || this.tDrift), jump = jk && !this._jk; this._jk = jk; // en la arena el pedal azul es para saltar
+    const drift = false;
     const use = !!(this.tUseP || ((!touch || I.usingGamepad) && (I.pressed('interact') || I.pressed('grapple') || (I.pressed('attack') && (I.usingGamepad || k.KeyJ))))); this.tUseP = false;
     const hold = !!(this.tUseH || k.KeyE || k.KeyJ);
-    return { steer, throttle, brake: back ? 1 : 0, drift, use, hold };
+    return { steer, throttle, brake: back ? 1 : 0, drift, use, hold, jump };
   }
   // ---------- conducción: sobre el suelo o en el aire, derrape y rampas ----------
   _drive(c, ctl, dt) {
@@ -593,7 +594,12 @@ export class Derby {
     c.x += c.vx * dt; c.z += c.vz * dt;
     // altura: rampas y saltos
     let gh = 0; for (const R of this.F.ramps) { const h = rampH(R, c.x, c.z); if (h > gh) gh = h; }
-    if (c.air) { c.vy -= 30 * dt; c.y += c.vy * dt; if (c.y <= gh) { const hard = -c.vy; c.y = gh; c.air = false; c.vy = 0; c.bump = clamp(hard / 14, 0, 1); if (c.slam) { c.slam = false; this._shock(c, 10, 42); } if (hard > 6) { this._dust(c.x, c.z, 10); if (this._near(c)) this.ctx.audio.play('land'); } } }
+    c.jumpT = Math.max(0, (c.jumpT || 0) - dt);
+    if (ctl.jump && !c.air && c.jumpT <= 0 && !c.remote) { // salto: esquiva bombas y minas, y si caes encima de otro lo aplastas
+      c.jumpT = 2.2; c.vy = V.tracks ? 10 : V.id === 'monstruo' ? 15 : 13; c.air = true; c.hop = true; this._dust(c.x, c.z, 8);
+      this._sfx('nitro', c.x, c.z, c.you ? 0.45 : 0.3, c.you ? 'dash' : null, { rate: 1.5 }); if (c.you) this.ctx.input.rumble(60, 0.3);
+      if (this.net && !c.remote) this.net.event({ t: 'act', ep: this.ep, o: c.id, k: 'salto' }); }
+    if (c.air) { c.vy -= 30 * dt; c.y += c.vy * dt; if (c.y <= gh) { const hard = -c.vy; c.y = gh; c.air = false; c.vy = 0; c.bump = clamp(hard / 14, 0, 1); if (c.slam) { c.slam = false; this._shock(c, 10, 42); } if (c.hop) { c.hop = false; if (hard > 8) for (const o of this.cars) if (o !== c && !o.dead && Math.hypot(o.x - c.x, o.z - c.z) < 3.2) { this._damage(o, 24, c, 'aplastar'); this._sparks(o.x, o.y + 1.2, o.z, 12); this._sfx('choque2', o.x, o.z, 0.8, 'slam'); } } if (hard > 6) { this._dust(c.x, c.z, 10); if (this._near(c)) this.ctx.audio.play('land'); } } }
     else { const climb = (gh - c.y) / Math.max(dt, 1e-3); if (gh < c.y - 0.05) { c.air = true; c.vy = Math.max(0, c.lastClimb || 0) * (V.id === 'monstruo' ? 1.25 : 1); } else c.y = gh; c.lastClimb = climb; }
     c.fwdV = fwd; c.ctl = ctl;
   }
@@ -868,6 +874,7 @@ export class Derby {
     for (const L of this.F.lava) { const dx = L.x - c.x, dz = L.z - c.z, d = Math.hypot(dx, dz) - L.r; if (d > 14) continue; const a = angD(Math.atan2(dx, dz), c.yaw); if (Math.abs(a) < 0.9) want += (a > 0 ? -1 : 1) * (1 - Math.max(0, d) / 14) * 1.4; }
     const dist = Math.hypot(c.x, c.z); if (dist > RA - 12) want = angD(want, 0) * 0 + Math.atan2(-c.x, -c.z) * 0.5 + want * 0.5;
     const e = angD(want, c.yaw); ctl.steer = clamp(e * 2.2, -1, 1); ctl.drift = Math.abs(e) > 1.2 && c.speed > 12;
+    if (!c.air && (c.jumpT || 0) <= 0 && this.shots.some(S => S.owner !== c && (S.kind === 'mina' || S.kind === 'bomba') && Math.hypot(S.x - c.x, S.z - c.z) < 9) && Math.random() < 0.15) ctl.jump = true;
     if (Math.abs(e) > 2.2 && c.speed < 6) { ctl.throttle = 0; ctl.brake = 1; ctl.steer = -ctl.steer; } // da marcha atrás para girar
     // atascado contra algo: retrocede un momento
     if (c.speed < 2 && !c.air) c.stuck = (c.stuck || 0) + dt; else c.stuck = 0;
@@ -1021,7 +1028,7 @@ export class Derby {
     if (ev.t === 'dshot' && o) this._fire(o, ev.k, ev);
     else if (ev.t === 'sp' && o) this._specialFx(o, true);
     else if (ev.t === 'oro') { const k = this.golds.findIndex(B => B.i === ev.i); if (k >= 0) { const B = this.golds[k], gen = this.gen; this.root.remove(B.m); this.golds.splice(k, 1); this._pop(B.x, 1.4, B.z, 0xffe070, 3); this._sfx('dorada', B.x, B.z, 0.5, null); setTimeout(() => { if (this.active && this.gen === gen) this._goldCrate(B.i); }, 25000); } }
-    else if (ev.t === 'act' && o) { if (ev.k === 'metralla') { o.burst = 7; o.burstT = 0; } else if (ev.k === 'fuego') { o.fireT = o.V.boom ? 3.6 : 2.4; this._sfx('fuego', o.x, o.z, 0.8, null); } else if (ev.k === 'nitro') this._sfx('nitro', o.x, o.z, 0.55, null); }
+    else if (ev.t === 'act' && o) { if (ev.k === 'metralla') { o.burst = 7; o.burstT = 0; } else if (ev.k === 'fuego') { o.fireT = o.V.boom ? 3.6 : 2.4; this._sfx('fuego', o.x, o.z, 0.8, null); } else if (ev.k === 'nitro') this._sfx('nitro', o.x, o.z, 0.55, null); else if (ev.k === 'salto') { this._dust(o.x, o.z, 8); this._sfx('nitro', o.x, o.z, 0.3, null, { rate: 1.5 }); } }
     else if (ev.t === 'dhit') { const v = this.cars.find(c => c.id === ev.v && !c.remote), by = this.cars.find(c => c.id === ev.o); if (v) this._damage(v, Math.min(80, +ev.d || 0), by, ev.k); } // a mí o a uno de mis vehículos de la CPU
     else if (ev.t === 'ko') { const v = this.cars.find(c => c.id === ev.v), by = ev.by && this.cars.find(c => c.id === ev.by); if (by && by.you) { by.kills++; this._flash(`¡Destrozaste a ${v ? v.name : 'un rival'}!`, '#7affa0'); this.ctx.audio.play('unlock'); } if (v) this._feed(by || null, v); }
     else if (ev.t === 'barril') { const b = this.F.barrels[ev.i]; if (b && !(b.t > 0)) { b.t = 20; b.barrel.visible = false; this._explode(b.x, 0.8, b.z, 1.2); } }
@@ -1056,10 +1063,12 @@ export class Derby {
   _labels(on) { // los botones de la pantalla de carreras, con sus nombres para la arena
     const L = { bRaceTrack: ['Cambiar pista', 'Cambiar vehículo'], bRaceTrack2: ['Cambiar pista', 'Cambiar vehículo'], bRaceEndLeave: ['Salir de la carrera', 'Salir de la arena'], bRaceLeave: ['Salir de la carrera', 'Salir de la arena'], bRaceRestart: ['Repetir carrera', 'Otra ronda'] };
     for (const [id, t] of Object.entries(L)) { const el = $(id); if (!el) continue; const n = [...el.childNodes].reverse().find(x => x.nodeType === 3); if (n) n.nodeValue = ' ' + t[on ? 1 : 0]; }
+    { const d = $('rtDrift'); if (d) { d.innerHTML = on ? '⤒<br>SALTO' : '↯<br>DERRAPE'; d.classList.remove('cool'); } }
     if (this.net) { const r = $('bRaceRestart'); if (r) r.classList.toggle('hidden', on); } else { const r = $('bRaceRestart'); if (r) r.classList.remove('hidden'); }
   }
   _hurtFx(dmg) { const el = $('derbyHurt'); if (!el) return; el.style.opacity = Math.min(0.7, 0.2 + dmg / 40); clearTimeout(this._hurtT); this._hurtT = setTimeout(() => { el.style.opacity = 0; }, 160); }
   _hudTick() {
+    { const d = $('rtDrift'), me = this.me; if (d && me) d.classList.toggle('cool', (me.jumpT || 0) > 0 || !!me.air); }
     const me = this.me, f = clamp(me.hp / me.V.hp, 0, 1);
     const hb = $('derbyHp'); hb.querySelector('b').style.width = (f * 100) + '%'; hb.querySelector('b').style.background = f > 0.5 ? '#6ad04a' : f > 0.25 ? '#ffc83a' : '#ff4a3a';
     hb.querySelector('span').textContent = me.dead > 0 ? `Vuelves en ${Math.ceil(me.dead)}…` : `${Math.ceil(me.hp)} / ${me.V.hp}`;
