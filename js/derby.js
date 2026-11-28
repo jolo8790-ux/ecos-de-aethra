@@ -47,14 +47,18 @@ export const ROUND = 180; // segundos por ronda
 
 // ---------- arenas: todas igual de grandes, cada una con su clima, obstáculos y una regla propia ----------
 export const ARENAS = [
-  { id: 'chatarreria', tag: 'C', name: 'La Chatarrería', icon: '🏜', desc: 'Desierto de chatarra: contenedores, autos aplastados y barriles explosivos.', sub: 'Arena de destrucción',
-    sky: { top: 0x3a3a6a, bottom: 0xf0a060, fog: 0xd89a68, fogNear: 90, fogFar: 330 }, light: { hemiSky: 0xffe0c0, hemiGround: 0x8a5a3a, sun: 0xffd0a0 }, grip: 1, seed: 1234567, rot: 0, pfx: 'dust' },
-  { id: 'glaciar', tag: 'G', name: 'Glaciar Roto', icon: '🧊', desc: 'Hielo resbaloso: los vehículos derrapan. Picos de cristal y camiones congelados.', sub: 'Arena helada · el hielo resbala',
-    sky: { top: 0x3e5e92, bottom: 0xdcefff, fog: 0xc4daf0, fogNear: 80, fogFar: 320 }, light: { hemiSky: 0xe4f2ff, hemiGround: 0x6a8aa8, sun: 0xfff6ea }, grip: 0.38, seed: 7654321, rot: 0.7, pfx: 'snow' },
-  { id: 'caldera', tag: 'V', name: 'Caldera de Lava', icon: '🌋', desc: 'Charcos de lava que queman: empuja a tus rivales dentro. Columnas de basalto.', sub: 'Arena volcánica · la lava quema',
-    sky: { top: 0x1e0c14, bottom: 0xc0502a, fog: 0x6a2a18, fogNear: 70, fogFar: 300 }, light: { hemiSky: 0xffc090, hemiGround: 0x501a0c, sun: 0xffa070 }, grip: 1, seed: 3141592, rot: 1.4, pfx: 'ember' },
-  { id: 'ciudad', tag: 'U', name: 'Ciudad en Ruinas', icon: '🏙', desc: 'Calles rotas entre edificios derrumbados, autobuses y barreras de concreto.', sub: 'Arena urbana · cúbrete tras los edificios',
-    sky: { top: 0x3a4250, bottom: 0xc8b494, fog: 0x8e887a, fogNear: 80, fogFar: 320 }, light: { hemiSky: 0xece4d4, hemiGround: 0x4a4a48, sun: 0xffe8c8 }, grip: 1, seed: 2718281, rot: 2.2, pfx: 'ash' },
+  { id: 'chatarreria', tag: 'C', name: 'La Chatarrería', icon: '🏜', desc: 'Desierto de chatarra con barriles explosivos y un tornado de arena que arrastra a los vehículos.', sub: 'Arena de destrucción',
+    sky: { top: 0x3a3a6a, bottom: 0xf0a060, fog: 0xd89a68, fogNear: 90, fogFar: 330 }, light: { hemiSky: 0xffe0c0, hemiGround: 0x8a5a3a, sun: 0xffd0a0 }, grip: 1, seed: 1234567, rot: 0, pfx: 'dust', ev: 'tornado', evName: '🌪 ¡Cuidado con el tornado!' },
+  { id: 'glaciar', tag: 'G', name: 'Glaciar Roto', icon: '🧊', desc: 'Hielo resbaloso donde todos derrapan, picos de cristal y carámbanos gigantes que caen del cielo.', sub: 'Arena helada · el hielo resbala',
+    sky: { top: 0x3e5e92, bottom: 0xdcefff, fog: 0xc4daf0, fogNear: 80, fogFar: 320 }, light: { hemiSky: 0xe4f2ff, hemiGround: 0x6a8aa8, sun: 0xfff6ea }, grip: 0.38, seed: 7654321, rot: 0.7, pfx: 'snow', ev: 'hielo', evName: '🧊 ¡Caen carámbanos! Esquiva los círculos' },
+  { id: 'caldera', tag: 'V', name: 'Caldera de Lava', icon: '🌋', desc: 'Charcos de lava que queman (empuja a tus rivales dentro) y lluvia de rocas de lava.', sub: 'Arena volcánica · la lava quema',
+    sky: { top: 0x1e0c14, bottom: 0xc0502a, fog: 0x6a2a18, fogNear: 70, fogFar: 300 }, light: { hemiSky: 0xffc090, hemiGround: 0x501a0c, sun: 0xffa070 }, grip: 1, seed: 3141592, rot: 1.4, pfx: 'ember', ev: 'lava', evName: '☄ ¡Lluvia de lava! Esquiva los círculos' },
+  { id: 'ciudad', tag: 'U', name: 'Ciudad en Ruinas', icon: '🏙', desc: 'Edificios derrumbados para cubrirse, autobuses, barreras y misiles que buscan a los vehículos.', sub: 'Arena urbana · cúbrete tras los edificios',
+    sky: { top: 0x3a4250, bottom: 0xc8b494, fog: 0x8e887a, fogNear: 80, fogFar: 320 }, light: { hemiSky: 0xece4d4, hemiGround: 0x4a4a48, sun: 0xffe8c8 }, grip: 1, seed: 2718281, rot: 2.2, pfx: 'ash', ev: 'misil', evName: '🚀 ¡Misiles! No te quedes quieto' },
+  { id: 'puerto', tag: 'P', name: 'Puerto Naufragio', icon: '⚓', desc: 'Muelles bajo la tormenta: barco encallado, grúas, canales de agua que frenan y rayos.', sub: 'Arena portuaria · tormenta eléctrica',
+    sky: { top: 0x141c2e, bottom: 0x56667e, fog: 0x3e4c62, fogNear: 70, fogFar: 300 }, light: { hemiSky: 0xb8c8e0, hemiGround: 0x283444, sun: 0xd8e4f4 }, grip: 0.8, seed: 1618033, rot: 3.0, pfx: 'rain', ev: 'rayo', evName: '⚡ ¡Tormenta! Esquiva los círculos' },
+  { id: 'base', tag: 'B', name: 'Base Militar', icon: '🎖', desc: 'Hangares, pista de aterrizaje, trincheras y erizos antitanque, con bombardeos en línea.', sub: 'Arena militar · bombardeos aéreos',
+    sky: { top: 0x3c6eb4, bottom: 0xead8a8, fog: 0xd6c69c, fogNear: 90, fogFar: 330 }, light: { hemiSky: 0xfff0d0, hemiGround: 0x7a6a48, sun: 0xfff0c8 }, grip: 1, seed: 1414213, rot: 3.8, pfx: 'dust', ev: 'bombardeo', evName: '✈ ¡Bombardeo! Sal de la línea roja' },
 ];
 export const arenaFromCode = code => ARENAS.find(a => a.tag === String(code || '').charAt(0).toUpperCase()) || ARENAS[0]; // la primera letra del código dice la arena
 export const arenaById = id => ARENAS.find(a => a.id === id) || ARENAS[0];
@@ -152,6 +156,17 @@ const groundTex = (id = 'chatarreria') => _grounds[id] || (_grounds[id] = canvas
     for (let k = 0; k < 7; k++) c.fillRect(w * 0.62 + k * 18, h * 0.12, 10, 60); // paso de cebra
     c.strokeStyle = 'rgba(20,20,20,.6)'; c.lineWidth = 1.6; scribble(c, w, h, 36, 7, 24);
     c.strokeStyle = 'rgba(20,20,20,.25)'; c.lineWidth = 7; tracks(c, w, h, 8);
+  } else if (id === 'puerto') { // concreto mojado del muelle con tablones y charcos
+    grad('#5e646a', '#464c52'); specks(2600, () => `rgba(0,0,0,${rnd(0.08, 0.2)})`, () => `rgba(180,190,200,${rnd(0.05, 0.14)})`);
+    c.fillStyle = 'rgba(110,80,50,.55)'; for (let y = 0; y < h; y += 128) for (let k = 0; k < 6; k++) { c.fillRect(0, y + k * 10, w, 8); } // tablones
+    c.strokeStyle = 'rgba(40,28,18,.5)'; c.lineWidth = 1; for (let y = 0; y < h; y += 10) { c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke(); }
+    for (let k = 0; k < 16; k++) { c.fillStyle = `rgba(150,175,205,${rnd(0.15, 0.35)})`; c.beginPath(); c.ellipse(Math.random() * w, Math.random() * h, rnd(12, 40), rnd(6, 18), rnd(0, 3), 0, 7); c.fill(); } // charcos
+    c.fillStyle = 'rgba(230,190,40,.6)'; for (let x = 0; x < w; x += 48) c.fillRect(x, h * 0.75, 28, 5);
+    c.strokeStyle = 'rgba(0,0,0,.25)'; c.lineWidth = 7; tracks(c, w, h, 8);
+  } else if (id === 'base') { // tierra arenosa con pista de aterrizaje
+    grad('#c8b07c', '#a8905c'); specks(2600, () => `rgba(90,70,40,${rnd(0.05, 0.2)})`, () => `rgba(240,225,190,${rnd(0.05, 0.16)})`);
+    for (let k = 0; k < 8; k++) { c.fillStyle = 'rgba(40,36,30,.5)'; c.beginPath(); c.arc(Math.random() * w, Math.random() * h, rnd(8, 22), 0, 7); c.fill(); } // cráteres
+    c.strokeStyle = 'rgba(70,50,30,.25)'; c.lineWidth = 1.5; scribble(c, w, h, 24, 6, 22); c.strokeStyle = 'rgba(60,45,25,.25)'; c.lineWidth = 7; tracks(c, w, h, 8);
   } else {
     grad('#c9945e', '#a8703f'); specks(2600, () => `rgba(90,55,30,${rnd(0.05, 0.2)})`, () => `rgba(240,200,150,${rnd(0.05, 0.18)})`);
     c.strokeStyle = 'rgba(70,40,20,.25)'; c.lineWidth = 1.5; scribble(c, w, h, 30, 6, 22); // grietas
@@ -285,6 +300,8 @@ function buildField(D, A = ARENAS[0]) {
   const rockM = T === 'glaciar' ? new THREE.MeshStandardMaterial({ color: 0xbfe2fa, roughness: 0.2, metalness: 0.1, emissive: 0x1a3858, emissiveIntensity: 0.35, flatShading: true })
     : T === 'caldera' ? new THREE.MeshStandardMaterial({ color: 0x302826, roughness: 0.9, flatShading: true })
     : T === 'ciudad' ? new THREE.MeshStandardMaterial({ color: 0x8a8680, roughness: 0.95, flatShading: true })
+    : T === 'puerto' ? new THREE.MeshStandardMaterial({ color: 0x4e565e, roughness: 0.8, flatShading: true })
+    : T === 'base' ? new THREE.MeshStandardMaterial({ color: 0xb48c5c, roughness: 0.95, flatShading: true })
     : new THREE.MeshStandardMaterial({ color: 0x9a6a44, roughness: 0.95, flatShading: true });
   const rock = (x, z, s, h = 1) => { const m = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), rockM); m.position.set(x, s * 0.45 * h, z); m.scale.y = h; m.rotation.set(rnd(0, 3), rnd(0, 3), rnd(0, 3)); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
   const add = (m, x, y, z, yaw = 0) => { m.position.set(x, y, z); m.rotation.y = yaw; m.castShadow = m.receiveShadow = true; g.add(m); return m; };
@@ -293,6 +310,12 @@ function buildField(D, A = ARENAS[0]) {
   for (let k = 0; k < 96; k++) { const a = k / 96 * Math.PI * 2, rr = RA + 4 + rnd(0, 7); rock(Math.sin(a) * rr, Math.cos(a) * rr, rnd(4, 7.5), rnd(1, T === 'glaciar' ? 2.4 : 1.9)); }
   if (T === 'ciudad') { // barreras de concreto en el borde
     const con = M(0xb8b2a8, { r: 0.9 }); for (let k = 0; k < 74; k++) { const a = (k + 0.5) / 74 * Math.PI * 2; add(new THREE.Mesh(new THREE.BoxGeometry(10.2, 1.6, 0.9), con), Math.sin(a) * (RA + 1.5), 0.8, Math.cos(a) * (RA + 1.5), a + Math.PI / 2); }
+  } else if (T === 'puerto') { // amarraderos de concreto con bolardos
+    const con = M(0x6a6e72, { r: 0.9 }), bol = M(0x2a2c30, { r: 0.5, m: 0.6 }); for (let k = 0; k < 74; k++) { const a = (k + 0.5) / 74 * Math.PI * 2; add(new THREE.Mesh(new THREE.BoxGeometry(10.2, 1.2, 1.4), con), Math.sin(a) * (RA + 1.5), 0.6, Math.cos(a) * (RA + 1.5), a + Math.PI / 2); if (k % 3 === 0) add(new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.5, 1, 8), bol), Math.sin(a) * (RA + 0.4), 1.6, Math.cos(a) * (RA + 0.4)); }
+  } else if (T === 'base') { // alambrada con postes y sacos
+    const post = M(0x4a4a40, { r: 0.6, m: 0.5 }), wire = new THREE.MeshBasicMaterial({ color: 0x3a3a34, transparent: true, opacity: 0.6 });
+    for (let k = 0; k < 90; k++) { const a = k / 90 * Math.PI * 2; add(new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 3, 5), post), Math.sin(a) * (RA + 1.5), 1.5, Math.cos(a) * (RA + 1.5));
+      for (const y of [0.9, 1.8, 2.7]) { const w = new THREE.Mesh(new THREE.BoxGeometry(2 * Math.PI * (RA + 1.5) / 90, 0.05, 0.05), wire); w.position.set(Math.sin(a + Math.PI / 90) * (RA + 1.5), y, Math.cos(a + Math.PI / 90) * (RA + 1.5)); w.rotation.y = a + Math.PI / 2 + Math.PI / 90; g.add(w); } }
   } else if (T !== 'glaciar') {
     const fence = new THREE.MeshStandardMaterial({ color: T === 'caldera' ? 0x3a3030 : 0x6a5040, map: rustTex(), roughness: 0.8, metalness: 0.4 });
     for (let k = 0; k < 62; k++) { const a = (k + 0.5) / 62 * Math.PI * 2, m = new THREE.Mesh(new THREE.BoxGeometry(12.4, rnd(2.2, 3.4), 0.25), fence); m.position.set(Math.sin(a) * (RA + 1.5), 1.2, Math.cos(a) * (RA + 1.5)); m.rotation.y = a + Math.PI / 2; m.rotation.z = rnd(-0.06, 0.06); m.castShadow = true; g.add(m); }
@@ -305,6 +328,13 @@ function buildField(D, A = ARENAS[0]) {
     const moat = new THREE.Mesh(new THREE.RingGeometry(RA + 13, RA + 40, 72), new THREE.MeshBasicMaterial({ color: 0xff5a10 })); moat.rotation.x = -Math.PI / 2; moat.position.y = 0.05; g.add(moat); }
   else if (T === 'ciudad') { const fac = new THREE.MeshStandardMaterial({ map: windowTex(), roughness: 0.9 }); for (let k = 0; k < 44; k++) { const a = k / 44 * 6.28 + rnd(-0.05, 0.05), rr = rnd(140, 220), hh = rnd(25, 85), w = rnd(14, 26);
       const b = add(new THREE.Mesh(new THREE.BoxGeometry(w, hh, w), fac), Math.sin(a) * rr, hh / 2 - 1, Math.cos(a) * rr, a + rnd(-0.3, 0.3)); b.rotation.z = Math.random() < 0.2 ? rnd(-0.12, 0.12) : 0; } }
+  else if (T === 'puerto') { // mar de tormenta, faro y barcos lejanos
+    const sea = new THREE.Mesh(new THREE.RingGeometry(RA + 9, 260, 72), new THREE.MeshStandardMaterial({ color: 0x1e3448, roughness: 0.25, metalness: 0.4 })); sea.rotation.x = -Math.PI / 2; sea.position.y = -0.4; g.add(sea);
+    const lh = add(new THREE.Mesh(new THREE.CylinderGeometry(3, 4.5, 34, 10), M(0xe8e4dc, { r: 0.8 })), 0, 16, -RA - 60); const top = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.4, 4, 10), glow(0xfff2b0, 2.2)); top.position.y = 19; lh.add(top);
+    const hullM = M(0x3a2a22, { r: 0.8 }); for (let k = 0; k < 7; k++) { const a = k / 7 * 6.28 + 0.4, rr = rnd(170, 230), b = add(new THREE.Mesh(new THREE.BoxGeometry(12, 6, rnd(30, 50)), hullM), Math.sin(a) * rr, 0, Math.cos(a) * rr, a + rnd(-0.5, 0.5)); b.rotation.z = rnd(-0.25, 0.25); } }
+  else if (T === 'base') { const mesa = M(0xa89068, { r: 0.95, flat: true }); for (let k = 0; k < 26; k++) { const a = rnd(0, 6.28), rr = rnd(160, 235); rock(Math.sin(a) * rr, Math.cos(a) * rr, rnd(14, 28), rnd(0.6, 1.4)); }
+    const tw = M(0x5a5a4a, { r: 0.7, m: 0.4 }); for (let k = 0; k < 6; k++) { const a = k / 6 * 6.28 + 0.3, rr = RA + 22, t = new THREE.Group(); t.position.set(Math.sin(a) * rr, 0, Math.cos(a) * rr); g.add(t); // torres de vigilancia
+      for (const [dx, dz] of [[-1.5, -1.5], [1.5, -1.5], [-1.5, 1.5], [1.5, 1.5]]) t.add(box(0.3, 12, 0.3, tw, dx, 6, dz)); t.add(box(4.4, 2.4, 4.4, M(0x6a5a3a, { r: 0.9 }), 0, 13, 0)); const L = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.5, 0.8), glow(0xfff0b0, 1.5)); L.position.set(0, 14.6, 0); t.add(L); } }
   else for (let k = 0; k < 34; k++) { const a = rnd(0, 6.28), rr = rnd(150, 230); rock(Math.sin(a) * rr, Math.cos(a) * rr, rnd(12, 26), rnd(1.2, 2.6)); } // mesetas lejanas
   // reparto de obstáculos (con semilla: igual para todos los jugadores)
   const rnd2 = (() => { let s = A.seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
@@ -374,6 +404,50 @@ function buildField(D, A = ARENAS[0]) {
     const pole = M(0x3a3a3a, { r: 0.6, m: 0.6 }), lampM = glow(0xffd890, 1.2); for (let k = 0; k < 12; k++) { const p = place(0.6); if (!p) continue; // farolas torcidas
       const pl = add(new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 6.5, 6), pole), p[0], 3.25, p[1]); pl.rotation.z = r2(-0.25, 0.25); const l = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.25, 1.2), lampM); l.position.set(0, 3.2, 0.5); pl.add(l); obs.push({ x: p[0], z: p[1], r: 0.5 }); }
     rocks(8);
+  } else if (T === 'puerto') {
+    // canales de agua: no se chocan, frenan mucho y dañan poco
+    const waterM = new THREE.MeshStandardMaterial({ color: 0x24506e, roughness: 0.15, metalness: 0.5, transparent: true, opacity: 0.92 }), foam = new THREE.MeshBasicMaterial({ color: 0x9ac0d8, transparent: true, opacity: 0.5 }), edge = M(0x4a4e52, { r: 0.9 });
+    for (let k = 0; k < 8; k++) { const r = r2(5, 8.5), p = place(r + 2); if (!p) continue;
+      const rim = new THREE.Mesh(new THREE.CircleGeometry(r + 1, 24), edge); rim.rotation.x = -Math.PI / 2; rim.position.set(p[0], 0.02, p[1]); g.add(rim);
+      const m = new THREE.Mesh(new THREE.CircleGeometry(r, 24), waterM); m.rotation.x = -Math.PI / 2; m.position.set(p[0], 0.05, p[1]); g.add(m);
+      const c2 = new THREE.Mesh(new THREE.RingGeometry(r * 0.5, r * 0.62, 24), foam); c2.rotation.x = -Math.PI / 2; c2.position.set(p[0], 0.07, p[1]); g.add(c2);
+      lava.push({ x: p[0], z: p[1], r, m, c2, w: true }); }
+    { // barco encallado: enorme, con varios puntos de choque
+      const p = place(13) || [40, -40], yaw = rnd2() * 3.14, ship = new THREE.Group(); ship.position.set(p[0], -0.6, p[1]); ship.rotation.set(0, yaw, 0.14); g.add(ship);
+      const hullM = new THREE.MeshStandardMaterial({ color: 0x5a2a22, map: rustTex(), roughness: 0.8, metalness: 0.4 }), deck = M(0x6a5038, { r: 0.9 }), wh = M(0xd8d4c8, { r: 0.8 });
+      ship.add(box(7, 5.5, 24, hullM, 0, 2.6, 0)); const bow = new THREE.Mesh(new THREE.ConeGeometry(3.6, 7, 4), hullM); bow.rotation.set(Math.PI / 2, Math.PI / 4, 0); bow.scale.set(1, 1, 0.75); bow.position.set(0, 2.8, 15); ship.add(bow);
+      ship.add(box(6.6, 0.3, 23, deck, 0, 5.5, 0)); ship.add(box(5, 4, 6, wh, 0, 7.6, -6)); ship.add(box(1.2, 5, 1.2, M(0x2a2a2a), 0, 11, -6));
+      for (const o of ship.children) o.castShadow = o.receiveShadow = true;
+      for (let j = -2; j <= 2; j++) obs.push({ x: p[0] + Math.sin(yaw) * j * 5, z: p[1] + Math.cos(yaw) * j * 5, r: 3.8 }); }
+    const crane = M(0xd8a020, { r: 0.6, m: 0.5 }); for (let k = 0; k < 4; k++) { const p = place(4); if (!p) continue; const yaw = rnd2() * 6.28, c = new THREE.Group(); c.position.set(p[0], 0, p[1]); c.rotation.y = yaw; g.add(c); // grúas de puerto
+      for (const [dx, dz] of [[-2.5, -2.5], [2.5, -2.5], [-2.5, 2.5], [2.5, 2.5]]) { c.add(box(0.6, 14, 0.6, crane, dx, 7, dz)); obs.push({ x: p[0] + dx * Math.cos(yaw) + dz * Math.sin(yaw), z: p[1] - dx * Math.sin(yaw) + dz * Math.cos(yaw), r: 0.8 }); }
+      c.add(box(6, 1, 6, crane, 0, 14, 0)); c.add(box(1, 1, 22, crane, 0, 15, 6)); c.add(box(0.1, 8, 0.1, M(0x222222), 0, 10.5, 14)); c.add(box(2.4, 1.2, 2.4, scrap, 0, 6, 14)); for (const o of c.children) o.castShadow = true; }
+    long(10, cont, 7.5, 3, 3, 1.9); // contenedores
+    for (let k = 0; k < 5; k++) { const p = place(4.4); if (!p) continue; const yaw = rnd2() * 3.14; for (let j = 0; j < 2; j++) add(new THREE.Mesh(new THREE.BoxGeometry(3, 3, 7.5), cont[(k + j) % cont.length]), p[0], 1.5 + j * 3, p[1], yaw + j * 0.1); for (const d of [-2.2, 0, 2.2]) obs.push({ x: p[0] + Math.sin(yaw) * d, z: p[1] + Math.cos(yaw) * d, r: 1.9 }); } // pilas dobles
+    const boatM = [0x2a6a8a, 0xd8d0c0, 0xa83a2a].map(c => new THREE.MeshStandardMaterial({ color: c, map: rustTex(), roughness: 0.7, metalness: 0.2 }));
+    for (let k = 0; k < 7; k++) { const p = place(2.6); if (!p) continue; const yaw = rnd2() * 6.28, b = new THREE.Group(); b.position.set(p[0], 0, p[1]); b.rotation.set(0, yaw, r2(-0.4, 0.4)); g.add(b); // botes volcados en tierra
+      b.add(box(2.2, 1.2, 5, boatM[k % 3], 0, 0.6, 0)); const pr = new THREE.Mesh(new THREE.ConeGeometry(1.1, 1.8, 4), boatM[k % 3]); pr.rotation.set(Math.PI / 2, Math.PI / 4, 0); pr.position.set(0, 0.6, 3.3); b.add(pr); obs.push({ x: p[0], z: p[1], r: 2.2 }); }
+    const crM = new THREE.MeshStandardMaterial({ map: crateTex(), roughness: 0.85 }); for (let k = 0; k < 12; k++) { const p = place(1.4); if (!p) continue; for (let j = 0; j < 3; j++) add(new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.3, 1.3), crM), p[0] + (j % 2) * 1.35 - 0.6, 0.65 + (j > 1 ? 1.3 : 0), p[1], r2(-0.2, 0.2)); obs.push({ x: p[0], z: p[1], r: 1.3, soft: true }); } // cajas de pescado
+    rocks(6);
+  } else if (T === 'base') {
+    { const rw = canvasTex(64, 512, (c, w, h) => { c.fillStyle = '#4a4a48'; c.fillRect(0, 0, w, h); for (let i = 0; i < 300; i++) { c.fillStyle = `rgba(0,0,0,${rnd(0.05, 0.2)})`; c.fillRect(Math.random() * w, Math.random() * h, 2, 2); } c.fillStyle = '#e8e8dc'; c.fillRect(2, 0, 3, h); c.fillRect(w - 5, 0, 3, h); for (let y = 0; y < h; y += 64) c.fillRect(w / 2 - 2, y, 4, 34); });
+      rw.repeat.set(1, 6); const strip = new THREE.Mesh(new THREE.PlaneGeometry(18, RA * 2 - 8), new THREE.MeshStandardMaterial({ map: rw, roughness: 0.9 })); strip.rotation.set(-Math.PI / 2, 0, A.rot); strip.position.y = 0.03; strip.receiveShadow = true; g.add(strip); }
+    const hang = new THREE.MeshStandardMaterial({ color: 0x6a7058, map: rustTex(), roughness: 0.7, metalness: 0.5, side: THREE.DoubleSide });
+    for (let k = 0; k < 4; k++) { const p = place(10); if (!p) continue; const yaw = rnd2() * 3.14; // hangares: medio cilindro gigante
+      const hg = new THREE.CylinderGeometry(7, 7, 16, 16, 1, true, -Math.PI / 2, Math.PI); hg.rotateX(-Math.PI / 2); add(new THREE.Mesh(hg, hang), p[0], 0, p[1], yaw);
+      const back = new THREE.Mesh(new THREE.CircleGeometry(7, 16, 0, Math.PI), hang); back.position.set(p[0] - Math.sin(yaw) * 8, 0, p[1] - Math.cos(yaw) * 8); back.rotation.y = yaw; g.add(back);
+      for (let j = -3; j <= 3; j++) for (const sd of [-1, 1]) { const lx = sd * 5.2, lz = j * 2.4; obs.push({ x: p[0] + lx * Math.cos(yaw) + lz * Math.sin(yaw), z: p[1] - lx * Math.sin(yaw) + lz * Math.cos(yaw), r: 1.8 }); }
+      for (let j = -2; j <= 2; j++) obs.push({ x: p[0] - Math.sin(yaw) * 8 + Math.cos(yaw) * j * 2.6, z: p[1] - Math.cos(yaw) * 8 - Math.sin(yaw) * j * 2.6, r: 1.4 }); }
+    const bag = M(0xa8986a, { r: 1 }); for (let k = 0; k < 12; k++) { const p = place(3.4); if (!p) continue; const yaw = rnd2() * 6.28; // trincheras de sacos en arco
+      for (let j = 0; j < 7; j++) { const a = yaw + (j - 3) * 0.28, x = p[0] + Math.sin(a) * 3.2, z = p[1] + Math.cos(a) * 3.2; for (let l = 0; l < 2; l++) { const b = add(new THREE.Mesh(new THREE.CapsuleGeometry(0.32, 0.7, 3, 6), bag), x, 0.32 + l * 0.55, z, a + Math.PI / 2); b.rotation.z = Math.PI / 2; } if (j % 2 === 0) obs.push({ x, z, r: 0.9 }); } }
+    const steel = M(0x3a3a38, { r: 0.6, m: 0.7 }); for (let k = 0; k < 20; k++) { const p = place(1.4); if (!p) continue; const e = new THREE.Group(); e.position.set(p[0], 0.9, p[1]); e.rotation.y = rnd2() * 3; g.add(e); // erizos antitanque
+      for (const [rx, rz] of [[0.8, 0], [-0.8, 0], [0, 0.8]]) { const b = box(0.3, 2.6, 0.3, steel, 0, 0, 0); b.rotation.set(rx, 0, rz); b.castShadow = true; e.add(b); } obs.push({ x: p[0], z: p[1], r: 1.2 }); }
+    { const p = place(6) || [-50, 50], yaw = rnd2() * 6.28, pl = new THREE.Group(); pl.position.set(p[0], 0.8, p[1]); pl.rotation.set(0.1, yaw, 0.25); g.add(pl); const pm = M(0x5a6450, { r: 0.6, m: 0.5 }); // avión estrellado
+      const fus = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 0.6, 14, 10), pm); fus.rotation.x = Math.PI / 2; pl.add(fus); pl.add(box(16, 0.3, 3, pm, 1.5, 0.2, 1)); pl.add(box(5, 0.25, 1.8, pm, 0, 0.4, -6)); pl.add(box(0.25, 2.4, 1.8, pm, 0, 1.4, -6.2));
+      for (const o of pl.children) o.castShadow = true; for (let j = -2; j <= 2; j++) obs.push({ x: p[0] + Math.sin(yaw) * j * 3, z: p[1] + Math.cos(yaw) * j * 3, r: 1.6 }); obs.push({ x: p[0] + Math.cos(yaw) * 6, z: p[1] - Math.sin(yaw) * 6, r: 1.4 }); }
+    { const p = place(2.5); if (p) { const r = new THREE.Group(); r.position.set(p[0], 0, p[1]); g.add(r); const rm = M(0xd8d8d0, { r: 0.5, m: 0.4 }); r.add(box(1, 5, 1, steel, 0, 2.5, 0)); const dish = new THREE.Mesh(new THREE.SphereGeometry(3.2, 16, 8, 0, 6.3, 0, 1.1), rm); dish.material.side = THREE.DoubleSide; dish.position.y = 5.6; dish.rotation.x = -1.1; r.add(dish); obs.push({ x: p[0], z: p[1], r: 1.4 }); } } // radar
+    long(6, [0x4a5a3a, 0x5a6448, 0x6a6a50].map(c => new THREE.MeshStandardMaterial({ color: c, map: rustTex(), roughness: 0.7, metalness: 0.45 })), 7.5, 3, 3, 1.9); // contenedores militares
+    wrecks(8, [0x4a5a3a, 0x6a6a50].map(c => new THREE.MeshStandardMaterial({ color: c, map: rustTex(), roughness: 0.6, metalness: 0.5 }))); tires(6); rocks(6);
   } else {
     rocks(16); long(9, cont, 7.5, 3, 3, 1.9); wrecks(12, [scrap]); tires(14);
   }
@@ -388,7 +462,7 @@ function buildField(D, A = ARENAS[0]) {
     const c = cyl(0.55, 0.55, 1.3, bm, 14); c.position.y = 0.65; b.add(c); const s = cyl(0.57, 0.57, 0.18, bs, 14); s.position.y = 0.9; b.add(s);
     const o = { x: p[0], z: p[1], r: 0.7, barrel: b, t: 0 }; obs.push(o); barrels.push(o); }
   // partículas de ambiente: polvo, nieve, brasas o ceniza
-  const pc = { dust: [0xe8c090, 0.25, 0.5], snow: [0xffffff, 0.32, 0.85], ember: [0xff8a30, 0.28, 0.9], ash: [0xb8b0a4, 0.22, 0.55] }[A.pfx] || [0xe8c090, 0.25, 0.5];
+  const pc = { rain: [0xa8c0e0, 0.2, 0.7], dust: [0xe8c090, 0.25, 0.5], snow: [0xffffff, 0.32, 0.85], ember: [0xff8a30, 0.28, 0.9], ash: [0xb8b0a4, 0.22, 0.55] }[A.pfx] || [0xe8c090, 0.25, 0.5];
   const dust = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(Array.from({ length: 1500 }, (_, i) => i % 3 === 1 ? rnd(0.3, A.pfx === 'dust' || A.pfx === 'ash' ? 9 : 22) : rnd(-140, 140)), 3)), new THREE.PointsMaterial({ color: pc[0], size: pc[1], transparent: true, opacity: pc[2], depthWrite: false, blending: A.pfx === 'ember' ? THREE.AdditiveBlending : THREE.NormalBlending }));
   g.add(dust);
   return { g, obs, ramps, barrels, dust, spots, gold, lava, grip: A.grip || 1, pfx: A.pfx };
@@ -430,7 +504,7 @@ export class Derby {
     this._zone();
     C.scene.add(this.root);
     const F = this.F = buildField(this, this.A); this.root.add(F.g);
-    this.fx = new THREE.Group(); this.root.add(this.fx); this.parts = []; this.poolA = []; this.poolN = []; this.shots = []; this.debris = []; this.crates = [];
+    this.fx = new THREE.Group(); this.root.add(this.fx); this.parts = []; this.poolA = []; this.poolN = []; this.shots = []; this.debris = []; this.crates = []; this.strikes = []; this.planes = []; this.tw = null; this._evSlot = undefined; this._evToast = false;
     const sv = C.getSave() || {}, G = garageOf(sv);
     this.net = opts.net || null; this.ep = opts.ep || 0;
     const DG = derbyGarage(sv), pt = DPAINTS.find(p => p.id === DG.paint[opts.vehicle]);
@@ -456,7 +530,7 @@ export class Derby {
   }
   _switchArena(A) { // arena pública: la ronda nueva puede ser en otro lugar
     if (!A || A.id === this.A.id) return;
-    this.A = A; this.gen++; this._zone();
+    this.A = A; this.gen++; this._zone(); this._clearEvents();
     this.root.remove(this.F.g); for (const B of this.crates) this.root.remove(B.m); for (const B of this.golds) this.root.remove(B.m); this.crates = []; this.golds = [];
     for (const S of this.shots) this.fx.remove(S.g); this.shots = [];
     this.F = buildField(this, A); this.root.add(this.F.g);
@@ -464,11 +538,84 @@ export class Derby {
     for (let k = 0; k < this.F.gold.length; k++) this._goldCrate(k);
     for (const c of this.cars) if (!c.remote) this._spawn(c);
   }
+  // ---------- eventos de cada arena: mismos momentos y lugares para todos (salen del reloj), cada uno daña solo a sus vehículos ----------
+  _events(dt) {
+    const E = this.A.ev; if (!E) return;
+    if (E === 'tornado') this._tornado(dt);
+    else { const per = { hielo: 6, lava: 5, misil: 7, rayo: 4.5, bombardeo: 13 }[E] || 6, slot = Math.floor(Date.now() / 1000 / per);
+      if (slot !== this._evSlot) { if (this._evSlot !== undefined) this._spawnEvent(E, slot); this._evSlot = slot; } }
+    if (!this._evToast && this.phase === 'fight') { this._evToast = true; setTimeout(() => this.active && this.A.evName && this._flash(this.A.evName, '#ffb070'), 2500); }
+  }
+  _spawnEvent(E, slot) {
+    let sd = (slot * 9973 + this.A.seed) % 2147483647; const rr = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+    const spot = (rad = RA - 14) => { const a = rr() * 6.28, d = Math.sqrt(rr()) * rad; return [Math.sin(a) * d, Math.cos(a) * d]; };
+    const alive = this.cars.filter(c => !c.dead).sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    if (E === 'hielo') for (let k = 0; k < 3; k++) { const [x, z] = spot(); this._strike(x, z, 4.5, 30, 1.8 + k * 0.4, 'hielo'); }
+    else if (E === 'lava') for (let k = 0; k < 3; k++) { const [x, z] = spot(); this._strike(x, z, 5, 30, 1.7 + k * 0.35, 'lava'); }
+    else if (E === 'misil') for (let k = 0; k < 2; k++) { const c = alive.length && alive[Math.floor(rr() * alive.length)]; const [x, z] = c ? [c.x + c.vx * 0.9 + (rr() - 0.5) * 4, c.z + c.vz * 0.9 + (rr() - 0.5) * 4] : spot(); this._strike(x, z, 5, 32, 1.9 + k * 0.5, 'misil'); }
+    else if (E === 'rayo') { for (let k = 0; k < 2; k++) { const [x, z] = spot(); this._strike(x, z, 4, 28, 1.3 + k * 0.3, 'rayo'); } const c = alive.length && alive[Math.floor(rr() * alive.length)]; if (c && rr() < 0.6) this._strike(c.x + (rr() - 0.5) * 6, c.z + (rr() - 0.5) * 6, 4, 28, 1.5, 'rayo'); }
+    else if (E === 'bombardeo') { const a = rr() * 6.28, off = (rr() - 0.5) * 80, dx = Math.sin(a), dz = Math.cos(a), px = Math.cos(a) * off, pz = -Math.sin(a) * off;
+      for (let k = 0; k < 9; k++) { const s = (k - 4) * 16; this._strike(px + dx * s, pz + dz * s, 6.5, 34, 2.4 + k * 0.22, 'bomba'); }
+      this._plane(px - dx * 150, pz - dz * 150, dx, dz, 2.4 - 4 * 0.22 + 0.9); }
+  }
+  _strike(x, z, r, dmg, t, kind) {
+    if (Math.hypot(x, z) > RA - 3) return;
+    const col = kind === 'hielo' ? 0x7ad8ff : kind === 'rayo' ? 0xc8e0ff : 0xff3a20;
+    const ring = new THREE.Mesh(new THREE.RingGeometry(r - 0.45, r, 40), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.8, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.set(x, 0.12, z);
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(r, 40), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.12, depthWrite: false })); disc.rotation.x = -Math.PI / 2; disc.position.set(x, 0.1, z);
+    let obj = null;
+    if (kind === 'hielo') { obj = new THREE.Mesh(new THREE.ConeGeometry(1.4, 7, 6), new THREE.MeshStandardMaterial({ color: 0xbfeaff, emissive: 0x2a80c0, emissiveIntensity: 0.6, roughness: 0.1, flatShading: true })); obj.rotation.x = Math.PI; }
+    else if (kind === 'lava') obj = new THREE.Mesh(new THREE.IcosahedronGeometry(1.6, 0), new THREE.MeshStandardMaterial({ color: 0x3a1a10, emissive: 0xff5010, emissiveIntensity: 1.4, flatShading: true }));
+    else if (kind === 'misil' || kind === 'bomba') { obj = new THREE.Group(); const m = M(kind === 'bomba' ? 0x3a4030 : 0x8a8a88, { r: 0.5, m: 0.6 }); const b = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 2.6, 10), m); obj.add(b); const n = new THREE.Mesh(new THREE.ConeGeometry(0.45, 0.9, 10), m); n.rotation.x = Math.PI; n.position.y = -1.7; obj.add(n); const f = new THREE.Mesh(new THREE.ConeGeometry(0.4, 1.4, 8), new THREE.MeshBasicMaterial({ color: 0xffa030 })); f.position.y = 2; obj.add(f); }
+    else if (kind === 'rayo') { obj = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.4, 60, 6), new THREE.MeshBasicMaterial({ color: 0xe8f2ff, transparent: true, opacity: 0.95 })); obj.visible = false; }
+    if (obj) { obj.position.set(x, 60, z); this.fx.add(obj); }
+    this.fx.add(ring); this.fx.add(disc);
+    (this.strikes || (this.strikes = [])).push({ x, z, r, dmg, t, t0: t, kind, ring, disc, obj, gen: this.gen });
+  }
+  _plane(x, z, dx, dz, delay) {
+    const pl = new THREE.Group(), m = M(0x4a5440, { r: 0.6, m: 0.5 }); const f = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 0.5, 12, 10), m); f.rotation.x = Math.PI / 2; pl.add(f);
+    pl.add(box(16, 0.3, 2.6, m, 0, 0, 0.5)); pl.add(box(5, 0.25, 1.4, m, 0, 0.2, -5.4)); pl.add(box(0.25, 2, 1.4, m, 0, 1, -5.6)); pl.position.set(x, 34, z); pl.rotation.y = Math.atan2(dx, dz); this.fx.add(pl);
+    (this.planes || (this.planes = [])).push({ g: pl, dx, dz, t: -delay + 4.5, life: 9 });
+    setTimeout(() => this.active && this._sfx('nitro', this.me ? this.me.x : 0, this.me ? this.me.z : 0, 0.5, null, { rate: 0.55 }), Math.max(0, (delay - 1.5) * 1000));
+  }
+  _strikesTick(dt) {
+    if (this.planes) for (let i = this.planes.length - 1; i >= 0; i--) { const P = this.planes[i]; P.life -= dt; P.g.position.x += P.dx * 34 * dt; P.g.position.z += P.dz * 34 * dt; if (P.life <= 0) { this.fx.remove(P.g); this.planes.splice(i, 1); } }
+    if (!this.strikes) return;
+    for (let i = this.strikes.length - 1; i >= 0; i--) {
+      const S = this.strikes[i]; S.t -= dt; const k = 1 - S.t / S.t0;
+      S.ring.material.opacity = 0.45 + 0.45 * Math.abs(Math.sin(this.clock * (6 + k * 14))); S.disc.material.opacity = 0.08 + k * 0.25; S.ring.scale.setScalar(1 + (1 - k) * 0.25);
+      if (S.obj) { if (S.kind === 'rayo') { S.obj.visible = S.t < 0.12; S.obj.position.y = 30; } else { const f = Math.max(0, S.t / 0.7); S.obj.position.y = S.t < 0.7 ? 0.5 + f * f * 60 : 60; if (S.kind === 'lava') S.obj.rotation.x += dt * 4; } }
+      if (S.t > 0) continue;
+      this.fx.remove(S.ring); this.fx.remove(S.disc); if (S.obj) this.fx.remove(S.obj); this.strikes.splice(i, 1);
+      if (S.gen !== this.gen) continue;
+      this._explode(S.x, 0.5, S.z, S.r / 3.5);
+      if (S.kind === 'hielo') { for (let j = 0; j < 10; j++) this._p(this._kg || (this._kg = new THREE.BoxGeometry(0.12, 0.12, 0.12)), 0xd8f4ff, { x: S.x, y: 1, z: S.z, vx: rnd(-10, 10), vy: rnd(4, 10), vz: rnd(-10, 10), life: rnd(0.5, 0.9), s0: 3, s1: 1, g: 22, a: 1 }); this._sfx('caja' + (1 + (i & 1)), S.x, S.z, 1, 'crack', { rate: 1.4 }); }
+      else if (S.kind === 'rayo') { this._sfx('canon', S.x, S.z, 1, 'boom', { rate: 1.3 }); if (this.me && Math.hypot(this.me.x - S.x, this.me.z - S.z) < 40) { const fl = $('derbyHurt'); if (fl) { fl.style.boxShadow = 'inset 0 0 0 3000px rgba(225,238,255,.55)'; fl.style.opacity = 1; setTimeout(() => { fl.style.opacity = 0; setTimeout(() => fl.style.boxShadow = '', 200); }, 90); } } }
+      else this._sfx(S.kind === 'bomba' ? 'explosion2' : 'explosion', S.x, S.z, 1, 'boom');
+      for (const o of this.cars) { if (o.dead || o.remote) continue; const d = Math.hypot(o.x - S.x, o.z - S.z); if (d > S.r) continue; const f = 1 - d / S.r * 0.6;
+        this._damage(o, S.dmg * f, null, S.kind === 'rayo' ? 'rayo' : 'cielo'); if (!o.V.tracks) { o.vy = Math.max(o.vy || 0, 8 * f); o.air = true; } if (o.you) this.ctx.input.rumble(160, 0.7); }
+      if (!this.net || this.host) for (const o of this.F.barrels) if (!(o.t > 0) && Math.hypot(o.x - S.x, o.z - S.z) < S.r) this._barrelBoom(o, null);
+    }
+  }
+  _tornado(dt) {
+    const T = Date.now() / 1000, x = Math.sin(T * 0.05) * 62 + Math.sin(T * 0.13 + 1) * 24, z = Math.cos(T * 0.043) * 62 + Math.cos(T * 0.11) * 24;
+    if (!this.tw) { const g = new THREE.Group(), m = new THREE.MeshBasicMaterial({ color: 0xd8b088, transparent: true, opacity: 0.32, side: THREE.DoubleSide, depthWrite: false });
+      for (let k = 0; k < 6; k++) { const c = new THREE.Mesh(new THREE.CylinderGeometry(2.4 + k * 1.6, 1.6 + k * 1.6, 4.2, 14, 1, true), m); c.position.y = 2 + k * 3.9; c.rotation.z = (k % 2 ? 0.06 : -0.06); g.add(c); }
+      this.fx.add(g); this.tw = g; }
+    const g = this.tw; g.position.set(x, 0, z); g.children.forEach((c, k) => { c.rotation.y += dt * (5 - k * 0.4); c.position.x = Math.sin(T * 2 + k) * 0.6 * k; });
+    if (Math.random() < dt * 14) this._dust(x + rnd(-3, 3), z + rnd(-3, 3), 1);
+    const R0 = 11;
+    for (const c of this.cars) { if (c.dead || c.remote) continue; const dx = c.x - x, dz = c.z - z, d = Math.hypot(dx, dz); if (d > R0) continue; const f = 1 - d / R0, nx = dx / (d || 1), nz = dz / (d || 1);
+      c.vx += (-nz * 26 - nx * 9) * f * dt; c.vz += (nx * 26 - nz * 9) * f * dt; this._damage(c, 7 * f * dt, null, 'tornado');
+      if (f > 0.55 && !c.air && !c.V.tracks && Math.random() < dt * 1.5) { c.vy = 11; c.air = true; if (c.you) { this._sfx('onda', c.x, c.z, 0.7, 'dash'); this.ctx.input.rumble(200, 0.6); } } }
+    if (this.me && (this._twS = (this._twS || 0) - dt) <= 0) { const d = Math.hypot(this.me.x - x, this.me.z - z); if (d < 45) { this._twS = 2.2; this._sfx('onda', x, z, 0.6, null, { rate: 0.6 }); } else this._twS = 1; }
+  }
+  _clearEvents() { for (const S of this.strikes || []) { this.fx.remove(S.ring); this.fx.remove(S.disc); if (S.obj) this.fx.remove(S.obj); } this.strikes = []; for (const P of this.planes || []) this.fx.remove(P.g); this.planes = []; if (this.tw) { this.fx.remove(this.tw); this.tw = null; } this._evSlot = undefined; this._evToast = false; }
   _lava(c, dt) { // la lava quema a quien la pisa
     if (c.air || c.y > 0.4) return; for (const L of this.F.lava) if (Math.hypot(c.x - L.x, c.z - L.z) < L.r - 0.4) {
-      this._damage(c, 16 * dt, null, 'lava'); c.vx *= 1 - damp(1.2, dt); c.vz *= 1 - damp(1.2, dt);
-      if ((c.lavaT = (c.lavaT || 0) - dt) <= 0) { c.lavaT = 0.12; this._p && this._sparks(c.x, c.y + 0.5, c.z, 2); }
-      if (c.you && (c.lavaS = (c.lavaS || 0) - dt) <= 0) { c.lavaS = 1.2; this._sfx('fuego', c.x, c.z, 0.5, 'fire'); this.ctx.input.rumble(90, 0.4); }
+      const w = L.w; this._damage(c, (w ? 4 : 16) * dt, null, w ? 'agua' : 'lava'); c.vx *= 1 - damp(w ? 2.6 : 1.2, dt); c.vz *= 1 - damp(w ? 2.6 : 1.2, dt);
+      if ((c.lavaT = (c.lavaT || 0) - dt) <= 0) { c.lavaT = w ? 0.08 : 0.12; if (w) this._splash(c.x, c.z, 3); else this._sparks(c.x, c.y + 0.5, c.z, 2); }
+      if (c.you && (c.lavaS = (c.lavaS || 0) - dt) <= 0) { c.lavaS = 1.2; if (!w) this._sfx('fuego', c.x, c.z, 0.5, 'fire'); this.ctx.input.rumble(90, w ? 0.2 : 0.4); }
       return; }
   }
   _addBot(id, d, k) {
@@ -556,6 +703,8 @@ export class Derby {
         if (this.F.lava.length && !c.dead) this._lava(c, dt);
       }
     });
+    if (go) safe('eventos', () => this._events(dt));
+    safe('caída', () => this._strikesTick(dt));
     safe('choques', () => this._collide(dt));
     safe('armas', () => { this._weapons(dt); this._shotsTick(dt); this._crates(dt); this._barrels(dt); });
     safe('dibujo', () => { for (const c of this.cars) this._sync(c, dt); this._fxTick(dt); });
@@ -873,6 +1022,8 @@ export class Derby {
     // esquiva obstáculos que tiene delante
     for (const o of this.F.obs) { if (o.t > 0) continue; const dx = o.x - c.x, dz = o.z - c.z, d = Math.hypot(dx, dz); if (d > 12 || d < 0.1) continue; const a = angD(Math.atan2(dx, dz), c.yaw); if (Math.abs(a) < 0.6) want += (a > 0 ? -1 : 1) * (1 - d / 12) * 1.1; }
     for (const L of this.F.lava) { const dx = L.x - c.x, dz = L.z - c.z, d = Math.hypot(dx, dz) - L.r; if (d > 14) continue; const a = angD(Math.atan2(dx, dz), c.yaw); if (Math.abs(a) < 0.9) want += (a > 0 ? -1 : 1) * (1 - Math.max(0, d) / 14) * 1.4; }
+    for (const S of this.strikes || []) { const dx = S.x - c.x, dz = S.z - c.z, d = Math.hypot(dx, dz) - S.r; if (d > 10) continue; const a = angD(Math.atan2(dx, dz), c.yaw); if (Math.abs(a) < 1.2) want += (a > 0 ? -1 : 1) * 1.6; }
+    if (this.tw) { const dx = this.tw.position.x - c.x, dz = this.tw.position.z - c.z, d = Math.hypot(dx, dz); if (d < 24) { const a = angD(Math.atan2(dx, dz), c.yaw); if (Math.abs(a) < 1.1) want += (a > 0 ? -1 : 1) * 1.4; } }
     const dist = Math.hypot(c.x, c.z); if (dist > RA - 12) want = angD(want, 0) * 0 + Math.atan2(-c.x, -c.z) * 0.5 + want * 0.5;
     const e = angD(want, c.yaw); ctl.steer = clamp(e * 2.2, -1, 1); ctl.drift = Math.abs(e) > 1.2 && c.speed > 12;
     if (!c.air && (c.jumpT || 0) <= 0 && this.shots.some(S => S.owner !== c && (S.kind === 'mina' || S.kind === 'bomba') && Math.hypot(S.x - c.x, S.z - c.z) < 9) && Math.random() < 0.15) ctl.jump = true;
@@ -939,6 +1090,7 @@ export class Derby {
   _smoke(x, y, z, col, s = 1) { this._p(this._sg || (this._sg = new THREE.IcosahedronGeometry(0.5, 1)), col, { x, y, z, vy: rnd(1, 2.5), vx: rnd(-0.5, 0.5), vz: rnd(-0.5, 0.5), life: rnd(0.8, 1.4), s0: 0.6 * s, s1: 2.4 * s, a: 0.5 }); }
   _flame(x, y, z, vx, vy, vz) { this._p(this._fg || (this._fg = new THREE.IcosahedronGeometry(0.4, 0)), Math.random() < 0.5 ? 0xffa030 : 0xff5a20, { x, y, z, vx, vy, vz, life: rnd(0.25, 0.45), s0: 0.8, s1: 2.2, a: 0.9, add: true }); }
   _sparks(x, y, z, n) { for (let i = 0; i < n; i++) this._p(this._kg || (this._kg = new THREE.BoxGeometry(0.12, 0.12, 0.12)), 0xffd060, { x, y, z, vx: rnd(-9, 9), vy: rnd(2, 9), vz: rnd(-9, 9), life: rnd(0.3, 0.6), s0: 1, s1: 0.4, g: 22, a: 1, add: true }); }
+  _splash(x, z, n) { for (let i = 0; i < n; i++) this._p(this._sg || (this._sg = new THREE.IcosahedronGeometry(0.5, 1)), 0xcfe4f4, { x: x + rnd(-1.2, 1.2), y: 0.3, z: z + rnd(-1.2, 1.2), vx: rnd(-3, 3), vy: rnd(3, 6), vz: rnd(-3, 3), life: rnd(0.4, 0.7), s0: 0.5, s1: 1.1, g: 18, a: 0.7 }); }
   _dust(x, z, n) { for (let i = 0; i < n; i++) this._p(this._sg || (this._sg = new THREE.IcosahedronGeometry(0.5, 1)), 0xd8b088, { x: x + rnd(-1.5, 1.5), y: 0.3, z: z + rnd(-1.5, 1.5), vx: rnd(-4, 4), vy: rnd(0.5, 2), vz: rnd(-4, 4), life: rnd(0.6, 1), s0: 0.8, s1: 2.6, a: 0.55 }); }
   _pop(x, y, z, col, r) { this._p(this._bg || (this._bg = new THREE.SphereGeometry(1, 16, 12)), col, { x, y, z, life: 0.45, s0: 0.3, s1: r, a: 0.85, add: true }); }
   _explode(x, y, z, s = 1) {
@@ -964,7 +1116,7 @@ export class Derby {
       if (d.t > d.life) { d.m.scale.multiplyScalar(0.9); if (d.t > d.life + 0.6) { this.fx.remove(d.m); this.debris.splice(k, 1); } }
     }
     // polvo en el aire, a la deriva
-    const P = this.F.dust.geometry.attributes.position, pf = this.F.pfx, vy = pf === 'snow' ? -2.2 : pf === 'ember' ? 1.6 : 0, wx = pf === 'snow' ? 1.5 : 3;
+    const P = this.F.dust.geometry.attributes.position, pf = this.F.pfx, vy = pf === 'snow' ? -2.2 : pf === 'rain' ? -26 : pf === 'ember' ? 1.6 : 0, wx = pf === 'snow' ? 1.5 : pf === 'rain' ? 5 : 3;
     for (let i = 0; i < P.count; i++) { let x = P.getX(i) + dt * wx, z = P.getZ(i) + dt * 1.2; if (x > 140) x -= 280; if (z > 140) z -= 280; P.setX(i, x); P.setZ(i, z);
       if (vy) { let y = P.getY(i) + vy * dt; if (y < 0) y += 22; if (y > 22) y -= 22; P.setY(i, y); } } P.needsUpdate = true;
     for (const L of this.F.lava) { const k = 0.85 + Math.sin(this.clock * 2.4 + L.x) * 0.15; L.c2.scale.setScalar(k); }
@@ -991,7 +1143,7 @@ export class Derby {
     const N = this.net, sv = this.ctx.getSave() || {}, me = this.me, G = garageOf(sv);
     // con pocos jugadores, el anfitrión (el de identificador menor) llena la arena con vehículos de la CPU
     const humans = N.others().filter(p => p.pres && p.pres.s === 'derby' && p.pres.ep === this.ep), ids = [me.id, ...humans.map(p => p.id)].sort();
-    const host = ids[0] === me.id, want = host ? Math.max(0, 4 - ids.length) : 0, mine = this.cars.filter(c => c.cpu && !c.remote);
+    const host = this.host = ids[0] === me.id, want = host ? Math.max(0, 4 - ids.length) : 0, mine = this.cars.filter(c => c.cpu && !c.remote);
     if (host && (this._botT = (this._botT || 0) - dt) <= 0) { this._botT = 2;
       if (mine.length < want) { const used = new Set(this.cars.map(c => c.name)), d = DRIVERS.filter(x => x.id !== 'hero' && !used.has(x.name))[0] || DRIVERS[1], b = this._addBot(me.id + '-b' + (this.bid = (this.bid || 0) + 1), d, this.bid); this._spawn(b, true); this._tagFor(b); }
       else if (mine.length > want) { const b = mine[mine.length - 1]; b.remove(); this.cars.splice(this.cars.indexOf(b), 1); } }
