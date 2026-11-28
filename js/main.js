@@ -83,6 +83,9 @@ const QUALITY = {
   media: { ratio: 1, shadows: true, soft: false, map: 1024, fx: 1, grade: true },
   baja: { ratio: 0.75, shadows: false, soft: false, map: 512, fx: 0.5 },
 };
+// en el celular la pantalla tiene muchos píxeles: con 1 o menos la imagen se ve borrosa y estirada
+const PHONE = /Android|iPhone|iPad/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.userAgent));
+const PHONE_RATIO = { alta: 2, media: 1.6, baja: 1.2 };
 let qualityNow = '', inkPass = null;
 let composer = null, bloomLoading = false, bloomPass = null; // resplandor (bloom) en calidad Alta
 const aq = { t: 0, n: 0, slow: 0 };
@@ -183,6 +186,7 @@ let bossActive = false, deadT = 0, hintClang = false, hintStun = false, hintAura
 const pulseFx = [];
 
 let settings = loadSettings();
+if (settings.aqv !== 2) { delete settings.autoQ; settings.aqv = 2; writeSettings(settings); } // la bajada automática se activaba de más (30 fps del iPhone): se reinicia una vez
 settings.debug = /[?&]debug\b/.test(location.search); // los datos técnicos sólo con ?debug en la dirección
 let save = null;
 let navI = 0, navSig = ''; // navegación de menús con mando
@@ -2296,7 +2300,8 @@ function qualityLevel() { const q = settings.quality || 'auto'; return q === 'au
 function applyQuality() {
   const k = qualityLevel(); if (k === qualityNow) return; qualityNow = k;
   const Q = QUALITY[k];
-  renderer.setPixelRatio(Math.min(devicePixelRatio, Q.ratio)); renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, PHONE ? PHONE_RATIO[k] : Q.ratio)); renderer.setSize(innerWidth, innerHeight);
+  renderer.domElement.style.filter = Q.grade ? '' : 'saturate(1.55) contrast(1.24) brightness(.92)'; // sin la corrección de color, la imagen se ve deslavada: un filtro barato la compensa
   const typ = Q.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
   if (renderer.shadowMap.enabled !== Q.shadows || renderer.shadowMap.type !== typ) {
     renderer.shadowMap.enabled = Q.shadows; renderer.shadowMap.type = typ;
@@ -2356,8 +2361,8 @@ function autoQualityTick(realDt) {
   aq.t += Math.min(realDt, 0.5); aq.n++;
   if (aq.t < 3) return;
   const f = aq.n / aq.t; aq.t = aq.n = 0;
-  aq.slow = f < 40 ? aq.slow + 1 : 0;
-  if (aq.slow >= 2) {
+  aq.slow = f < 27 ? aq.slow + 1 : 0; // el iPhone en ahorro de batería va a 30 fps fijos: eso no es «lento»
+  if (aq.slow >= 3) {
     const cur = qualityLevel(), down = cur === 'alta' ? 'media' : cur === 'media' ? 'baja' : null;
     aq.slow = 0;
     if (down) { settings.autoQ = down; writeSettings(settings); applyQuality(); toast(`Calidad gráfica ajustada a ${down} para que el juego vaya más fluido`); }
