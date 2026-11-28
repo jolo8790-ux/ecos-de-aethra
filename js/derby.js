@@ -47,15 +47,16 @@ export const ROUND = 180; // segundos por ronda
 
 // ---------- arenas: todas igual de grandes, cada una con su clima, obstáculos y una regla propia ----------
 export const ARENAS = [
-  { id: 'chatarreria', name: 'La Chatarrería', icon: '🏜', desc: 'Desierto de chatarra: contenedores, autos aplastados y barriles explosivos.', sub: 'Arena de destrucción',
+  { id: 'chatarreria', tag: 'C', name: 'La Chatarrería', icon: '🏜', desc: 'Desierto de chatarra: contenedores, autos aplastados y barriles explosivos.', sub: 'Arena de destrucción',
     sky: { top: 0x3a3a6a, bottom: 0xf0a060, fog: 0xd89a68, fogNear: 90, fogFar: 330 }, light: { hemiSky: 0xffe0c0, hemiGround: 0x8a5a3a, sun: 0xffd0a0 }, grip: 1, seed: 1234567, rot: 0, pfx: 'dust' },
-  { id: 'glaciar', name: 'Glaciar Roto', icon: '🧊', desc: 'Hielo resbaloso: los vehículos derrapan. Picos de cristal y camiones congelados.', sub: 'Arena helada · el hielo resbala',
+  { id: 'glaciar', tag: 'G', name: 'Glaciar Roto', icon: '🧊', desc: 'Hielo resbaloso: los vehículos derrapan. Picos de cristal y camiones congelados.', sub: 'Arena helada · el hielo resbala',
     sky: { top: 0x3e5e92, bottom: 0xdcefff, fog: 0xc4daf0, fogNear: 80, fogFar: 320 }, light: { hemiSky: 0xe4f2ff, hemiGround: 0x6a8aa8, sun: 0xfff6ea }, grip: 0.38, seed: 7654321, rot: 0.7, pfx: 'snow' },
-  { id: 'caldera', name: 'Caldera de Lava', icon: '🌋', desc: 'Charcos de lava que queman: empuja a tus rivales dentro. Columnas de basalto.', sub: 'Arena volcánica · la lava quema',
+  { id: 'caldera', tag: 'V', name: 'Caldera de Lava', icon: '🌋', desc: 'Charcos de lava que queman: empuja a tus rivales dentro. Columnas de basalto.', sub: 'Arena volcánica · la lava quema',
     sky: { top: 0x1e0c14, bottom: 0xc0502a, fog: 0x6a2a18, fogNear: 70, fogFar: 300 }, light: { hemiSky: 0xffc090, hemiGround: 0x501a0c, sun: 0xffa070 }, grip: 1, seed: 3141592, rot: 1.4, pfx: 'ember' },
-  { id: 'ciudad', name: 'Ciudad en Ruinas', icon: '🏙', desc: 'Calles rotas entre edificios derrumbados, autobuses y barreras de concreto.', sub: 'Arena urbana · cúbrete tras los edificios',
+  { id: 'ciudad', tag: 'U', name: 'Ciudad en Ruinas', icon: '🏙', desc: 'Calles rotas entre edificios derrumbados, autobuses y barreras de concreto.', sub: 'Arena urbana · cúbrete tras los edificios',
     sky: { top: 0x3a4250, bottom: 0xc8b494, fog: 0x8e887a, fogNear: 80, fogFar: 320 }, light: { hemiSky: 0xece4d4, hemiGround: 0x4a4a48, sun: 0xffe8c8 }, grip: 1, seed: 2718281, rot: 2.2, pfx: 'ash' },
 ];
+export const arenaFromCode = code => ARENAS.find(a => a.tag === String(code || '').charAt(0).toUpperCase()) || ARENAS[0]; // la primera letra del código dice la arena
 export const arenaById = id => ARENAS.find(a => a.id === id) || ARENAS[0];
 export const publicArena = rid => ARENAS[((rid % ARENAS.length) + ARENAS.length) % ARENAS.length]; // en la arena pública cambia cada ronda (igual para todos)
 

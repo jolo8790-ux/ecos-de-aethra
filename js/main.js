@@ -15,7 +15,7 @@ import { FX } from './fx.js';
 import { loadCharacterLibrary, createCharacter, customLook, CUSTOM, DEFAULT_CUSTOM, auraOf } from './characters.js';
 import { loadProps } from './props.js';
 import { Race, TRACKS, RACE_LAPS, driverLook } from './race.js';
-import { Derby, ARENAS, arenaById, publicArena, ROUND_ON, VEHICLES, UPGRADES, DPAINTS, derbyGarage, upOf, loadVehicleModels, loadVehicleModelsDone, vehicleOk } from './derby.js';
+import { Derby, ARENAS, arenaById, arenaFromCode, publicArena, ROUND_ON, VEHICLES, UPGRADES, DPAINTS, derbyGarage, upOf, loadVehicleModels, loadVehicleModelsDone, vehicleOk } from './derby.js';
 import { KARTS, STATS, UP_COST, PAINTS, TRAILS, PARTS, DRIVERS, RETOS, retoOk, newUnlocks, garageOf, kartById, kartPoints } from './garage.js';
 import { loadPropIds, loadPropSeq, hasProp } from './props.js';
 import { Showroom } from './showroom.js';
@@ -2202,6 +2202,23 @@ installReporting({
   shot: () => { try { renderer.render(scene, camera); } catch (e) {} return renderer.domElement; },
 });
 $('bControls').onclick = () => showPausePanel('controls');
+// ---------- pantalla completa ----------
+const FS = (() => {
+  const el = document.documentElement, req = el.requestFullscreen || el.webkitRequestFullscreen, standalone = navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches);
+  const ok = !!req && !!(document.fullscreenEnabled || document.webkitFullscreenEnabled), on = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+  const ios = /iP(hone|od)/.test(navigator.userAgent) || (/Mac/.test(navigator.userAgent) && navigator.maxTouchPoints > 1 && !ok);
+  const label = () => { for (const b of document.querySelectorAll('.bFull')) b.textContent = on() ? '⛶ Salir de pantalla completa' : '⛶ Pantalla completa'; };
+  const help = () => { toast(ios ? 'En iPhone: abre el juego en Safari, toca Compartir → "Agregar a inicio" y entra desde ese ícono.' : 'Tu navegador no deja usar pantalla completa aquí: abre el juego en Chrome o Safari.'); toastT = 7; };
+  const toggle = () => {
+    if (on()) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+    if (!ok) return help();
+    try { const p = req.call(el, { navigationUI: 'hide' }); const lock = () => { try { screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}); } catch (e) {} };
+      if (p && p.then) p.then(lock).catch(help); else lock(); } catch (e) { help(); }
+  };
+  document.addEventListener('fullscreenchange', label); document.addEventListener('webkitfullscreenchange', label);
+  for (const b of document.querySelectorAll('.bFull')) { if (standalone) b.classList.add('hidden'); b.onclick = () => { audio.play('uiMove'); toggle(); }; }
+  return { toggle };
+})();
 $('bControlsBack').onclick = () => showPausePanel('main');
 $('bLogrosPause').onclick = () => openTrophies('pause');
 
@@ -3291,7 +3308,13 @@ function derbyMenu(sv) {
   // arena: en la pública cambia cada ronda; contra la CPU o con código la eliges
   $('raceLapsLbl').classList.remove('hidden');
   if (raceUI.dWho === 'publica') { const A = publicArena(Math.floor(Date.now() / (ROUND_ON * 1000))), B = publicArena(Math.floor(Date.now() / (ROUND_ON * 1000)) + 1); $('raceLapsLbl').textContent = 'Arena'; $('raceLaps').innerHTML = `<div class="dPerk" style="margin:0">${A.icon} Ahora: <b>${A.name}</b> · luego ${B.icon} ${B.name} <small style="opacity:.7">(cambia en cada ronda)</small></div>`; }
-  else { $('raceLapsLbl').textContent = raceUI.dWho === 'codigo' ? 'Arena (tus amigos deben elegir la misma)' : 'Arena'; opts($('raceLaps'), ARENAS.map(a => a.id), 'dArena', id => { const A = arenaById(id); return `${A.icon} ${A.name}`; }); }
+  else { if (raceUI.dWho === 'codigo') { // el código lleva la arena: elegir arena cambia la primera letra; escribir un código elige su arena
+      const c = raceUI.code || '';
+      if (raceUI._dA && raceUI._dA !== raceUI.dArena) raceUI.code = arenaById(raceUI.dArena).tag + (c.slice(1) || randomCode().slice(1));
+      else if (c) raceUI.dArena = arenaFromCode(c).id;
+    }
+    raceUI._dA = raceUI.dArena;
+    $('raceLapsLbl').textContent = raceUI.dWho === 'codigo' ? 'Arena (va incluida en el código: tus amigos solo escriben el código)' : 'Arena'; opts($('raceLaps'), ARENAS.map(a => a.id), 'dArena', id => { const A = arenaById(id); return `${A.icon} ${A.name}`; }); }
   { const A = arenaById(raceUI.dArena); if (raceUI.dWho !== 'publica') tb.insertAdjacentHTML('beforeend', `<div class="raceCard"><span class="ic">${A.icon}</span><div><b>${A.name}</b><small>${A.desc}</small></div></div>`); }
   if (raceUI.dWho === 'publica') { tb.insertAdjacentHTML('beforeend', arenaRankHTML()); tb.querySelectorAll('.torTabs button').forEach(b => b.onclick = () => { ARK.zone = b.dataset.z; audio.play('uiMove'); refreshRaceMenu(); }); }
   opts($('raceWho'), ['cpu', 'publica', 'codigo'], 'dWho', v => v === 'cpu' ? '🤖 Contra la CPU' : v === 'publica' ? '🌐 Arena pública' : '🔒 Con código');
@@ -3308,7 +3331,7 @@ async function startDerby() {
   if (raceUI.dWho !== 'cpu') {
     const code = raceUI.dWho === 'publica' ? 'publica' : (($('raceCode').value || raceUI.code || '').trim().toLowerCase() || randomCode());
     $('bRaceGo').textContent = 'Conectando…'; $('bRaceGo').disabled = true;
-    try { net = await Net.open(code, 'chatarra-' + (raceUI.dWho === 'codigo' && arenaById(raceUI.dArena).id !== 'chatarreria' ? arenaById(raceUI.dArena).id + '-' : '')); } catch (e) { net = null; }
+    try { net = await Net.open(code, 'chatarra-'); } catch (e) { net = null; }
     $('bRaceGo').disabled = false; if (!net) { toast('No se pudo conectar a la arena'); refreshRaceMenu(); return; }
   }
   $('bRaceGo').textContent = 'Preparando la arena…';
@@ -3318,7 +3341,7 @@ async function startDerby() {
   if (dialog) closeDialog(false);
   if (endless.active) { if (endless.inZone) stopEndlessInZone(true); else stopEndless(); }
   state = 'derby';
-  derby.start(net ? { vehicle: V, net, ep: 1, endless: true, pub: raceUI.dWho === 'publica', arena: raceUI.dArena } : { vehicle: V, bots: raceUI.dBots, arena: raceUI.dArena });
+  derby.start(net ? { vehicle: V, net, ep: 1, endless: true, pub: raceUI.dWho === 'publica', arena: raceUI.dWho === 'codigo' ? arenaFromCode(code).id : raceUI.dArena } : { vehicle: V, bots: raceUI.dBots, arena: raceUI.dArena });
 }
 const KART_MODELS = KARTS.map(k => k.model);
 let kartsLoading = null;
@@ -3492,8 +3515,8 @@ $('bTallBack').onclick = () => { if (showroom) showroom.stop(); $('taller').clas
 $('bRaceTaller').onclick = () => { $('raceMenu').classList.add('hidden'); openTaller('raceMenu'); };
 $('bRaceBack').onclick = () => { $('raceMenu').classList.add('hidden'); $(raceUI.from).classList.remove('hidden'); };
 $('raceCode').onkeydown = e => e.stopPropagation();
-$('raceCode').oninput = e => { raceUI.code = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8); };
-$('bRaceNewCode').onclick = () => { raceUI.code = randomCode(); $('raceCode').value = raceUI.code; };
+$('raceCode').oninput = e => { raceUI.code = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8); if (raceUI.mode === 'derby' && raceUI.code) { raceUI.dArena = raceUI._dA = arenaFromCode(raceUI.code).id; refreshRaceMenu(); } };
+$('bRaceNewCode').onclick = () => { raceUI.code = raceUI.mode === 'derby' ? arenaById(raceUI.dArena).tag + randomCode().slice(1) : randomCode(); $('raceCode').value = raceUI.code; };
 $('bRaceGo').onclick = async () => {
   audio.unlock(); music.init(); goFull();
   if (raceUI.mode === 'suelta' && raceUI.who === 'online') { openLobby(); return; }
